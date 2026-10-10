@@ -14,9 +14,7 @@ import Camera from '../models/Camera.js';
 import IllegalParking from '../models/IllegalParking.js';
 import { realMLInference } from '../services/realMLInference.js';
 import { createChallanFromViolation } from '../services/challanGenerationService.js';
-import { uploadMiddleware, processUploadedFile, processVideoFrames } from '../services/fileUploadService.js';
-import { authMiddleware } from '../middleware/auth.js';
-import { processAgentDetections } from '../services/agentWorkflowService.js';
+import { authMiddleware, optionalAuth } from '../middleware/auth.js';
 import { processEnforcementDetections, processEncroachmentDetections } from '../services/enforcementWorkflowService.js';
 import { io } from '../server.js';
 
@@ -616,7 +614,7 @@ router.post('/upload-video', authMiddleware, uploadMiddleware.single('video'), a
  * GET /api/ml-detection/logs
  * Get ML detection logs with filtering
  */
-router.get('/logs', authMiddleware, async (req, res) => {
+router.get('/logs', optionalAuth, async (req, res) => {
   try {
     const {
       cameraId,
@@ -664,7 +662,7 @@ router.get('/logs', authMiddleware, async (req, res) => {
  * GET /api/ml-detection/violations
  * Get detected violations by type
  */
-router.get('/violations', authMiddleware, async (req, res) => {
+router.get('/violations', optionalAuth, async (req, res) => {
   try {
     const {
       type = 'all',
@@ -733,7 +731,7 @@ router.get('/violations', authMiddleware, async (req, res) => {
  * GET /api/ml-detection/stats
  * Get ML detection statistics
  */
-router.get('/stats', authMiddleware, async (req, res) => {
+router.get('/stats', optionalAuth, async (req, res) => {
   try {
     const today = new Date();
     today.setHours(0, 0, 0, 0);

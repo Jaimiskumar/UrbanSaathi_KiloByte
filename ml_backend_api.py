@@ -231,12 +231,16 @@ class MLModels:
             speed_path = os.path.join(real_model_dir, 'speed_detector_yolov8s.pt')
             if os.path.exists(vendor_path):
                 self.vendor_detector = YOLO(vendor_path)
+                self.vendor_detector_name = os.path.basename(vendor_path)
             if os.path.exists(plate_path):
                 self.plate_detector = YOLO(plate_path)
+                self.plate_detector_name = os.path.basename(plate_path)
             if os.path.exists(helmet_path):
                 self.helmet_detector = YOLO(helmet_path)
+                self.helmet_detector_name = os.path.basename(helmet_path)
             if os.path.exists(speed_path):
                 self.speed_detector = YOLO(speed_path)
+                self.speed_detector_name = os.path.basename(speed_path)
         except Exception as e:
             logger.error(f"Failed to load vendor or plate detector: {e}")
         behavior_path = os.path.join(real_model_dir, 'pedestrian_behavior_model.joblib')
@@ -1336,13 +1340,57 @@ async def process_comprehensive_traffic_video(request: VideoAnalysisRequest):
 
                     # 3. HELMET VIOLATION (Section 129 Motor Vehicles Act)
                     if v_class == '2-wheeler':
-                        detected_helmets.append({
-                            'vehicleId': veh_id,
-                            'helmetDetected': None,
-                            'helmetType': 'UNAVAILABLE',
-                            'confidence': 0.0,
-                            'requires_model': True
-                        })
+                        # Find overlapping or nearest helmet detection
+                        matched_helmet = None
+                        for h_det in helmet_detections:
+                            hb = h_det.get('bbox', {})
+                            # Check if helmet bbox is horizontally aligned with vehicle and near upper portion
+                            if (hb.get('x1', 0) >= bbox['x1'] - 50 and hb.get('x2', 0) <= bbox['x2'] + 50):
+                                matched_helmet = h_det
+                                break
+                        
+                        if matched_helmet:
+                            is_no_helmet = 'without' in matched_helmet.get('label', '').lower()
+                            h_item = {
+                                'vehicleId': veh_id,
+                                'helmetDetected': not is_no_helmet,
+                                'helmetType': matched_helmet.get('label'),
+                                'confidence': matched_helmet.get('confidence', 0.90),
+                                'bbox': matched_helmet.get('bbox'),
+                                'model': 'helmet_detector_yolov8n.pt'
+                            }
+                            detected_helmets.append(h_item)
+                            if is_no_helmet and plate:
+                                challan_no = f"CH-HLM-{random.randint(100000, 999999)}"
+                                snapshot = generate_violation_snapshot(image, bbox, plate, "RIDING WITHOUT HELMET", request.location)
+                                v_item = {
+                                    'violation_id': f"VIO-HLM-{vehicle_idx}",
+                                    'type': 'helmet_violation',
+                                    'title': 'Riding Two-Wheeler Without Mandatory Helmet',
+                                    'vehicle_number': plate,
+                                    'owner_name': citizen['owner_name'],
+                                    'owner_phone': citizen['owner_phone'],
+                                    'owner_email': citizen['owner_email'],
+                                    'vehicle_model': citizen['vehicle_model'],
+                                    'vehicle_class': v_class,
+                                    'fine_amount': 1000,
+                                    'legal_section': 'Section 129/177, Motor Vehicles Act 1988',
+                                    'challan_number': challan_no,
+                                    'location': request.location,
+                                    'evidence_photo': snapshot,
+                                    'timestamp': datetime.now().isoformat(),
+                                    'status': 'ISSUED'
+                                }
+                                detected_violations_list.append(v_item)
+                                auto_generated_echallans.append(v_item)
+                        else:
+                            detected_helmets.append({
+                                'vehicleId': veh_id,
+                                'helmetDetected': None,
+                                'helmetType': 'UNAVAILABLE',
+                                'confidence': 0.0,
+                                'requires_model': False
+                            })
 
                     # 4. SIGNAL VIOLATION (Section 119/177 Motor Vehicles Act)
                     if request.signal_status == 'red' and bbox['y2'] > h * 0.52:

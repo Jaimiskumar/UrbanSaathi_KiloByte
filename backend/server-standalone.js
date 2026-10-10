@@ -63,6 +63,19 @@ const authMiddleware = (req, res, next) => {
   }
 };
 
+const optionalAuth = (req, res, next) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (token && token !== 'undefined' && token !== 'null') {
+      const decoded = jwt.verify(token, 'secret');
+      req.user = decoded;
+    }
+  } catch (error) {
+    // Ignore invalid token and continue as guest
+  }
+  next();
+};
+
 const adminOnly = (req, res, next) => {
   if (req.user.role !== 'admin') {
     return res.status(403).json({ message: 'Admin access required' });
@@ -792,19 +805,19 @@ proxySpecializedDetection('helmet', 'helmet');
 proxySpecializedDetection('speed', 'speed');
 proxySpecializedDetection('crowd', 'crowd');
 
-app.get('/api/ml-detection/logs', authMiddleware, (req, res) => {
+app.get('/api/ml-detection/logs', optionalAuth, (req, res) => {
   const limit = Number(req.query.limit || 10);
   res.json({ success: true, data: mlDetectionStore.slice(0, limit) });
 });
 
-app.get('/api/ml-detection/violations', authMiddleware, (req, res) => {
+app.get('/api/ml-detection/violations', optionalAuth, (req, res) => {
   const limit = Number(req.query.limit || 8);
   const allViolations = mlDetectionStore.flatMap((entry) => (entry.violations?.violations || []).map((v) => ({ ...v, location: entry.location })));
   const items = allViolations.slice(0, limit);
   res.json({ success: true, data: items });
 });
 
-app.get('/api/ml-detection/stats', authMiddleware, (req, res) => {
+app.get('/api/ml-detection/stats', optionalAuth, (req, res) => {
   const allViolations = mlDetectionStore.flatMap((entry) => (entry.violations?.violations || []).map((v) => ({ ...v, location: entry.location })));
   const total = allViolations.length;
   res.json({

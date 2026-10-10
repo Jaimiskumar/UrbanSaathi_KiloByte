@@ -24,6 +24,25 @@ export const authMiddleware = (req, res, next) => {
   }
 };
 
+export const optionalAuth = (req, res, next) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (token && token !== 'undefined' && token !== 'null') {
+      const decoded = verifyAccessToken(token);
+      if (decoded.tokenType === 'access') {
+        req.user = {
+          userId: decoded.userId,
+          role: decoded.role,
+          permissions: decoded.permissions || getPermissionsForRole(decoded.role)
+        };
+      }
+    }
+  } catch (error) {
+    // Ignore invalid token and continue as guest
+  }
+  next();
+};
+
 export const requirePermission = (...requiredPermissions) => (req, res, next) => {
   const userPermissions = req.user?.permissions || [];
   const allowed = requiredPermissions.every((permission) =>

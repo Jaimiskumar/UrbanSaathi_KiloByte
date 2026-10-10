@@ -107,9 +107,10 @@ const MLDetectionUpload = () => {
   const fetchViolationsAndStats = async () => {
     try {
       const token = localStorage.getItem('token');
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
       const [violationsRes, statsRes] = await Promise.allSettled([
-        axios.get('/api/ml-detection/violations?limit=8&type=all', { headers: { Authorization: `Bearer ${token}` } }),
-        axios.get('/api/ml-detection/stats', { headers: { Authorization: `Bearer ${token}` } })
+        axios.get('/api/ml-detection/violations?limit=8&type=all', { headers }),
+        axios.get('/api/ml-detection/stats', { headers })
       ]);
 
       if (violationsRes.status === 'fulfilled' && violationsRes.value.data?.data) {
@@ -232,13 +233,13 @@ const MLDetectionUpload = () => {
   const drawSegmentationOverlay = (data) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
     const sourceImage = imageRef.current || analysisImageRef.current;
-    if (sourceImage?.complete && sourceImage.naturalWidth) {
-      ctx.drawImage(sourceImage, 0, 0, canvas.width, canvas.height);
-    }
+    if (!sourceImage?.complete || !sourceImage.naturalWidth) return null;
+
+    canvas.width = sourceImage.naturalWidth;
+    canvas.height = sourceImage.naturalHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(sourceImage, 0, 0, canvas.width, canvas.height);
 
     if (!enableSegmentation) return canvas.toDataURL('image/jpeg', 0.92);
 
