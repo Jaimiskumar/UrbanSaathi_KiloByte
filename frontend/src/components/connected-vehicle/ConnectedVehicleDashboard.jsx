@@ -346,21 +346,18 @@ export default function ConnectedVehicleDashboard() {
 
       if (res.data?.detections) {
         setRealYoloDetections(res.data.detections);
-        toast.success(`🎯 YOLO-v11 Detected ${res.data.detections.length} Objects in Live Stream!`);
+        if (res.data.degraded) {
+          toast.warning('ML service is in degraded mode; no live model result was available.');
+        } else {
+          toast.success(`AI detected ${res.data.detections.length} objects in the live stream.`);
+        }
       } else {
-        // Fallback live inference result
-        setRealYoloDetections([
-          { label: 'POTHOLE', confidence: 0.98, bbox: [220, 260, 160, 80], severity: 'CRITICAL' },
-          { label: 'VEHICLE', confidence: 0.95, bbox: [320, 140, 110, 85] }
-        ]);
-        toast.success('🎯 AI Vision Ingested Live Dashcam Frame!');
+        setRealYoloDetections([]);
+        toast.warning('ML service returned no detections.');
       }
     } catch (err) {
-      // Offline fallback mock detection
-      setRealYoloDetections([
-        { label: 'POTHOLE', confidence: 0.98, bbox: [240, 240, 160, 80], severity: 'CRITICAL' }
-      ]);
-      toast.success('🎯 AI Dashcam Scanner Active: Pothole & Road Hazards Analyzed');
+      setRealYoloDetections([]);
+      toast.error('Live ML inference is unavailable.');
     } finally {
       setIsAnalyzingFrame(false);
     }

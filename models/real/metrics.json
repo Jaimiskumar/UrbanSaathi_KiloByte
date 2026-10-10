@@ -1,0 +1,52 @@
+{
+  "dataset_type": "real",
+  "generated_at": "2026-09-04T02:34:31.830820",
+  "models": {
+    "accident_classifier": {
+      "dataset_type": "real",
+      "dataset": "C:\\Users\\PRIYANSHU SHARMA\\Desktop\\new horizon\\dataset\\accident detection\\data\\train",
+      "classes": [
+        "Accident",
+        "Non Accident"
+      ],
+      "samples": 791,
+      "accuracy": 0.675,
+      "f1_score": 0.6744,
+      "epochs": 10,
+      "trained_at": "2026-09-04T02:36:21.258483"
+    },
+    "vehicle_classifier": {
+      "dataset_type": "real",
+      "dataset": "C:\\Users\\PRIYANSHU SHARMA\\Desktop\\new horizon\\dataset\\classification of vehicle\\Vehicles",
+      "classes": [
+        "Auto Rickshaws",
+        "Bikes",
+        "Cars",
+        "Motorcycles",
+        "Planes",
+        "Ships",
+        "Trains"
+      ],
+      "samples": 5589,
+      "accuracy": 0.95,
+      "f1_score": 0.9499,
+      "epochs": 10,
+      "trained_at": "2026-09-04T02:41:21.924067"
+    },
+    "congestion_model": {
+      "dataset_type": "real",
+      "dataset": "C:\\Users\\PRIYANSHU SHARMA\\Desktop\\new horizon\\dataset\\Traffic congestion\\vanet_traffic_data.csv",
+      "samples": 195714,
+      "classes": [
+        "Free-flow",
+        "Gridlock",
+        "Heavy",
+        "Moderate"
+      ],
+      "accuracy": 0.9906,
+      "f1_score": 0.9906,
+      "training_method": "RandomForestClassifier (no epochs)",
+      "trained_at": "2026-09-04T02:42:40.352648"
+    }
+  }
+}

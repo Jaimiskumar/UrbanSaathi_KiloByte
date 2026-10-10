@@ -19,6 +19,49 @@ import { io } from '../server.js';
 
 const router = express.Router();
 
+router.post('/detect', async (req, res) => {
+  try {
+    const image = req.body.image || req.body.frameBase64 || req.body.frameUrl;
+    if (!image) {
+      return res.status(400).json({ success: false, error: 'image is required' });
+    }
+
+    const result = await realMLInference.processFrame({
+      frameBase64: image,
+      frameUrl: image.startsWith('data:') ? undefined : image,
+      location: req.body.location || 'Live dashcam',
+      source: req.body.source || 'DASHCAM'
+    });
+
+    const detections = [
+      ...(result.vehicles || []).map(vehicle => ({
+        id: vehicle.id,
+        label: vehicle.class_name || vehicle.class || 'vehicle',
+        type: 'vehicle',
+        confidence: vehicle.confidence,
+        bbox: vehicle.bbox
+      })),
+      ...(result.pedestrians || []).map(pedestrian => ({
+        id: pedestrian.id,
+        label: 'person',
+        type: 'pedestrian',
+        confidence: pedestrian.confidence,
+        bbox: pedestrian.bbox
+      }))
+    ];
+
+    return res.json({
+      success: result.success !== false,
+      detections,
+      model: result.model,
+      degraded: result.model?.source !== 'real'
+    });
+  } catch (error) {
+    console.error('Live ML detection failed:', error);
+    return res.status(503).json({ success: false, error: 'ML inference unavailable' });
+  }
+});
+
 /**
  * POST /api/ml-detection/process-frame
  * Main endpoint for processing camera frames with all ML models

@@ -207,7 +207,8 @@ export async function processUploadedFile(filePath, fileType = 'image', cameraId
       ['crowd', events.crowd],
       ['water_logging', events.water_logging],
       ['road_closure', events.road_closure],
-      ['congestion', events.congestion]
+      ['congestion', events.congestion],
+      ['urban_issues', events.urban_issues]
     ];
     for (const [incidentType, event] of eventCandidates) {
       if (!event?.detected) continue;
@@ -275,9 +276,11 @@ export async function processVideoFrames(filePath, cameraId = 'UPLOAD-CAM-001', 
     }
 
     const allViolations = [];
+    const frameResults = [];
     for (const [index, framePath] of framePaths.entries()) {
       const result = await processUploadedFile(framePath, 'video_frame', cameraId);
       allViolations.push(...result.violations);
+      frameResults.push({ frame: index + 1, detections: result.detections });
       console.log(`  ✅ Processed extracted frame ${index + 1}/${framePaths.length}`);
     }
 
@@ -285,7 +288,12 @@ export async function processVideoFrames(filePath, cameraId = 'UPLOAD-CAM-001', 
       success: true,
       framesProcessed: framePaths.length,
       totalViolations: allViolations.length,
-      violations: allViolations
+      violations: allViolations,
+      frameResults,
+      models: {
+        source: 'real',
+        note: 'Only models with trained artifacts or explicit measurable evidence report detections.'
+      }
     };
 
   } catch (error) {

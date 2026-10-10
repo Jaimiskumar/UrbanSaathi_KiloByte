@@ -1,0 +1,34 @@
+{
+  "dataset_type": "real",
+  "models": {
+    "vendor_detector": {
+      "dataset_type": "real",
+      "samples": 1396,
+      "classes": [
+        "fixed-stall-vendor",
+        "semi-fixed-vendor",
+        "itinerant-vendor"
+      ],
+      "epochs": 10
+    },
+    "plate_detector": {
+      "dataset_type": "real",
+      "samples": 27,
+      "classes": [
+        "number_plate"
+      ],
+      "epochs": 10
+    },
+    "pedestrian_behavior": {
+      "dataset_type": "real",
+      "samples": 686,
+      "target": "traffic_direction",
+      "classes": [
+        "OW",
+        "TW"
+      ],
+      "accuracy": 0.6884057971014492,
+      "f1_score": 0.6935599869238313
+    }
+  }
+}

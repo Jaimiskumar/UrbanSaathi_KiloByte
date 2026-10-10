@@ -35,6 +35,7 @@ from typing import List, Optional, Dict, Any
 import logging
 from datetime import datetime
 import json
+import joblib
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -72,6 +73,66 @@ class MLModels:
         self.vehicle_detector = None
         self.vehicle_detector_backend = None
         self.vehicle_detector_name = None
+        self.urban_issue_detector = None
+        self.urban_issue_detector_name = None
+        self.vendor_detector = None
+        self.plate_detector = None
+        self.helmet_detector = None
+        self.speed_detector = None
+        self.pedestrian_behavior_model = None
+        self.real_image_models = {}
+        self.real_image_model_labels = {}
+        self.real_congestion_model = None
+        self.real_congestion_features = []
+
+        real_model_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'models', 'real')
+        for model_name in ('accident_classifier', 'vehicle_classifier'):
+            model_path = os.path.join(real_model_dir, f'{model_name}.pt')
+            if os.path.exists(model_path):
+                try:
+                    self.real_image_models[model_name] = torch.jit.load(model_path, map_location='cpu').eval()
+                    with open(os.path.join(real_model_dir, 'metrics.json'), 'r', encoding='utf-8') as metrics_file:
+                        self.real_image_model_labels[model_name] = json.load(metrics_file)['models'][model_name]['classes']
+                    logger.info(f"Real image classifier loaded: {model_name}")
+                except Exception as e:
+                    logger.error(f"Failed to load real image classifier {model_name}: {e}")
+        congestion_path = os.path.join(real_model_dir, 'congestion_model.joblib')
+        if os.path.exists(congestion_path):
+            try:
+                congestion_artifact = joblib.load(congestion_path)
+                self.real_congestion_model = congestion_artifact['model']
+                self.real_congestion_features = congestion_artifact['features']
+                logger.info("Real congestion model loaded")
+            except Exception as e:
+                logger.error(f"Failed to load real congestion model: {e}")
+        urban_path = os.path.join(real_model_dir, 'urban_issues_yolov8n.pt')
+        if os.path.exists(urban_path):
+            try:
+                from ultralytics import YOLO
+                self.urban_issue_detector = YOLO(urban_path)
+                self.urban_issue_detector_name = os.path.basename(urban_path)
+                logger.info("Real urban-issues detector loaded")
+            except Exception as e:
+                logger.error(f"Failed to load real urban-issues detector: {e}")
+        try:
+            from ultralytics import YOLO
+            vendor_path = os.path.join(real_model_dir, 'vendor_detector_yolov8n.pt')
+            plate_path = os.path.join(real_model_dir, 'plate_detector_yolov8n.pt')
+            helmet_path = os.path.join(real_model_dir, 'helmet_detector_yolov8n.pt')
+            speed_path = os.path.join(real_model_dir, 'speed_detector_yolov8s.pt')
+            if os.path.exists(vendor_path):
+                self.vendor_detector = YOLO(vendor_path)
+            if os.path.exists(plate_path):
+                self.plate_detector = YOLO(plate_path)
+            if os.path.exists(helmet_path):
+                self.helmet_detector = YOLO(helmet_path)
+            if os.path.exists(speed_path):
+                self.speed_detector = YOLO(speed_path)
+        except Exception as e:
+            logger.error(f"Failed to load vendor or plate detector: {e}")
+        behavior_path = os.path.join(real_model_dir, 'pedestrian_behavior_model.joblib')
+        if os.path.exists(behavior_path):
+            self.pedestrian_behavior_model = joblib.load(behavior_path)
 
         # Prefer the ITD-trained YOLOv8 detector when its weights are available.
         # Keep the existing local YOLOv5 detector as a fallback for fresh clones.
@@ -214,10 +275,7 @@ def load_image(frame_url: Optional[str] = None, frame_base64: Optional[str] = No
             raise ValueError("Either frame_url or frame_base64 must be provided")
     except Exception as e:
         logger.error(f"Error loading image: {e}")
-        # Create a dummy test image if loading fails
-        dummy = np.zeros((720, 1280, 3), dtype=np.uint8)
-        cv2.putText(dummy, "SIMULATED TRAFFIC FEED", (50, 360), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (255, 255, 255), 3)
-        return dummy
+        raise ValueError(f"Unable to load image: {e}")
 
 def classify_vehicle(yolo_class_name: str, confidence: float) -> str:
     class_name = normalize_class_name(yolo_class_name)
@@ -289,6 +347,62 @@ def run_vehicle_detector(image: np.ndarray) -> List[Dict[str, Any]]:
     except Exception as e:
         logger.warning(f"Detector error: {e}")
 
+    return detections
+
+def classify_real_frame(image: np.ndarray, model_name: str) -> Optional[Dict[str, Any]]:
+    model = models.real_image_models.get(model_name)
+    labels = models.real_image_model_labels.get(model_name)
+    if model is None or not labels:
+        return None
+    resized = cv2.resize(cv2.cvtColor(image, cv2.COLOR_BGR2RGB), (224, 224)).astype(np.float32) / 255.0
+    tensor = torch.from_numpy(resized).permute(2, 0, 1)
+    tensor = (tensor - torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)) / torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
+    with torch.no_grad():
+        probabilities = torch.softmax(model(tensor.unsqueeze(0)), dim=1)[0]
+    index = int(torch.argmax(probabilities))
+    return {'label': labels[index], 'confidence': round(float(probabilities[index]), 4), 'model': model_name}
+
+def run_urban_issue_detector(image: np.ndarray) -> List[Dict[str, Any]]:
+    if models.urban_issue_detector is None:
+        return []
+    detections = []
+    try:
+        results = models.urban_issue_detector.predict(image, conf=0.35, imgsz=640, verbose=False)
+        for result in results:
+            names = result.names or {}
+            for box in result.boxes:
+                class_id = int(box.cls[0])
+                detections.append({
+                    'label': names.get(class_id, str(class_id)),
+                    'confidence': round(float(box.conf[0]), 4),
+                    'bbox': {
+                        'x1': round(float(box.xyxy[0][0]), 1),
+                        'y1': round(float(box.xyxy[0][1]), 1),
+                        'x2': round(float(box.xyxy[0][2]), 1),
+                        'y2': round(float(box.xyxy[0][3]), 1)
+                    },
+                    'model': models.urban_issue_detector_name
+                })
+    except Exception as e:
+        logger.error(f"Urban issue inference failed: {e}")
+    return detections
+
+def run_specialized_detector(image: np.ndarray, detector: Any, model_name: str) -> List[Dict[str, Any]]:
+    if detector is None:
+        return []
+    detections = []
+    for result in detector.predict(image, conf=0.35, imgsz=640, verbose=False):
+        for box in result.boxes:
+            class_id = int(box.cls[0])
+            detections.append({
+                'label': result.names.get(class_id, str(class_id)),
+                'confidence': round(float(box.conf[0]), 4),
+                'bbox': {
+                    'x1': round(float(box.xyxy[0][0]), 1), 'y1': round(float(box.xyxy[0][1]), 1),
+                    'x2': round(float(box.xyxy[0][2]), 1), 'y2': round(float(box.xyxy[0][3]), 1)
+                },
+                'model': model_name
+            })
     return detections
 
 # ==================== VEHICLE REGISTRY & CITIZEN DIRECTORY ====================
@@ -371,12 +485,14 @@ def lookup_citizen_for_plate(plate_str: str, default_idx: int = 0) -> dict:
     for item in VEHICLE_REGISTRY:
         if clean in item['plate'] or item['plate'] in clean:
             return item
-    # Fallback to deterministic registry entry
-    fallback = VEHICLE_REGISTRY[default_idx % len(VEHICLE_REGISTRY)]
     return {
-        **fallback,
-        "plate": clean or fallback["plate"],
-        "formatted_plate": plate_str if len(plate_str) > 5 else fallback["formatted_plate"]
+        "formatted_plate": plate_str,
+        "plate": clean,
+        "owner_name": None,
+        "owner_phone": None,
+        "owner_email": None,
+        "vehicle_model": None,
+        "vehicle_class": None
     }
 
 def generate_violation_snapshot(image: np.ndarray, bbox: dict, plate: str, violation_title: str, location: str) -> str:
@@ -494,6 +610,15 @@ async def health_check():
         "vehicle_detector_imgsz": getattr(models, "vehicle_detector_imgsz", None),
         "models_loaded": {
             "vehicle_detector": models.vehicle_detector is not None,
+            "urban_issue_detector": models.urban_issue_detector is not None,
+            "vendor_detector": models.vendor_detector is not None,
+            "plate_detector": models.plate_detector is not None,
+            "helmet_detector": models.helmet_detector is not None,
+            "speed_detector": models.speed_detector is not None,
+            "pedestrian_behavior_model": models.pedestrian_behavior_model is not None,
+            "accident_classifier": 'accident_classifier' in models.real_image_models,
+            "vehicle_classifier": 'vehicle_classifier' in models.real_image_models,
+            "congestion_model": models.real_congestion_model is not None,
             "ocr_reader": models.ocr_reader is not None,
             "segmentation_engine": True,
             "accident_detector": True,
@@ -531,6 +656,22 @@ async def process_comprehensive_traffic_video(request: VideoAnalysisRequest):
         auto_generated_echallans = []
 
         raw_detections = run_vehicle_detector(image)
+        urban_issue_detections = run_urban_issue_detector(image)
+        vendor_detections = run_specialized_detector(image, models.vendor_detector, 'vendor_detector')
+        plate_detections = run_specialized_detector(image, models.plate_detector, 'plate_detector')
+        helmet_detections = run_specialized_detector(image, models.helmet_detector, 'helmet_detector')
+        speed_vehicle_detections = run_specialized_detector(image, models.speed_detector, 'speed_detector')
+        detected_helmets = [
+            {
+                'vehicleId': None,
+                'helmetDetected': 'without' not in item['label'].lower(),
+                'helmetType': item['label'],
+                'confidence': item['confidence'],
+                'bbox': item['bbox'],
+                'model': item['model']
+            }
+            for item in helmet_detections
+        ]
 
         vehicle_idx = 0
         person_count = 0
@@ -549,8 +690,11 @@ async def process_comprehensive_traffic_video(request: VideoAnalysisRequest):
                     plate_result = extract_number_plate(image, bbox)
                     
                     # Look up citizen details based on extracted or matched plate
-                    matched_plate = plate_result['text'] if plate_result else generate_realistic_plate(vehicle_idx)
-                    citizen = lookup_citizen_for_plate(matched_plate, vehicle_idx)
+                    matched_plate = plate_result['text'] if plate_result else None
+                    citizen = lookup_citizen_for_plate(matched_plate, vehicle_idx) if matched_plate else {
+                        'formatted_plate': None, 'owner_name': None, 'owner_phone': None,
+                        'owner_email': None, 'vehicle_model': None
+                    }
                     plate = citizen["formatted_plate"]
 
                     detected_plates.append({
@@ -564,9 +708,7 @@ async def process_comprehensive_traffic_video(request: VideoAnalysisRequest):
                     })
                     
                     poly = row.get('segmentation_polygon') or generate_segmentation_polygon(bbox)
-                    # Simulated realistic vehicle speed with a chance of reckless driving
-                    is_rash_speed = (vehicle_idx % 4 == 0)
-                    speed_val = round(random.uniform(78.0, 94.0) if is_rash_speed else random.uniform(34.0, 58.0), 1)
+                    speed_val = None
 
                     detected_vehicles.append({
                         'id': veh_id,
@@ -584,7 +726,7 @@ async def process_comprehensive_traffic_video(request: VideoAnalysisRequest):
                     })
 
                     # 1. RASH & DANGEROUS DRIVING (Section 184 Motor Vehicles Act)
-                    if speed_val > 75.0 or (speed_val > request.speed_limit + 15.0):
+                    if speed_val is not None and plate and (speed_val > 75.0 or speed_val > request.speed_limit + 15.0):
                         challan_no = f"CH-RSH-{random.randint(100000, 999999)}"
                         snapshot = generate_violation_snapshot(image, bbox, plate, "RASH & DANGEROUS DRIVING", request.location)
                         v_item = {
@@ -609,7 +751,7 @@ async def process_comprehensive_traffic_video(request: VideoAnalysisRequest):
                         auto_generated_echallans.append(v_item)
 
                     # 2. OVER-SPEEDING (Section 183(2) Motor Vehicles Act)
-                    elif speed_val > request.speed_limit:
+                    elif speed_val is not None and plate and speed_val > request.speed_limit:
                         fine_amt = int((speed_val - request.speed_limit) * 50) + 1000
                         challan_no = f"CH-SPD-{random.randint(100000, 999999)}"
                         snapshot = generate_violation_snapshot(image, bbox, plate, f"OVERSPEEDING {speed_val}KM/H", request.location)
@@ -636,36 +778,13 @@ async def process_comprehensive_traffic_video(request: VideoAnalysisRequest):
 
                     # 3. HELMET VIOLATION (Section 129 Motor Vehicles Act)
                     if v_class == '2-wheeler':
-                        has_helmet = (vehicle_idx % 2 == 1)
                         detected_helmets.append({
                             'vehicleId': veh_id,
-                            'helmetDetected': has_helmet,
-                            'helmetType': 'full-face' if has_helmet else 'NONE',
-                            'confidence': 0.92
+                            'helmetDetected': None,
+                            'helmetType': 'UNAVAILABLE',
+                            'confidence': 0.0,
+                            'requires_model': True
                         })
-                        if not has_helmet:
-                            challan_no = f"CH-HLM-{random.randint(100000, 999999)}"
-                            snapshot = generate_violation_snapshot(image, bbox, plate, "NO HELMET ON 2-WHEELER", request.location)
-                            v_item = {
-                                'violation_id': f"VIO-HLM-{vehicle_idx}",
-                                'type': 'helmet_violation',
-                                'title': 'No Helmet on Two-Wheeler Rider',
-                                'vehicle_number': plate,
-                                'owner_name': citizen['owner_name'],
-                                'owner_phone': citizen['owner_phone'],
-                                'owner_email': citizen['owner_email'],
-                                'vehicle_model': citizen['vehicle_model'],
-                                'vehicle_class': v_class,
-                                'fine_amount': 500,
-                                'legal_section': 'Section 129, Motor Vehicles Act 1988',
-                                'challan_number': challan_no,
-                                'location': request.location,
-                                'evidence_photo': snapshot,
-                                'timestamp': datetime.now().isoformat(),
-                                'status': 'ISSUED'
-                            }
-                            detected_violations_list.append(v_item)
-                            auto_generated_echallans.append(v_item)
 
                     # 4. SIGNAL VIOLATION (Section 119/177 Motor Vehicles Act)
                     if request.signal_status == 'red' and bbox['y2'] > h * 0.52:
@@ -694,7 +813,7 @@ async def process_comprehensive_traffic_video(request: VideoAnalysisRequest):
                         detected_signal_violations.append({'vehicleId': veh_id, 'inViolationZone': True})
 
                     # 5. ILLEGAL PARKING / SHOULDER OBSTRUCTION
-                    if (bbox['y1'] + bbox['y2']) / 2 < h * 0.28:
+                    if False:
                         challan_no = f"CH-PRK-{random.randint(100000, 999999)}"
                         snapshot = generate_violation_snapshot(image, bbox, plate, "ILLEGAL NO-PARKING ZONE", request.location)
                         v_item = {
@@ -723,8 +842,9 @@ async def process_comprehensive_traffic_video(request: VideoAnalysisRequest):
                         'vehicleId': veh_id,
                         'speed': speed_val,
                         'speedLimit': request.speed_limit,
-                        'isSpeeding': speed_val > request.speed_limit,
-                        'confidence': 0.88
+                        'isSpeeding': False,
+                        'confidence': 0.0,
+                        'requires_temporal_speed_model': True
                     })
 
                 elif is_person_detection(name):
@@ -735,8 +855,8 @@ async def process_comprehensive_traffic_video(request: VideoAnalysisRequest):
                         'confidence': conf
                     })
 
-        # Synthetic fallback enrichment if image had few objects
-        if len(detected_vehicles) < 5:
+        # Do not invent vehicles when a detector finds fewer objects.
+        if False and len(detected_vehicles) < 5:
             for i in range(len(detected_vehicles) + 1, 7):
                 v_class = '2-wheeler' if i % 2 == 0 else '4-wheeler'
                 citizen = lookup_citizen_for_plate(f"KA0{i}AB{1000+i*222}", i)
@@ -818,7 +938,7 @@ async def process_comprehensive_traffic_video(request: VideoAnalysisRequest):
         # CONGESTION LEVEL COMPUTATION
         # ======================================================================
         total_veh = len(detected_vehicles)
-        density_pct = min(98.0, round((total_veh / 8.0) * 85.0 + random.uniform(2, 8), 1))
+        density_pct = round((total_veh / max(1, len(raw_detections))) * 100.0, 1) if raw_detections else 0.0
         
         if total_veh >= 6 or density_pct > 80:
             congestion_level = 'CRITICAL'
@@ -862,38 +982,41 @@ async def process_comprehensive_traffic_video(request: VideoAnalysisRequest):
                     }
                     break
 
-        if not collision_detected:
-            # Simulated target accident on VEH-021 if present
-            target_veh = next((v for v in detected_vehicles if '021' in v['id'] or v['id'] == 'VEH-006'), None)
-            if target_veh:
-                collision_detected = True
-                accident_info = {
-                    'accident_id': f"ACC-VID-4821",
-                    'severity': 'CRITICAL',
-                    'collision_probability': 0.94,
-                    'confidence': 0.96,
-                    'vehicles_involved': [target_veh['id'], 'VEH-002'],
-                    'plates_involved': [target_veh['plateNumber'], 'KA-05-NB-7291'],
-                    'location': request.location,
-                    'road_blockage_percent': 82.0,
-                    'emergency_dispatch_recommended': True
-                }
+        accident_prediction = classify_real_frame(image, 'accident_classifier')
+        if accident_prediction and accident_prediction['label'].lower() == 'accident':
+            collision_detected = True
+            accident_info = {
+                'accident_id': f"ACC-VID-{random.randint(1000, 9999)}",
+                'severity': 'HIGH',
+                'collision_probability': accident_prediction['confidence'],
+                'confidence': accident_prediction['confidence'],
+                'vehicles_involved': [v['id'] for v in detected_vehicles],
+                'plates_involved': [v['plateNumber'] for v in detected_vehicles if v.get('plateNumber')],
+                'location': request.location,
+                'road_blockage_percent': None,
+                'emergency_dispatch_recommended': True,
+                'model': accident_prediction['model']
+            }
 
         # Street Encroachment / Crowd
-        crowd_size = max(person_count, 6)
+        crowd_size = person_count
         crowd_data = {
             'crowdDetected': crowd_size > 4,
             'crowdSize': crowd_size,
-            'roadBlockagePercentage': 45.0 if crowd_size > 5 else 10.0,
-            'severity': 'high' if crowd_size > 10 else 'medium'
+            'roadBlockagePercentage': None,
+            'severity': 'high' if crowd_size > 10 else 'medium' if crowd_size > 4 else 'none',
+            'model': 'person_count_baseline',
+            'requires_model_confirmation': True
         }
 
         # Hawkers data
         hawkers_data = {
-            'hawkersDetected': True,
-            'hawkerCount': 3,
-            'roadBlockagePercentage': 35.0,
-            'merchandiseItems': 8
+            'hawkersDetected': False,
+            'hawkerCount': 0,
+            'roadBlockagePercentage': None,
+            'merchandiseItems': 0,
+            'model': 'vendor_detector_not_configured',
+            'requires_model_confirmation': True
         }
 
         # These are conservative CV baseline signals until dedicated trained
@@ -914,6 +1037,11 @@ async def process_comprehensive_traffic_video(request: VideoAnalysisRequest):
             'method': 'dedicated_road_closure_model_not_configured',
             'requires_model_confirmation': True
         }
+        real_frame_predictions = {
+            model_name: prediction
+            for model_name in ('accident_classifier', 'vehicle_classifier')
+            if (prediction := classify_real_frame(image, model_name)) is not None
+        }
 
         # Road & Lane Segmentation Masks
         road_segmentation_masks = {
@@ -929,7 +1057,8 @@ async def process_comprehensive_traffic_video(request: VideoAnalysisRequest):
             'model': {
                 'name': models.vehicle_detector_name,
                 'backend': models.vehicle_detector_backend,
-                'source': 'ITD' if models.vehicle_detector_backend == 'ultralytics' else 'fallback'
+                'source': 'real' if models.vehicle_detector_backend == 'ultralytics' else 'fallback',
+                'urban_issue_model': models.urban_issue_detector_name
             },
             'location': request.location,
             'timestamp': datetime.now().isoformat(),
@@ -939,12 +1068,19 @@ async def process_comprehensive_traffic_video(request: VideoAnalysisRequest):
                 'vehicle_density_percent': density_pct,
                 'total_vehicles_detected': total_veh,
                 'estimated_queue_length_m': queue_m,
-                'average_speed_kmh': round(sum(v['speed'] for v in detected_vehicles)/max(1, total_veh), 1)
+                'average_speed_kmh': None
             },
             'accident_detection': {
                 'accident_detected': collision_detected,
-                'details': accident_info
+                'details': accident_info,
+                'real_frame_classifier': real_frame_predictions.get('accident_classifier')
             },
+            'real_model_predictions': real_frame_predictions,
+            'urban_issues': urban_issue_detections,
+            'vendors': vendor_detections,
+            'plate_detections': plate_detections,
+            'helmet_detections': helmet_detections,
+            'speed_detections': speed_vehicle_detections,
             'segmentation': {
                 'enabled': request.enable_segmentation,
                 'road_lanes': road_segmentation_masks,
@@ -962,6 +1098,12 @@ async def process_comprehensive_traffic_video(request: VideoAnalysisRequest):
             'events': {
                 'accident': {'detected': collision_detected, 'confidence': accident_info['confidence'] if accident_info else 0.0},
                 'crowd': crowd_data,
+                'urban_issues': {
+                    'detected': len(urban_issue_detections) > 0,
+                    'count': len(urban_issue_detections),
+                    'detections': urban_issue_detections,
+                    'severity': 'HIGH' if urban_issue_detections else 'NONE'
+                },
                 'water_logging': water_logging,
                 'road_closure': road_closure,
                 'congestion': {'detected': congestion_level in ['HIGH', 'CRITICAL'], 'level': congestion_level}
@@ -1020,21 +1162,41 @@ async def detect_events_endpoint(request: dict):
     ))
     return result['events']
 
+@app.post("/predict/pedestrian-behavior")
+async def predict_pedestrian_behavior(request: dict):
+    if models.pedestrian_behavior_model is None:
+        raise HTTPException(status_code=503, detail="Pedestrian behavior model is unavailable")
+    model = models.pedestrian_behavior_model['model']
+    feature_names = models.pedestrian_behavior_model['features']
+    source_features = {
+        key: str(request.get(key, 'unknown'))
+        for key in ('age', 'gender', 'group_size', 'intersection', 'motion_direction', 'num_lanes', 'signalized', 'designated')
+    }
+    encoded = pd.get_dummies(pd.DataFrame([source_features]))
+    encoded = encoded.reindex(columns=feature_names, fill_value=0)
+    prediction = model.predict(encoded)[0]
+    confidence = max(model.predict_proba(encoded)[0]) if hasattr(model, 'predict_proba') else None
+    return {'model': 'pedestrian_behavior_model', 'traffic_direction': prediction, 'confidence': confidence, 'input': source_features}
+
 @app.post("/detect/helmet")
 async def detect_helmet_endpoint(request: dict):
-    return {"vehicle_id": request.get('vehicle_id', 'VEH-001'), "helmet_detected": True, "helmet_type": "full-face", "confidence": 0.92}
+    return {"available": False, "vehicle_id": request.get('vehicle_id'), "reason": "No trained helmet detector is configured"}
 
 @app.post("/detect/crowd")
 async def detect_crowd_endpoint(request: dict):
-    return {"crowd_size": 12, "crowding_level": "high", "road_blockage_percentage": 55.0, "detected_objects": []}
+    return {"available": False, "reason": "No trained crowd detector is configured"}
 
 @app.post("/detect/illegal-parking")
 async def detect_illegal_parking_endpoint(request: dict):
-    return {"illegal_vehicles": [{"vehicle_id": "PARK-01", "violation_type": "no-parking-zone", "confidence": 0.92}], "total_violations": 1}
+    result = await process_comprehensive_traffic_video(VideoAnalysisRequest(
+        frame_url=request.get('frame_url'), frame_base64=request.get('frame_base64')
+    ))
+    detections = [item for item in result.get('urban_issues', []) if 'parking' in item['label'].lower()]
+    return {"available": True, "illegal_vehicles": detections, "total_violations": len(detections)}
 
 @app.post("/detect/speed")
 async def detect_speed_endpoint(request: dict):
-    return {"vehicle_id": request.get('vehicle_id', 'VEH-001'), "speed_kmh": 68.0, "confidence": 0.88}
+    return {"available": False, "vehicle_id": request.get('vehicle_id'), "reason": "Speed requires calibrated multi-frame tracking and is not inferred from one image"}
 
 from fastapi.responses import StreamingResponse
 

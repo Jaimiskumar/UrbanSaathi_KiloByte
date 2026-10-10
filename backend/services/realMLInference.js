@@ -59,14 +59,24 @@ export class RealMLInference {
       return backendResult;
     }
 
-    // High-Fidelity Synthetic Fallback if Python server is unreachable
+    // Keep the response shape stable without inventing detections when Python is unavailable.
     return {
-      ...this._generateSynchronizedResult(frameData),
+      success: false,
+      vehicles: [],
+      pedestrians: [],
+      helmets: [],
+      speeds: [],
+      signalViolations: [],
+      illegalParkings: [],
+      crowd: { crowdDetected: false, crowdSize: 0 },
+      hawkers: { hawkersDetected: false, hawkerCount: 0 },
+      violations_summary: { total_violations_count: 0, violations: [] },
+      echallans_generated: { total_challans_count: 0, total_fine_amount_inr: 0, challans: [] },
       model: {
         name: null,
         backend: null,
-        source: 'synthetic-fallback',
-        warning: 'Python ML backend is unavailable; ITD inference was not run.'
+        source: 'unavailable',
+        warning: 'Python ML backend is unavailable; no inference was run.'
       }
     };
   }

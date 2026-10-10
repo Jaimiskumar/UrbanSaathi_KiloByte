@@ -54,6 +54,18 @@ class ModelRegistry:
 
     def load_models(self):
         print("🧠 [UrbanFlow AI] Loading Trained ML Models from disk...")
+        if os.path.exists(METRICS_PATH):
+            try:
+                with open(METRICS_PATH, 'r') as f:
+                    self.metrics = json.load(f)
+            except Exception as e:
+                print(f"  ⚠️ Error reading metrics: {e}")
+
+        dataset_type = self.metrics.get('dataset_type', 'synthetic')
+        if dataset_type != 'real' and os.getenv('ALLOW_SYNTHETIC_MODELS', 'false').lower() != 'true':
+            print("  ⚠️ Synthetic model artifacts disabled; train with real labeled data before serving predictions.")
+            return
+
         model_files = {
             'accident_model': 'accident_model.joblib',
             'v2v_risk_model': 'v2v_risk_model.joblib',
@@ -78,13 +90,6 @@ class ModelRegistry:
             else:
                 print(f"  ❌ Missing artifact: {filename}")
                 self.models[name] = None
-
-        if os.path.exists(METRICS_PATH):
-            try:
-                with open(METRICS_PATH, 'r') as f:
-                    self.metrics = json.load(f)
-            except Exception as e:
-                print(f"  ⚠️ Error reading metrics: {e}")
 
     def is_loaded(self, model_name: str) -> bool:
         return self.models.get(model_name) is not None

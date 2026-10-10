@@ -416,25 +416,7 @@ export default function MobileV2VDashcam() {
           setDetectedObjects(mapped);
         }
       } catch (err) {
-        const randPotholeX = 220 + Math.sin(Date.now() / 2000) * 80;
-        setDetectedObjects([
-          {
-            id: 1,
-            label: 'POTHOLE',
-            bbox: [randPotholeX, 280, 150, 75],
-            confidence: 0.98,
-            severity: 'HIGH',
-            dist: '16m'
-          },
-          {
-            id: 2,
-            label: 'LEAD VEHICLE',
-            bbox: [260, 140, 130, 95],
-            confidence: 0.97,
-            dist: `${Math.round(20 + Math.sin(Date.now() / 3000) * 8)}m`,
-            ttc: '3.6s'
-          }
-        ]);
+        setDetectedObjects([]);
       }
     }, 1800);
 
