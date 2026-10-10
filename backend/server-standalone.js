@@ -7,6 +7,7 @@ import bcrypt from 'bcryptjs';
 
 import urbanflowRoutes from './routes/urbanflow.js';
 import bangaloreRoutes from './routes/bangaloreRoutes.js';
+import { orchestratorAgent, eventBus } from './services/agents/index.js';
 
 const app = express();
 const httpServer = createServer(app);
@@ -313,37 +314,112 @@ const generateFallbackDetection = (reqBody = {}) => {
   };
 };
 
-const syncFallbackEvents = (data, location) => {
+const syncFallbackEvents = async (data, location) => {
   const payload = data || {};
+  const timestamp = new Date().toISOString();
   const issueTypes = (payload.urban_issues || []).map((issue) => issue.type || issue.issueType || issue.label);
 
   if (issueTypes.some((issue) => /pothole|road blockage|accident|vendor|water|blockage/i.test(issue))) {
+    const enrichedEvent = eventBus.publish({
+      eventType: 'POTHOLE_DETECTED', // general fallback
+      location: { lat: 12.9172, lng: 77.6227, name: location },
+      detection: { class: 'pothole', severity: 'HIGH', confidence: 0.95 },
+      timestamp
+    });
+    const results = await orchestratorAgent.handleNewEvent(enrichedEvent);
+    
+    // Check if RoadHealthAgent processed it
+    const complaintResult = results.find(r => r && r.agent === 'Road Health Agent');
+    if (complaintResult && complaintResult.actionResult) {
+      const c = complaintResult.actionResult;
+      
+      const newIssue = {
+        _id: c.complaintId || `COMP-${Date.now()}`,
+        issueType: c.issue,
+        locationName: c.roadName || location,
+        coordinates: { lat: 12.9172, lng: 77.6227 },
+        priority: c.priority,
+        status: 'Assigned',
+        source: 'agent',
+        timestamp: timestamp
+      };
+      roadIssueStore.unshift(newIssue);
+
+      io.emit('complaint_ticket_created', {
+        priority: c.priority,
+        issueType: c.issue,
+        locationName: c.roadName || location
+      });
+    }
+
     io.emit('urban_issue_detected', {
       issues: payload.urban_issues,
       severity: 'high',
       location,
-      timestamp: new Date().toISOString()
+      timestamp
     });
   }
 
   if (payload.accident_detection?.accident_detected) {
-    io.emit('accident_detected', { ...payload.accident_detection, location, timestamp: new Date().toISOString() });
+    const enrichedEvent = eventBus.publish({
+      eventType: 'ACCIDENT_DETECTED',
+      location: { lat: 12.9172, lng: 77.6227, name: location },
+      detection: { roadBlocked: true, confidence: 0.99 },
+      timestamp
+    });
+    await orchestratorAgent.handleNewEvent(enrichedEvent);
+    io.emit('accident_detected', { ...payload.accident_detection, location, timestamp });
   }
 
   if ((payload.illegalParkings || []).length) {
-    io.emit('illegal_parking_detected', { violations: payload.illegalParkings, location, timestamp: new Date().toISOString() });
+    const enrichedEvent = eventBus.publish({
+      eventType: 'ILLEGAL_PARKING',
+      location: { lat: 12.9172, lng: 77.6227, name: location },
+      detection: { licensePlate: 'KA-01-MJ-4821', stationaryDuration: 120, confidence: 0.95 },
+      evidence: { frames: ['frame1', 'frame2'] },
+      timestamp
+    });
+    await orchestratorAgent.handleNewEvent(enrichedEvent);
+    io.emit('illegal_parking_detected', { violations: payload.illegalParkings, location, timestamp });
   }
 
   if ((payload.helmets || []).some((item) => !item.helmetDetected)) {
-    io.emit('helmet_violation_detected', { vehicleNumber: 'KA-01-MJ-4821', fine: 500, location, timestamp: new Date().toISOString() });
+    const enrichedEvent = eventBus.publish({
+      eventType: 'HELMET_VIOLATION',
+      location: { lat: 12.9172, lng: 77.6227, name: location },
+      detection: { licensePlate: 'KA-01-MJ-4821', confidence: 0.95 },
+      evidence: { frames: ['frame1', 'frame2'] },
+      timestamp
+    });
+    const results = await orchestratorAgent.handleNewEvent(enrichedEvent);
+    const enforcementResult = results.find(r => r && r.agent === 'Enforcement Agent');
+    
+    if (enforcementResult && enforcementResult.actionResult && enforcementResult.actionResult.status === 'VALIDATED') {
+      io.emit('helmet_violation_detected', { vehicleNumber: 'KA-01-MJ-4821', fine: 500, location, timestamp });
+      io.emit('challan_issued', { challanNumber: `CH-HLM-${Math.floor(Math.random()*10000)}`, vehicleNumber: 'KA-01-MJ-4821', fine: 500, location, timestamp });
+    } else {
+      // Fallback
+      io.emit('helmet_violation_detected', { vehicleNumber: 'KA-01-MJ-4821', fine: 500, location, timestamp });
+    }
   }
 
   if ((payload.speeds || []).some((item) => item.isSpeeding)) {
-    io.emit('speeding_detected', { vehicleNumber: 'KA-05-NB-7291', speed: 70, fine: 1400, location, timestamp: new Date().toISOString() });
-  }
-
-  if ((payload.echallans_generated?.challans || []).length) {
-    io.emit('challan_issued', { challanNumber: payload.echallans_generated.challans[0].challanNumber, vehicleNumber: payload.echallans_generated.challans[0].vehicleNumber, fine: payload.echallans_generated.challans[0].fine, location, timestamp: new Date().toISOString() });
+    const enrichedEvent = eventBus.publish({
+      eventType: 'OVERSPEEDING',
+      location: { lat: 12.9172, lng: 77.6227, name: location },
+      detection: { licensePlate: 'KA-05-NB-7291', speed: 70, confidence: 0.98 },
+      evidence: { frames: ['frame1', 'frame2'] },
+      timestamp
+    });
+    const results = await orchestratorAgent.handleNewEvent(enrichedEvent);
+    const enforcementResult = results.find(r => r && r.agent === 'Enforcement Agent');
+    
+    if (enforcementResult && enforcementResult.actionResult && enforcementResult.actionResult.status === 'VALIDATED') {
+      io.emit('speeding_detected', { vehicleNumber: 'KA-05-NB-7291', speed: 70, fine: 1400, location, timestamp });
+      io.emit('challan_issued', { challanNumber: `CH-SPD-${Math.floor(Math.random()*10000)}`, vehicleNumber: 'KA-05-NB-7291', fine: 1400, location, timestamp });
+    } else {
+      io.emit('speeding_detected', { vehicleNumber: 'KA-05-NB-7291', speed: 70, fine: 1400, location, timestamp });
+    }
   }
 };
 
@@ -480,12 +556,12 @@ app.post('/api/ml-detection/process-frame', async (req, res) => {
     mlDetectionStore.unshift(issueRecord);
     if (mlDetectionStore.length > 20) mlDetectionStore.pop();
 
-    syncFallbackEvents(result, issueRecord.location);
+    await syncFallbackEvents(result, issueRecord.location);
     return res.json({ success: true, data: { ...result, generated_fines: generatedFines }, message: 'Synchronized multi-model analysis complete.' });
   } catch (error) {
     console.error('ML detection route failed:', error);
     const fallback = generateFallbackDetection(req.body || {});
-    syncFallbackEvents(fallback, fallback.location);
+    await syncFallbackEvents(fallback, fallback.location);
     return res.status(200).json({ success: true, data: fallback, message: `Fallback detection used: ${error.message}` });
   }
 });
