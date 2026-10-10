@@ -55,14 +55,18 @@ router.get('/network-info', (req, res) => {
       }
     }
   }
-  const primaryIp = ips.length > 0 ? ips[0].address : '127.0.0.1';
-  const publicDashcamUrl = process.env.PUBLIC_DASHCAM_URL || 'https://rdmuh-2409-40f2-12d-25c4-d152-fe8b-3435-319f.run.pinggy-free.link/dashcam';
+  // Prioritize Wi-Fi / LAN IP (e.g. 192.168.x.x or 10.x.x.x or 192.0.0.x) over link-local
+  const lanIpObj = ips.find(ip => !ip.address.startsWith('169.254.') && !ip.address.startsWith('127.'));
+  const primaryIp = lanIpObj ? lanIpObj.address : (ips.length > 0 ? ips[0].address : '127.0.0.1');
+  const port = process.env.FRONTEND_PORT || 5173;
+  const localDashcamUrl = `http://${primaryIp}:${port}/dashcam`;
+
   res.json({
     primaryIp,
     ips,
-    port: 3000,
-    publicUrl: publicDashcamUrl,
-    dashcamUrl: publicDashcamUrl
+    port: Number(port),
+    publicUrl: process.env.PUBLIC_DASHCAM_URL || localDashcamUrl,
+    dashcamUrl: process.env.PUBLIC_DASHCAM_URL || localDashcamUrl
   });
 });
 

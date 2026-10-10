@@ -61,14 +61,16 @@ export default function ConnectedVehicleDashboard() {
   const [demoStage, setDemoStage] = useState('');
   const [demoProgress, setDemoProgress] = useState(0);
 
-  // Video Source & Live Dashcam State
-  const [videoSourceMode, setVideoSourceMode] = useState('SIMULATION'); // 'SIMULATION' | 'IPHONE_CAMERA' | 'IPHONE_RELAY' | 'WEBCAM' | 'WIFI_STREAM'
-  const [wifiStreamUrl, setWifiStreamUrl] = useState('rtsp://192.168.0.101:554/live');
-  const [wifiProxyUrl, setWifiProxyUrl] = useState('http://127.0.0.1:8000/api/ml/dashcam-stream?stream_url=rtsp%3A%2F%2F192.168.0.101%3A554%2Flive');
+  // Video Source & Live Dashcam State (Primary: iPhone USB / Cam | Secondary: IP URL)
+  const [videoSourceMode, setVideoSourceMode] = useState('WEBCAM'); // 'WEBCAM' (Primary) | 'WIFI_STREAM' (Secondary) | 'IPHONE_RELAY' | 'SIMULATION'
+  const [wifiStreamUrl, setWifiStreamUrl] = useState('http://admin:admin@jaimiss-iphone.local:8081/video');
+  const [wifiProxyUrl, setWifiProxyUrl] = useState('http://127.0.0.1:8000/api/ml/dashcam-stream?stream_url=' + encodeURIComponent('http://admin:admin@jaimiss-iphone.local:8081/video'));
   const [wifiStreamConnected, setWifiStreamConnected] = useState(false);
   const [cameraDevices, setCameraDevices] = useState([]);
   const [selectedCameraDeviceId, setSelectedCameraDeviceId] = useState('');
-  const [facingMode, setFacingMode] = useState('environment'); // 'environment' (iPhone back camera) | 'user'
+  const [selectedCameraLabel, setSelectedCameraLabel] = useState('');
+  const [isIPhoneConnected, setIsIPhoneConnected] = useState(false);
+  const [facingMode, setFacingMode] = useState('environment'); // 'environment' | 'user'
   const [isLiveStreaming, setIsLiveStreaming] = useState(false);
   const [isAnalyzingFrame, setIsAnalyzingFrame] = useState(false);
   const [realYoloDetections, setRealYoloDetections] = useState([]);
@@ -103,7 +105,7 @@ export default function ConnectedVehicleDashboard() {
       } catch (e) {
         setNetworkInfo({
           primaryIp: window.location.hostname || '127.0.0.1',
-          dashcamUrl: `${window.location.protocol}//${window.location.hostname || '127.0.0.1'}:${window.location.port || '3000'}/dashcam`
+          dashcamUrl: `${window.location.protocol}//${window.location.hostname || '127.0.0.1'}:${window.location.port || '5173'}/dashcam`
         });
       }
     };
@@ -152,50 +154,86 @@ export default function ConnectedVehicleDashboard() {
     };
   }, []);
 
-  // Enumerate available physical cameras / Apple Continuity Cameras
-  useEffect(() => {
-    const getDevices = async () => {
-      try {
-        if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
-          const devices = await navigator.mediaDevices.enumerateDevices();
-          const videoInputs = devices.filter(d => d.kind === 'videoinput');
-          setCameraDevices(videoInputs);
-          
-          // Look for iPhone or Back camera
-          const iphoneOrBack = videoInputs.find(d => 
-            d.label.toLowerCase().includes('iphone') || 
-            d.label.toLowerCase().includes('back') || 
-            d.label.toLowerCase().includes('rear') ||
-            d.label.toLowerCase().includes('environment')
-          );
-          if (iphoneOrBack) {
-            setSelectedCameraDeviceId(iphoneOrBack.deviceId);
-          } else if (videoInputs.length > 0 && !selectedCameraDeviceId) {
-            setSelectedCameraDeviceId(videoInputs[0].deviceId);
-          }
+  // Enumerate available cameras with priority detection for iPhone USB / Continuity Camera
+  const refreshCameraDevices = async (autoStart = false) => {
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return '';
+      
+      let devices = await navigator.mediaDevices.enumerateDevices();
+      let videoInputs = devices.filter(d => d.kind === 'videoinput');
+
+      // Request brief permission if device labels are masked
+      if (videoInputs.length > 0 && !videoInputs[0].label) {
+        try {
+          const tempStream = await navigator.mediaDevices.getUserMedia({ video: true });
+          devices = await navigator.mediaDevices.enumerateDevices();
+          videoInputs = devices.filter(d => d.kind === 'videoinput');
+          tempStream.getTracks().forEach(t => t.stop());
+        } catch (permErr) {
+          console.warn('Camera permission probe:', permErr);
         }
-      } catch (err) {
-        console.warn('Could not enumerate media devices:', err);
       }
+
+      setCameraDevices(videoInputs);
+
+      // Prioritize iPhone connected via USB cable or Apple Continuity Camera
+      const iphoneDev = videoInputs.find(d => 
+        d.label.toLowerCase().includes('iphone') || 
+        d.label.toLowerCase().includes('continuity')
+      );
+      const backDev = videoInputs.find(d => 
+        d.label.toLowerCase().includes('back') || 
+        d.label.toLowerCase().includes('rear') ||
+        d.label.toLowerCase().includes('environment')
+      );
+
+      const chosenDev = iphoneDev || backDev || (videoInputs.length > 0 ? videoInputs[0] : null);
+
+      if (chosenDev) {
+        setSelectedCameraDeviceId(chosenDev.deviceId);
+        setSelectedCameraLabel(chosenDev.label);
+        const isIPhone = !!iphoneDev;
+        setIsIPhoneConnected(isIPhone);
+
+        if (autoStart) {
+          startWebcamStream(chosenDev.deviceId, chosenDev.label);
+        }
+        return chosenDev.deviceId;
+      }
+    } catch (err) {
+      console.warn('Could not enumerate media devices:', err);
+    }
+    return '';
+  };
+
+  useEffect(() => {
+    // Auto-discover camera devices and start iPhone USB stream as primary
+    refreshCameraDevices(true);
+
+    const onDeviceChange = () => {
+      console.log('⚡ USB / Camera device change detected');
+      refreshCameraDevices(false);
     };
-    getDevices();
+
+    if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) {
+      navigator.mediaDevices.addEventListener('devicechange', onDeviceChange);
+      return () => {
+        navigator.mediaDevices.removeEventListener('devicechange', onDeviceChange);
+      };
+    }
   }, []);
 
-  // Start Direct iPhone Back Camera Stream (WebRTC)
-  const startIPhoneCameraStream = async (targetFacing = 'environment', deviceId = '') => {
+  // 1. PRIMARY: Start Live iPhone USB / Physical Dashcam Stream
+  const startWebcamStream = async (deviceId = '', customLabel = '') => {
     try {
       if (videoRef.current && videoRef.current.srcObject) {
         videoRef.current.srcObject.getTracks().forEach(track => track.stop());
       }
 
       const constraints = {
-        video: deviceId
+        video: deviceId 
           ? { deviceId: { exact: deviceId }, width: { ideal: 1920, min: 1280 }, height: { ideal: 1080, min: 720 } }
-          : {
-              facingMode: { ideal: targetFacing },
-              width: { ideal: 1920, min: 1280 },
-              height: { ideal: 1080, min: 720 }
-            }
+          : { width: { ideal: 1920, min: 1280 }, height: { ideal: 1080, min: 720 }, facingMode: { ideal: facingMode } }
       };
 
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
@@ -208,75 +246,50 @@ export default function ConnectedVehicleDashboard() {
           videoRef.current.play().catch(e => console.warn(e));
         };
       }
-      setFacingMode(targetFacing);
-      setVideoSourceMode('IPHONE_CAMERA');
+
+      const activeTrack = stream.getVideoTracks()[0];
+      const activeLabel = customLabel || (activeTrack ? activeTrack.label : '');
+      const isIPhone = activeLabel.toLowerCase().includes('iphone') || activeLabel.toLowerCase().includes('continuity');
+
+      if (deviceId) setSelectedCameraDeviceId(deviceId);
+      setSelectedCameraLabel(activeLabel);
+      setIsIPhoneConnected(isIPhone);
+      setVideoSourceMode('WEBCAM');
       setIsLiveStreaming(true);
-      toast.success('📱 iPhone Back Camera Stream Connected Live!', { duration: 4000 });
+
+      if (isIPhone) {
+        toast.success('📱 iPhone Connected via USB / Continuity Camera!', { id: 'cam-toast', duration: 4000 });
+      } else {
+        toast.success(`📹 Camera Connected: ${activeLabel || 'USB Dashcam'}`, { id: 'cam-toast', duration: 3000 });
+      }
     } catch (err) {
-      console.error('iPhone Camera connection error:', err);
+      console.error('Camera connection error:', err);
       try {
         const fallbackStream = await navigator.mediaDevices.getUserMedia({ video: true });
         if (videoRef.current) {
           videoRef.current.setAttribute('playsinline', 'true');
+          videoRef.current.muted = true;
           videoRef.current.srcObject = fallbackStream;
-          await videoRef.current.play();
+          videoRef.current.play().catch(e => console.warn(e));
         }
-        setVideoSourceMode('IPHONE_CAMERA');
+        setVideoSourceMode('WEBCAM');
         setIsLiveStreaming(true);
-        toast.success('📱 Connected to Available Camera (Fallback)');
+        toast.success('📹 Connected to Available Camera (Fallback)');
       } catch (fallbackErr) {
         toast.error('Could not access camera: ' + fallbackErr.message);
       }
     }
   };
 
-  // Start iPhone Wireless Live Relay Stream (Socket.IO)
-  const startIPhoneRelayStream = () => {
-    setVideoSourceMode('IPHONE_RELAY');
-    setIsLiveStreaming(true);
-    if (!mobileTransmitterOnline) {
-      setShowIPhoneConnectModal(true);
-      toast.info('📲 Scan the QR code on your iPhone to start streaming back camera feed');
-    } else {
-      toast.success('🟢 Receiving Wireless Live Feed from iPhone Back Camera!');
-    }
-  };
-
-  // Start Live USB / Web Dashcam Stream
-  const startWebcamStream = async (deviceId) => {
-    try {
-      if (videoRef.current && videoRef.current.srcObject) {
-        videoRef.current.srcObject.getTracks().forEach(track => track.stop());
-      }
-
-      const constraints = {
-        video: deviceId 
-          ? { deviceId: { exact: deviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }
-          : { width: { ideal: 1280 }, height: { ideal: 720 } }
-      };
-
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      if (videoRef.current) {
-        videoRef.current.setAttribute('playsinline', 'true');
-        videoRef.current.srcObject = stream;
-        videoRef.current.onloadedmetadata = () => {
-          videoRef.current.play();
-        };
-      }
-      setVideoSourceMode('WEBCAM');
-      setIsLiveStreaming(true);
-      toast.success('📹 Physical Dashcam / Camera Stream Connected Live!', { duration: 4000 });
-    } catch (err) {
-      console.error('Camera connection error:', err);
-      toast.error('Could not access live camera: ' + err.message);
-    }
-  };
-
-  // Switch to Wi-Fi IP Stream Mode
+  // 2. SECONDARY: Switch to Wi-Fi IP Stream Mode
   const startWifiStream = (url) => {
     if (!url || !url.trim()) {
-      toast.error('Please enter a valid Wi-Fi stream URL (e.g. rtsp://192.168.0.101:554/live)');
+      toast.error('Please enter a valid IP stream URL (e.g. http://admin:admin@jaimiss-iphone.local:8081/video)');
       return;
+    }
+    if (videoRef.current && videoRef.current.srcObject) {
+      videoRef.current.srcObject.getTracks().forEach(track => track.stop());
+      videoRef.current.srcObject = null;
     }
     const cleanUrl = url.trim();
     setWifiStreamUrl(cleanUrl);
@@ -285,10 +298,26 @@ export default function ConnectedVehicleDashboard() {
     setVideoSourceMode('WIFI_STREAM');
     setIsLiveStreaming(true);
     setWifiStreamConnected(true);
-    toast.success('📡 Decoding Wi-Fi Dashcam Stream: ' + cleanUrl, { duration: 5000 });
+    toast.success('📡 Connecting to IP Stream: ' + cleanUrl, { duration: 4000 });
   };
 
-  // Stop Live Stream and return to Simulation
+  // 3. IPHONE RELAY: Wireless Socket.IO Stream
+  const startIPhoneRelayStream = () => {
+    if (videoRef.current && videoRef.current.srcObject) {
+      videoRef.current.srcObject.getTracks().forEach(track => track.stop());
+      videoRef.current.srcObject = null;
+    }
+    setVideoSourceMode('IPHONE_RELAY');
+    setIsLiveStreaming(true);
+    if (!mobileTransmitterOnline) {
+      setShowIPhoneConnectModal(true);
+      toast.info('📲 Scan the QR code on your iPhone to start streaming feed');
+    } else {
+      toast.success('🟢 Receiving Wireless Live Feed from iPhone Back Camera!');
+    }
+  };
+
+  // 4. SIMULATION: Bengaluru Roadway Simulation
   const stopLiveStream = () => {
     if (videoRef.current && videoRef.current.srcObject) {
       videoRef.current.srcObject.getTracks().forEach(track => track.stop());
@@ -298,7 +327,7 @@ export default function ConnectedVehicleDashboard() {
     setIsLiveStreaming(false);
     setWifiStreamConnected(false);
     setRealYoloDetections([]);
-    toast.info('Switched to Bengaluru Dashcam Simulation Engine');
+    toast.info('🚗 Switched to Bengaluru Dashcam Simulation Engine');
   };
 
   // Run Real-Time YOLO-v11 ML Vision Analysis on Current Frame
@@ -372,16 +401,14 @@ export default function ConnectedVehicleDashboard() {
       const width = canvas.width;
       const height = canvas.height;
 
-      // ── A. DRAW BASE FEED: IPHONE BACK CAM / IPHONE RELAY / REAL WEBCAM / WIFI STREAM / SIMULATION ──
-      if (videoSourceMode === 'IPHONE_CAMERA' && videoRef.current && videoRef.current.readyState >= 2) {
+      // ── A. DRAW BASE FEED: WEBCAM (IPHONE USB / PHYSICAL) / IPHONE RELAY / WIFI STREAM / SIMULATION ──
+      if (videoSourceMode === 'WEBCAM' && videoRef.current && videoRef.current.readyState >= 2) {
         ctx.drawImage(videoRef.current, 0, 0, width, height);
       } else if (videoSourceMode === 'IPHONE_RELAY' && mobileImgRef.current && mobileImgRef.current.complete && mobileImgRef.current.naturalWidth > 0) {
         ctx.drawImage(mobileImgRef.current, 0, 0, width, height);
-      } else if (videoSourceMode === 'WEBCAM' && videoRef.current && videoRef.current.readyState >= 2) {
-        ctx.drawImage(videoRef.current, 0, 0, width, height);
       } else if (videoSourceMode === 'WIFI_STREAM') {
         ctx.clearRect(0, 0, width, height);
-      } else {
+      } else if (videoSourceMode === 'SIMULATION') {
         // Fallback: Simulated High-Speed Drive Animation
         offset = (offset + 3) % 40;
 
@@ -523,15 +550,13 @@ export default function ConnectedVehicleDashboard() {
 
       ctx.fillStyle = '#10b981';
       ctx.font = 'bold 11px monospace';
-      const sourceLabel = videoSourceMode === 'IPHONE_CAMERA'
-        ? 'LIVE IPHONE BACK CAMERA'
-        : (videoSourceMode === 'IPHONE_RELAY'
-          ? 'LIVE IPHONE WIRELESS RELAY'
-          : (videoSourceMode === 'WEBCAM'
-            ? 'LIVE USB/MAC DASHCAM'
-            : (videoSourceMode === 'WIFI_STREAM'
-              ? 'LIVE WI-FI IP STREAM'
-              : 'SIMULATED BENGALURU FEED')));
+      const sourceLabel = videoSourceMode === 'WEBCAM'
+        ? (isIPhoneConnected ? 'LIVE IPHONE USB DASHCAM' : 'LIVE USB/MAC DASHCAM')
+        : (videoSourceMode === 'WIFI_STREAM'
+          ? 'LIVE IP CAMERA STREAM'
+          : (videoSourceMode === 'IPHONE_RELAY'
+            ? 'LIVE IPHONE WIRELESS RELAY'
+            : 'SIMULATED BENGALURU FEED'));
       ctx.fillText(`● REC 1080P • ${sourceLabel}`, 22, 30);
       ctx.fillStyle = '#cbd5e1';
       ctx.font = '10px monospace';
@@ -550,7 +575,7 @@ export default function ConnectedVehicleDashboard() {
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [cameraMode, selectedVehicleId, videoSourceMode, realYoloDetections, mobileLiveFrame]);
+  }, [cameraMode, selectedVehicleId, videoSourceMode, realYoloDetections, mobileLiveFrame, isIPhoneConnected, selectedCameraLabel]);
 
   // 4. One-Click Demo Triggers
   const triggerPotholeDemo = async () => {
@@ -758,10 +783,13 @@ export default function ConnectedVehicleDashboard() {
                   <div className={`w-3 h-3 rounded-full ${videoSourceMode !== 'SIMULATION' ? 'bg-emerald-500 animate-ping' : 'bg-red-500 animate-pulse'}`} />
                   <div>
                     <span className="font-bold text-xs uppercase tracking-wider text-slate-200 block flex items-center gap-1.5">
-                      {videoSourceMode === 'IPHONE_CAMERA' && '📱 Live iPhone Rear / Back Camera (Direct)'}
-                      {videoSourceMode === 'IPHONE_RELAY' && '📲 Live iPhone V2V Wireless Relay (Broadcasting)'}
-                      {videoSourceMode === 'WEBCAM' && '📹 Live USB / Mac Dashcam Stream'}
-                      {videoSourceMode === 'WIFI_STREAM' && '📡 Live Wi-Fi IP Stream'}
+                      {videoSourceMode === 'WEBCAM' && (
+                        isIPhoneConnected
+                          ? '📱 Live iPhone USB Dashcam (Connected via Cable)'
+                          : '📹 Live USB / Physical Dashcam Stream'
+                      )}
+                      {videoSourceMode === 'WIFI_STREAM' && '📡 Live IP Camera Stream (Secondary Option)'}
+                      {videoSourceMode === 'IPHONE_RELAY' && '📲 Live iPhone V2V Wireless Relay (Socket.IO)'}
                       {videoSourceMode === 'SIMULATION' && '🚗 Bengaluru Dashcam Simulation Engine'}
                     </span>
                     <span className="text-[10px] text-slate-400 font-mono">
@@ -770,181 +798,177 @@ export default function ConnectedVehicleDashboard() {
                   </div>
                 </div>
 
-                {/* Video Source Mode Switcher */}
-                <div className="flex items-center gap-1 bg-slate-800 p-1 rounded-xl border border-slate-700 flex-wrap">
+                {/* Video Source Mode Switcher: Exactly 4 Options */}
+                <div className="flex items-center gap-1.5 bg-slate-800 p-1.5 rounded-xl border border-slate-700 flex-wrap">
+                  {/* 1. USB Cam / iPhone USB - PRIMARY */}
                   <button
-                    onClick={() => startIPhoneCameraStream('environment', '')}
-                    className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition flex items-center gap-1 ${
-                      videoSourceMode === 'IPHONE_CAMERA'
-                        ? 'bg-emerald-600 text-white shadow ring-2 ring-emerald-400'
+                    onClick={() => {
+                      if (selectedCameraDeviceId) {
+                        startWebcamStream(selectedCameraDeviceId, selectedCameraLabel);
+                      } else {
+                        refreshCameraDevices(true);
+                      }
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                      videoSourceMode === 'WEBCAM'
+                        ? 'bg-emerald-600 text-white shadow ring-2 ring-emerald-400 font-extrabold'
                         : 'text-slate-300 hover:text-white'
                     }`}
                   >
-                    <Smartphone className="w-3 h-3 text-emerald-300" /> iPhone Back Cam
+                    <Camera className="w-3.5 h-3.5 text-emerald-300" />
+                    <span>iPhone USB / Cam</span>
+                    {isIPhoneConnected ? (
+                      <span className="px-1.5 py-0.5 bg-emerald-400/30 text-[9px] text-emerald-200 rounded font-mono font-black">
+                        IPHONE
+                      </span>
+                    ) : (
+                      <span className="px-1.5 py-0.5 bg-slate-700 text-[9px] text-slate-300 rounded font-mono">
+                        PRIMARY
+                      </span>
+                    )}
                   </button>
 
+                  {/* 2. IP URL - SECONDARY */}
                   <button
-                    onClick={startIPhoneRelayStream}
-                    className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition flex items-center gap-1 relative ${
-                      videoSourceMode === 'IPHONE_RELAY'
-                        ? 'bg-indigo-600 text-white shadow ring-2 ring-indigo-400'
+                    onClick={() => {
+                      setVideoSourceMode('WIFI_STREAM');
+                      if (wifiStreamUrl) {
+                        startWifiStream(wifiStreamUrl);
+                      }
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                      videoSourceMode === 'WIFI_STREAM'
+                        ? 'bg-purple-600 text-white shadow ring-2 ring-purple-400 font-extrabold'
                         : 'text-slate-300 hover:text-white'
                     }`}
                   >
-                    <Radio className={`w-3 h-3 ${mobileTransmitterOnline ? 'text-emerald-400 animate-pulse' : 'text-indigo-300'}`} />
-                    iPhone Relay
+                    <Wifi className="w-3.5 h-3.5 text-purple-300" />
+                    <span>IP URL</span>
+                    <span className="px-1.5 py-0.5 bg-purple-900/50 text-[9px] text-purple-200 rounded font-mono">
+                      SECONDARY
+                    </span>
+                  </button>
+
+                  {/* 3. iPhone Relay (Wireless) */}
+                  <button
+                    onClick={startIPhoneRelayStream}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 relative ${
+                      videoSourceMode === 'IPHONE_RELAY'
+                        ? 'bg-indigo-600 text-white shadow ring-2 ring-indigo-400 font-extrabold'
+                        : 'text-slate-300 hover:text-white'
+                    }`}
+                  >
+                    <Radio className={`w-3.5 h-3.5 ${mobileTransmitterOnline ? 'text-emerald-400 animate-pulse' : 'text-indigo-300'}`} />
+                    <span>iPhone Relay</span>
                     {mobileTransmitterOnline && (
                       <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping absolute -top-1 -right-1" />
                     )}
                   </button>
 
+                  {/* 4. Sim (Simulation) */}
                   <button
                     onClick={stopLiveStream}
-                    className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition ${
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
                       videoSourceMode === 'SIMULATION'
-                        ? 'bg-blue-600 text-white shadow'
+                        ? 'bg-blue-600 text-white shadow ring-2 ring-blue-400 font-extrabold'
                         : 'text-slate-400 hover:text-white'
                     }`}
                   >
-                    🚗 Sim
-                  </button>
-
-                  <button
-                    onClick={() => startWebcamStream(selectedCameraDeviceId)}
-                    className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition flex items-center gap-1 ${
-                      videoSourceMode === 'WEBCAM'
-                        ? 'bg-slate-700 text-white shadow'
-                        : 'text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    <Camera className="w-3 h-3" /> USB/Cam
-                  </button>
-
-                  <button
-                    onClick={() => setVideoSourceMode('WIFI_STREAM')}
-                    className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition flex items-center gap-1 ${
-                      videoSourceMode === 'WIFI_STREAM'
-                        ? 'bg-purple-600 text-white shadow'
-                        : 'text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    <Wifi className="w-3 h-3" /> IP URL
-                  </button>
-
-                  <button
-                    onClick={() => setShowIPhoneConnectModal(true)}
-                    className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow hover:opacity-90 transition flex items-center gap-1 ml-1"
-                  >
-                    <Share2 className="w-3 h-3" /> Scan QR
+                    <span>🚗 Sim</span>
                   </button>
                 </div>
               </div>
 
-              {/* Sub-Bar: iPhone Back Camera Controls */}
-              {videoSourceMode === 'IPHONE_CAMERA' && (
-                <div className="flex items-center justify-between gap-3 p-3 bg-slate-800/90 rounded-2xl border border-emerald-500/30 text-xs">
-                  <div className="flex items-center gap-2 text-slate-300 font-bold">
-                    <Smartphone className="w-4 h-4 text-emerald-400" />
-                    <span>iPhone Lens / Sensor:</span>
+              {/* Sub-Bar: PRIMARY - iPhone USB & Physical Camera Controls */}
+              {videoSourceMode === 'WEBCAM' && (
+                <div className="p-3 bg-slate-800/90 rounded-2xl border border-emerald-500/30 text-xs flex flex-col md:flex-row items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 text-slate-200 font-bold">
+                    {isIPhoneConnected ? (
+                      <span className="flex items-center gap-2 text-emerald-400">
+                        <Smartphone className="w-4 h-4 text-emerald-300 animate-pulse" />
+                        <span>📱 iPhone Connected via USB / Continuity Camera (1080p HD Active)</span>
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-2 text-slate-300">
+                        <Camera className="w-4 h-4 text-emerald-400" />
+                        <span>Physical USB Camera Active</span>
+                        <span className="text-[11px] text-amber-300/80 font-normal">
+                          (Plug iPhone via USB cable to use as Dashcam)
+                        </span>
+                      </span>
+                    )}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => {
-                        const nextFacing = facingMode === 'environment' ? 'user' : 'environment';
-                        startIPhoneCameraStream(nextFacing, '');
-                      }}
-                      className="px-2.5 py-1 bg-slate-900 hover:bg-slate-700 text-white font-mono text-[11px] font-bold rounded-xl border border-slate-700 flex items-center gap-1"
-                    >
-                      <RotateCcw className="w-3 h-3 text-cyan-400" /> Flip ({facingMode === 'environment' ? 'Back' : 'Front'})
-                    </button>
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {/* Device Selector */}
                     {cameraDevices.length > 0 && (
                       <select
                         value={selectedCameraDeviceId}
                         onChange={(e) => {
-                          setSelectedCameraDeviceId(e.target.value);
-                          startIPhoneCameraStream(facingMode, e.target.value);
+                          const devId = e.target.value;
+                          setSelectedCameraDeviceId(devId);
+                          const dev = cameraDevices.find(d => d.deviceId === devId);
+                          startWebcamStream(devId, dev ? dev.label : '');
                         }}
-                        className="bg-slate-900 border border-slate-600 text-white text-xs font-bold px-3 py-1 rounded-xl focus:outline-none focus:border-emerald-500"
+                        className="bg-slate-900 border border-slate-600 text-white text-xs font-bold px-3 py-1.5 rounded-xl focus:outline-none focus:border-emerald-500 max-w-[240px] truncate"
                       >
-                        {cameraDevices.map((d, idx) => (
-                          <option key={d.deviceId || idx} value={d.deviceId}>
-                            {d.label || `Camera #${idx + 1}`}
-                          </option>
-                        ))}
+                        {cameraDevices.map((d, idx) => {
+                          const isPhone = d.label.toLowerCase().includes('iphone') || d.label.toLowerCase().includes('continuity');
+                          return (
+                            <option key={d.deviceId || idx} value={d.deviceId}>
+                              {isPhone ? `📱 ${d.label} (USB)` : (d.label || `Camera #${idx + 1}`)}
+                            </option>
+                          );
+                        })}
                       </select>
                     )}
+
+                    {/* Re-Scan USB Devices Button */}
+                    <button
+                      onClick={() => {
+                        refreshCameraDevices(true);
+                        toast.success('🔍 Scanning for iPhone USB / Camera devices...');
+                      }}
+                      className="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-700 text-cyan-300 font-mono text-[11px] font-bold rounded-xl border border-slate-700 flex items-center gap-1 transition"
+                      title="Re-scan for iPhone connected via USB cable"
+                    >
+                      <RotateCcw className="w-3 h-3" /> Re-Scan USB
+                    </button>
+
+                    {/* Flip / Switch Camera Button */}
+                    <button
+                      onClick={() => {
+                        const nextFacing = facingMode === 'environment' ? 'user' : 'environment';
+                        setFacingMode(nextFacing);
+                        startWebcamStream(selectedCameraDeviceId);
+                      }}
+                      className="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-700 text-white font-mono text-[11px] font-bold rounded-xl border border-slate-700 flex items-center gap-1 transition"
+                    >
+                      Flip ({facingMode === 'environment' ? 'Back' : 'Front'})
+                    </button>
                   </div>
                 </div>
               )}
 
-              {/* Sub-Bar: iPhone Wireless Live Relay Status */}
-              {videoSourceMode === 'IPHONE_RELAY' && (
-                <div className="p-3 bg-indigo-950/60 rounded-2xl border border-indigo-500/30 text-xs flex flex-col sm:flex-row items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <Radio className={`w-4 h-4 ${mobileTransmitterOnline ? 'text-emerald-400 animate-pulse' : 'text-amber-400'}`} />
-                    <span className="font-bold text-slate-200">
-                      {mobileTransmitterOnline ? (
-                        <span className="text-emerald-400 font-mono">🟢 iPhone Back Camera Live • {mobileLiveFrame?.speed || 48} km/h • {mobileLiveFrame?.heading || 182}° HDG</span>
-                      ) : (
-                        <span className="text-amber-300 font-mono">🟡 Waiting for iPhone stream connection...</span>
-                      )}
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => setShowIPhoneConnectModal(true)}
-                    className="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow transition"
-                  >
-                    View Connection QR Code
-                  </button>
-                </div>
-              )}
-
-              {/* Sub-Bar: Physical USB Device Selector */}
-              {videoSourceMode === 'WEBCAM' && cameraDevices.length > 0 && (
-                <div className="flex items-center justify-between gap-3 p-3 bg-slate-800/80 rounded-2xl border border-slate-700 text-xs">
-                  <div className="flex items-center gap-2 text-slate-300 font-bold">
-                    <Camera className="w-4 h-4 text-emerald-400" />
-                    <span>Select Physical Camera:</span>
-                  </div>
-                  <select
-                    value={selectedCameraDeviceId}
-                    onChange={(e) => {
-                      setSelectedCameraDeviceId(e.target.value);
-                      startWebcamStream(e.target.value);
-                    }}
-                    className="bg-slate-900 border border-slate-600 text-white text-xs font-bold px-3 py-1.5 rounded-xl focus:outline-none focus:border-emerald-500"
-                  >
-                    {cameraDevices.map((d, idx) => (
-                      <option key={d.deviceId || idx} value={d.deviceId}>
-                        {d.label || `Camera Device #${idx + 1}`}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {/* Sub-Bar: Wi-Fi IP Stream */}
+              {/* Sub-Bar: SECONDARY - IP URL Stream */}
               {videoSourceMode === 'WIFI_STREAM' && (
-                <div className="p-3.5 bg-slate-800/80 rounded-2xl border border-slate-700 text-xs space-y-3">
+                <div className="p-3.5 bg-slate-800/80 rounded-2xl border border-purple-500/30 text-xs space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-purple-300 flex items-center gap-1.5">
                       <Wifi className="w-3.5 h-3.5 text-purple-400 animate-pulse" />
-                      Wi-Fi Dashcam Stream URL:
+                      IP Camera Stream URL (Secondary Option):
                     </span>
-                    <span className="text-[10px] text-slate-400 font-mono">IP: 192.168.0.101 / RTSP</span>
+                    <span className="text-[10px] text-slate-400 font-mono">HTTP / MJPEG / RTSP</span>
                   </div>
 
                   {/* Quick Preset Buttons */}
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="text-[10px] text-slate-400 font-bold uppercase">Presets:</span>
                     {[
-                      { label: '⭐ 192.168.0.100:8080/video', url: 'http://192.168.0.100:8080/video' },
-                      { label: '⭐ 192.168.0.100:8192', url: 'http://192.168.0.100:8192' },
-                      { label: '⭐ 192.168.0.100:8020', url: 'http://192.168.0.100:8020/video' },
-                      { label: '⭐ 192.168.0.100 (MJPEG CGI)', url: 'http://192.168.0.100/cgi-bin/mjpg/video.cgi' },
-                      { label: '✨ Auto-Scan VW-100G', url: 'auto' },
+                      { label: '⭐ jaimiss-iphone:8081', url: 'http://admin:admin@jaimiss-iphone.local:8081/video' },
+                      { label: '⭐ 192.168.0.100:8080', url: 'http://192.168.0.100:8080/video' },
+                      { label: '⭐ 192.0.0.2:8080', url: 'http://192.0.0.2:8080/video' },
                       { label: 'Novatek 8192', url: 'http://192.168.0.1:8192' },
-                      { label: 'MJPEG Stream', url: 'http://192.168.0.1/cgi-bin/mjpg/video.cgi' },
                       { label: 'RTSP Live 554', url: 'rtsp://192.168.0.1:554/live' }
                     ].map((p, idx) => (
                       <button
@@ -969,18 +993,41 @@ export default function ConnectedVehicleDashboard() {
                       type="text"
                       value={wifiStreamUrl}
                       onChange={(e) => setWifiStreamUrl(e.target.value)}
-                      placeholder="auto"
-                      className="flex-1 px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white font-mono text-xs focus:outline-none focus:border-purple-500"
+                      placeholder="e.g. http://admin:admin@jaimiss-iphone.local:8081/video"
+                      className="flex-1 bg-slate-900 border border-slate-600 rounded-xl px-3 py-1.5 text-xs text-purple-200 font-mono focus:outline-none focus:border-purple-500"
                     />
                     <button
                       onClick={() => startWifiStream(wifiStreamUrl)}
-                      className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold text-xs rounded-xl shadow-lg transition active:scale-95 shrink-0"
+                      className="px-4 py-1.5 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold rounded-xl shadow transition"
                     >
-                      Connect Stream
+                      Connect
                     </button>
                   </div>
                 </div>
               )}
+
+              {/* Sub-Bar: iPhone Wireless Live Relay Status */}
+              {videoSourceMode === 'IPHONE_RELAY' && (
+                <div className="p-3 bg-indigo-950/60 rounded-2xl border border-indigo-500/30 text-xs flex flex-col sm:flex-row items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Radio className={`w-4 h-4 ${mobileTransmitterOnline ? 'text-emerald-400 animate-pulse' : 'text-amber-400'}`} />
+                    <span className="font-bold text-slate-200">
+                      {mobileTransmitterOnline ? (
+                        <span className="text-emerald-400 font-mono">🟢 iPhone Wireless Relay Live • {mobileLiveFrame?.speed || 48} km/h • {mobileLiveFrame?.heading || 182}° HDG</span>
+                      ) : (
+                        <span className="text-amber-300 font-mono">🟡 Waiting for iPhone stream connection...</span>
+                      )}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setShowIPhoneConnectModal(true)}
+                    className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow transition flex items-center gap-1.5"
+                  >
+                    <Share2 className="w-3.5 h-3.5" /> Scan QR / Connect iPhone
+                  </button>
+                </div>
+              )}
+
 
               {/* Dashcam Canvas Player */}
               <div className="relative rounded-2xl overflow-hidden bg-slate-950 aspect-video flex items-center justify-center border border-slate-800 shadow-2xl">
@@ -1059,7 +1106,9 @@ export default function ConnectedVehicleDashboard() {
                 </div>
                 <div className="p-2.5 bg-slate-800/80 rounded-xl border border-slate-700">
                   <p className="text-[10px] text-slate-400">Active Mode</p>
-                  <p className="text-sm font-extrabold text-indigo-400 font-mono">{videoSourceMode}</p>
+                  <p className="text-sm font-extrabold text-indigo-400 font-mono">
+                    {videoSourceMode === 'WEBCAM' ? (isIPhoneConnected ? 'IPHONE_USB' : 'USB_CAM') : videoSourceMode}
+                  </p>
                   <p className="text-[9px] text-slate-500">Auto Target Locked</p>
                 </div>
                 <div className="p-2.5 bg-slate-800/80 rounded-xl border border-slate-700">
@@ -1510,7 +1559,7 @@ export default function ConnectedVehicleDashboard() {
             {/* QR Code Section */}
             <div className="flex flex-col items-center justify-center p-6 bg-white rounded-2xl shadow-inner space-y-3">
               <QRCodeSVG
-                value={networkInfo?.dashcamUrl || `${window.location.protocol}//${window.location.hostname}:${window.location.port || '3000'}/dashcam`}
+                value={networkInfo?.dashcamUrl || `${window.location.protocol}//${window.location.hostname}:${window.location.port || '5173'}/dashcam`}
                 size={210}
                 level="H"
                 includeMargin={true}
@@ -1518,23 +1567,26 @@ export default function ConnectedVehicleDashboard() {
               <p className="text-xs font-black font-mono text-slate-900 text-center">
                 Scan with iPhone Camera App
               </p>
+              <p className="text-[10px] text-slate-600 text-center max-w-xs">
+                📶 Ensure your iPhone and Mac are on the <span className="font-bold text-indigo-700">same Wi-Fi network</span> or connect Mac to iPhone Personal Hotspot.
+              </p>
             </div>
 
             {/* URL & Action Buttons */}
             <div className="space-y-2">
               <p className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">
-                Direct Mobile Dashcam URL:
+                Direct Mobile Dashcam URL (Local Network):
               </p>
               <div className="flex items-center gap-2">
                 <input
                   type="text"
                   readOnly
-                  value={networkInfo?.dashcamUrl || `${window.location.protocol}//${window.location.hostname}:${window.location.port || '3000'}/dashcam`}
+                  value={networkInfo?.dashcamUrl || `${window.location.protocol}//${window.location.hostname}:${window.location.port || '5173'}/dashcam`}
                   className="flex-1 px-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-indigo-300 font-mono text-xs focus:outline-none select-all"
                 />
                 <button
                   onClick={() => {
-                    const url = networkInfo?.dashcamUrl || `${window.location.protocol}//${window.location.hostname}:${window.location.port || '3000'}/dashcam`;
+                    const url = networkInfo?.dashcamUrl || `${window.location.protocol}//${window.location.hostname}:${window.location.port || '5173'}/dashcam`;
                     navigator.clipboard.writeText(url);
                     setIsCopied(true);
                     toast.success('📋 Link copied to clipboard!');
