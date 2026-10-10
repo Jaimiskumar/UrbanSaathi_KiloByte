@@ -28,7 +28,7 @@ export class VerificationAgent extends BaseAgent {
     // If the event is a new detection of an old issue (e.g. pothole seen again)
     // we would check if it was marked resolved and re-open.
     // For POC, we just acknowledge.
-    return { action: 'NO_OP' };
+    return { action: 'TRACK_WORKFLOW', trackedCount: context.trackedIssues.size };
   }
 
   async decide(event, context, reasoning) {
@@ -36,6 +36,6 @@ export class VerificationAgent extends BaseAgent {
   }
 
   async act(decision) {
-    return null;
+    return { status: decision.action, trackedCount: decision.trackedCount };
   }
 }

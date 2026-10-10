@@ -14,7 +14,10 @@ import {
   ShieldCheck, 
   Sparkles,
   Phone,
-  ChevronDown
+  ChevronDown,
+  Bot,
+  Building2,
+  Clock
 } from 'lucide-react';
 
 const statuses = ['Reported', 'Assigned', 'Verification', 'In Progress', 'Resolved', 'Verified Resolved', 'Issue Still Present', 'Rejected'];
@@ -378,6 +381,43 @@ export default function RoadIntelligence() {
                       </select>
                       <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none opacity-60" />
                     </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-[180px_1fr] gap-4 mt-5">
+                  {issue.imageUrl && (
+                    <img
+                      src={issue.imageUrl.startsWith('data:') || issue.imageUrl.startsWith('/') ? issue.imageUrl : `/${issue.imageUrl.replace(/^\\+/, '')}`}
+                      alt={`${issue.issueType} evidence`}
+                      className="w-full h-32 object-cover rounded-2xl border border-slate-200"
+                    />
+                  )}
+                  <div className="rounded-2xl border border-cyan-100 bg-cyan-50/60 p-4">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-cyan-800">
+                        <Bot className="w-3.5 h-3.5" /> Agent workflow connected
+                      </span>
+                      <span className="text-[10px] font-bold text-slate-500">
+                        {issue.source === 'camera_ml' || issue.source === 'file_upload' ? 'ML evidence' : 'Civic report'}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3 text-xs">
+                      <div>
+                        <p className="text-slate-500 font-semibold">Agents</p>
+                        <p className="text-slate-900 font-bold mt-0.5">{issue.agentWorkflow?.selectedAgents?.join(', ') || 'Road issue workflow'}</p>
+                      </div>
+                      <div>
+                        <p className="text-slate-500 font-semibold flex items-center gap-1"><Building2 className="w-3 h-3" /> Authority</p>
+                        <p className="text-slate-900 font-bold mt-0.5">{issue.agentWorkflow?.department || 'Pending assignment'}</p>
+                      </div>
+                      <div>
+                        <p className="text-slate-500 font-semibold flex items-center gap-1"><Clock className="w-3 h-3" /> Dispatch</p>
+                        <p className="text-slate-900 font-bold mt-0.5">{issue.agentWorkflow?.authorityStatus || 'PENDING'}</p>
+                      </div>
+                    </div>
+                    {issue.agentWorkflow?.eventId && (
+                      <p className="text-[10px] font-mono text-slate-500 mt-3">Event: {issue.agentWorkflow.eventId} · Confidence: {issue.agentWorkflow.mlConfidence == null ? 'n/a' : `${Math.round(issue.agentWorkflow.mlConfidence * 100)}%`}</p>
+                    )}
                   </div>
                 </div>
 

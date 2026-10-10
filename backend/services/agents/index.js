@@ -2,6 +2,7 @@ import { orchestratorAgent } from './OrchestratorAgent.js';
 import { RoadHealthAgent } from './RoadHealthAgent.js';
 import { TrafficAgent } from './TrafficAgent.js';
 import { CivicIssueAgent } from './CivicIssueAgent.js';
+import { CivicAndRoadHealthAgent } from './CivicAndRoadHealthAgent.js';
 import { AuthorityCoordinationAgent } from './AuthorityCoordinationAgent.js';
 import { EnforcementAgent } from './EnforcementAgent.js';
 import { EChallanAgent } from './EChallanAgent.js';
@@ -16,6 +17,7 @@ const agents = {
   RoadHealthAgent: new RoadHealthAgent(),
   TrafficAgent: new TrafficAgent(),
   CivicIssueAgent: new CivicIssueAgent(),
+  CivicAndRoadHealthAgent: new CivicAndRoadHealthAgent(),
   AuthorityCoordinationAgent: new AuthorityCoordinationAgent(),
   EnforcementAgent: new EnforcementAgent(),
   EChallanAgent: new EChallanAgent(),

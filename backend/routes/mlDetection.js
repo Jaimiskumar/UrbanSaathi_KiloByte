@@ -15,6 +15,7 @@ import { realMLInference } from '../services/realMLInference.js';
 import { createChallanFromViolation } from '../services/challanGenerationService.js';
 import { uploadMiddleware, processUploadedFile, processVideoFrames } from '../services/fileUploadService.js';
 import { authMiddleware } from '../middleware/auth.js';
+import { processAgentDetections } from '../services/agentWorkflowService.js';
 import { io } from '../server.js';
 
 const router = express.Router();
@@ -67,7 +68,7 @@ router.post('/detect', async (req, res) => {
  * Main endpoint for processing camera frames with all ML models
  * Supports: base64 data, frame URL, or file upload
  */
-router.post('/process-frame', async (req, res) => {
+router.post('/process-frame', authMiddleware, async (req, res) => {
   try {
     const {
       cameraId = 'SIM-CAM-001',
@@ -106,6 +107,11 @@ router.post('/process-frame', async (req, res) => {
 
     // Run REAL ML inference
     const detectionResult = await realMLInference.processFrame(frameData);
+    const agentWorkflows = await processAgentDetections(detectionResult, {
+      ...frameData,
+      imageUrl: normalizedFrameUrl || frameUrl || '',
+      source: 'camera_ml'
+    }, req.user.userId);
 
     const violationsSummary = {
       helmet: [],
@@ -421,7 +427,14 @@ router.post('/process-frame', async (req, res) => {
         challansGenerated: challengesCreated.length
       },
       challansCreated: challengesCreated,
-      detectionLogId: detectionLog?._id || null
+      detectionLogId: detectionLog?._id || null,
+      agentWorkflows: agentWorkflows.map(({ issue, workflow }) => ({
+        issueId: issue._id,
+        issueType: issue.issueType,
+        status: issue.status,
+        agentWorkflow: issue.agentWorkflow,
+        workflow
+      }))
     });
 
   } catch (error) {
@@ -447,7 +460,7 @@ router.post('/upload-image', authMiddleware, uploadMiddleware.single('image'), a
     console.log(`\n📸 Processing uploaded image: ${req.file.originalname}`);
 
     const filePath = req.file.path;
-    const result = await processUploadedFile(filePath, 'image', 'UPLOAD-IMG-001');
+    const result = await processUploadedFile(filePath, 'image', 'UPLOAD-IMG-001', req.user.userId);
 
     res.json({
       success: true,

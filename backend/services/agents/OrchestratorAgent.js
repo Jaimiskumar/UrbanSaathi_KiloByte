@@ -1,5 +1,6 @@
 import { BaseAgent } from './BaseAgent.js';
 import { eventBus } from './EventBus.js';
+import { runAgentGraph } from './AgentGraph.js';
 
 class SmartHorizonOrchestrator extends BaseAgent {
   constructor() {
@@ -59,33 +60,9 @@ class SmartHorizonOrchestrator extends BaseAgent {
   async handleNewEvent(event) {
     console.log(`\n[Orchestrator] 🧠 Received ${event.eventType} (${event.eventId})`);
     
-    // 1. Calculate Priority
-    event.priority = this.calculatePriority(event);
-    console.log(`[Orchestrator] Priority assessed as: ${event.priority}`);
-
-    // 2. Determine target agents
-    const targetAgentNames = this.getRoutingMatrix(event.eventType);
-    
-    if (targetAgentNames.length === 0) {
-      console.log(`[Orchestrator] No routing defined for ${event.eventType}`);
-      return;
-    }
-
-    console.log(`[Orchestrator] Routing to: ${targetAgentNames.join(', ')}`);
-
-    // 3. Dispatch to agents
-    const dispatchPromises = targetAgentNames.map(async (agentName) => {
-      const agent = this.agents[agentName];
-      if (agent) {
-        return agent.processEvent(event);
-      } else {
-        console.warn(`[Orchestrator] Agent ${agentName} is not registered.`);
-      }
-    });
-
-    const results = await Promise.all(dispatchPromises);
-    console.log(`[Orchestrator] Completed orchestration for ${event.eventId}`);
-    return results;
+    const workflow = await runAgentGraph(this.agents, event);
+    console.log(`[Orchestrator] Completed graph workflow for ${event.eventId}`);
+    return workflow;
   }
 }
 

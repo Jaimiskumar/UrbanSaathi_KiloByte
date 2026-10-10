@@ -241,6 +241,39 @@ const MLDetectionUpload = () => {
       });
     }
 
+    const waterItems = data.water_logging_detections || data.events?.water_logging?.detections || [];
+    if (waterItems.length > 0) {
+      waterItems.forEach((item) => {
+        const polygon = item.segmentation_polygon;
+        const b = item.bbox;
+        ctx.fillStyle = 'rgba(14, 165, 233, 0.28)';
+        ctx.strokeStyle = '#38BDF8';
+        ctx.lineWidth = 4;
+        if (polygon?.length > 2) {
+          ctx.beginPath();
+          ctx.moveTo(polygon[0][0], polygon[0][1]);
+          polygon.slice(1).forEach(([x, y]) => ctx.lineTo(x, y));
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+        } else if (b) {
+          ctx.fillRect(b.x1, b.y1, b.x2 - b.x1, b.y2 - b.y1);
+          ctx.strokeRect(b.x1, b.y1, b.x2 - b.x1, b.y2 - b.y1);
+        }
+      });
+    } else if (data.events?.water_logging?.detected || data.water_logging?.detected) {
+      ctx.fillStyle = 'rgba(14, 165, 233, 0.24)';
+      ctx.strokeStyle = '#38BDF8';
+      ctx.lineWidth = 4;
+      ctx.fillRect(0, canvas.height * 0.55, canvas.width, canvas.height * 0.45);
+      ctx.strokeRect(0, canvas.height * 0.55, canvas.width, canvas.height * 0.45);
+      ctx.fillStyle = '#0284C7';
+      ctx.fillRect(8, Math.max(0, canvas.height * 0.55 - 24), 230, 24);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 12px monospace';
+      ctx.fillText(`WATER LOGGING • ${Math.round((data.events?.water_logging?.confidence || data.water_logging?.confidence || 0) * 100)}%`, 14, Math.max(16, canvas.height * 0.55 - 8));
+    }
+
     // 2. Draw Vehicle Segmentation Polygons & Bounding Boxes
     if (data.vehicles && data.vehicles.length > 0) {
       data.vehicles.forEach((v) => {
@@ -309,8 +342,8 @@ const MLDetectionUpload = () => {
     drawDetectionBoxes(data.vendors || [], '#A855F7');
     drawDetectionBoxes(data.plate_detections || [], '#06B6D4');
     drawDetectionBoxes(data.helmet_detections || [], '#EAB308');
-    drawDetectionBoxes(data.speed_detections || [], '#EF4444');
-    drawDetectionBoxes(data.speed_tracking_detections || [], '#0EA5E9');
+    drawDetectionBoxes((data.speeds || []).filter((item) => Number.isFinite(item.speed)), '#EF4444');
+    drawDetectionBoxes((data.speed_tracking_detections || []).filter((item) => Number.isFinite(item.speed_kmh)), '#0EA5E9');
     drawDetectionBoxes(data.crowd_detections || [], '#EC4899');
 
     return canvas.toDataURL('image/jpeg', 0.92);
@@ -406,6 +439,44 @@ const MLDetectionUpload = () => {
     }
   };
 
+  const detectionGroups = result ? [
+    ...(result.accident_detection?.accident_detected ? [{
+      label: 'Accident / collision',
+      detail: `${Math.round((result.accident_detection.details?.confidence || 0) * 100)}% confidence`,
+      confidence: result.accident_detection.details?.confidence,
+      color: 'red'
+    }] : []),
+    ...((result.events?.water_logging?.detected || result.water_logging?.detected) ? [{
+      label: 'Water logging',
+      detail: result.events?.water_logging?.method || 'Road water accumulation',
+      confidence: result.events?.water_logging?.confidence || result.water_logging?.confidence,
+      color: 'cyan'
+    }] : []),
+    ...((result.events?.fallen_tree?.detected || result.fallen_tree) ? [{
+      label: 'Fallen tree',
+      detail: 'Civic obstruction',
+      confidence: result.events?.fallen_tree?.confidence || result.fallen_tree?.confidence,
+      color: 'amber'
+    }] : []),
+    ...(result.potholes || []).map((item) => ({ label: item.label || 'Pothole', detail: 'Road damage', confidence: item.confidence, color: 'orange' })),
+    ...(result.urban_issues || []).filter((item) => !/pothole/i.test(item.label || item.class_name || item.type || '')).map((item) => ({ label: item.label || item.class_name || item.type || 'Urban issue', detail: 'Civic issue', confidence: item.confidence, color: 'amber' })),
+    ...(result.plate_detections || result.plates || []).map((item) => ({ label: item.plate_text || item.plateNumber || 'Plate detected', detail: 'Number plate OCR', confidence: item.confidence, color: 'cyan' })),
+    ...(result.helmets || result.helmet_detections || []).map((item) => ({
+      label: item.helmetDetected === false ? 'Without helmet' : item.helmetDetected === true ? 'With helmet' : 'Helmet status unavailable',
+      detail: item.helmetType || 'Helmet detection',
+      confidence: item.confidence,
+      color: item.helmetDetected === false ? 'red' : 'yellow'
+    })),
+    ...(result.speeds || []).filter((item) => Number.isFinite(item.speed)).map((item) => ({ label: item.isSpeeding ? 'Speeding' : 'Speed detected', detail: `${item.speed} km/h`, confidence: item.confidence, color: item.isSpeeding ? 'red' : 'blue' })),
+    ...(result.speed_tracking_detections || []).filter((item) => Number.isFinite(item.speed_kmh)).map((item) => ({ label: 'Speed detected', detail: `${item.speed_kmh} km/h`, confidence: item.confidence, color: 'blue' })),
+    ...(result.crowd_detections || []).map((item) => ({ label: item.label || 'Crowd / person', detail: 'Crowd detection', confidence: item.confidence, color: 'pink' })),
+    ...(result.violations_summary?.violations || []).map((item) => ({ label: item.title || item.type || 'Traffic violation', detail: item.vehicle_number || 'Violation', confidence: 1, color: 'red' }))
+  ] : [];
+  const detectionColorClasses = {
+    red: 'bg-red-400', orange: 'bg-orange-400', amber: 'bg-amber-400', cyan: 'bg-cyan-400',
+    yellow: 'bg-yellow-400', blue: 'bg-blue-400', pink: 'bg-pink-400'
+  };
+
   return (
     <div className="space-y-6 pb-20">
       
@@ -432,14 +503,14 @@ const MLDetectionUpload = () => {
           <div className="flex items-center gap-3 font-mono text-xs">
             <span className={`bg-white/90 backdrop-blur-md border px-3.5 py-2 rounded-2xl flex items-center gap-2 shadow-xs ${modelStatus?.source === 'ITD' ? 'border-emerald-200 text-emerald-700' : modelStatus?.source === 'synthetic-fallback' ? 'border-amber-200 text-amber-700' : 'border-slate-200 text-slate-500'}`}>
               <span className={`w-2 h-2 rounded-full ${modelStatus?.source === 'ITD' ? 'bg-emerald-500 animate-ping' : modelStatus?.source === 'synthetic-fallback' ? 'bg-amber-500' : 'bg-slate-400'}`}></span>
-              {modelStatus?.source === 'ITD' ? `ITD ${modelStatus.name} Active` : modelStatus?.source === 'synthetic-fallback' ? 'ITD Not Run: Synthetic Fallback' : 'ITD Detector Not Verified'}
+              {modelStatus?.source === 'ITD' || modelStatus?.source === 'real' ? `${modelStatus.name || 'ML'} Active` : modelStatus?.source === 'synthetic-fallback' ? 'ML Not Run: Synthetic Fallback' : 'ML Detector Not Verified'}
             </span>
           </div>
         </div>
       </div>
 
       {/* ── MAIN UPLOAD & ANALYSIS WORKSPACE ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         
         {/* Left 2 Cols: Video / Frame Player & Segmentation Canvas */}
         <div className="lg:col-span-2 bg-white/80 backdrop-blur-xl rounded-3xl p-6 shadow-glass border border-white/70 space-y-4">
@@ -594,18 +665,18 @@ const MLDetectionUpload = () => {
               <span className={`text-xs font-black px-2.5 py-0.5 rounded-full ${
                 result?.congestion?.congestion_level === 'CRITICAL' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
               }`}>
-                {result?.congestion?.congestion_level || 'CRITICAL'}
+                {result?.congestion?.congestion_level || 'N/A'}
               </span>
             </div>
 
             <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-200 text-xs font-mono">
               <div>
                 <p className="text-[10px] text-slate-400">VEHICLE DENSITY</p>
-                <p className="text-lg font-black text-slate-800">{result?.congestion?.vehicle_density_percent || 86.5}%</p>
+                <p className="text-lg font-black text-slate-800">{result?.congestion ? `${result.congestion.vehicle_density_percent}%` : 'N/A'}</p>
               </div>
               <div>
                 <p className="text-[10px] text-slate-400">AVG FLOW SPEED</p>
-                <p className="text-lg font-black text-slate-800">{result?.congestion?.average_speed_kmh || 48.2} km/h</p>
+                <p className="text-lg font-black text-slate-800">{result?.congestion?.average_speed_kmh != null ? `${result.congestion.average_speed_kmh} km/h` : 'N/A'}</p>
               </div>
             </div>
           </div>
@@ -643,11 +714,44 @@ const MLDetectionUpload = () => {
             <div className="p-3 bg-purple-50 border border-purple-200 rounded-xl">
               <p className="text-[10px] text-purple-700 font-bold">AUTO E-CHALLANS</p>
               <p className="text-base font-black text-purple-900">
-                {result?.echallans_generated?.total_challans_count || result?.violations_summary?.total_violations_count || 3} Issued
+                {result ? (result.echallans_generated?.total_challans_count || result.violations_summary?.total_violations_count || 0) : 0} Issued
               </p>
             </div>
           </div>
 
+        </div>
+
+        {/* Right Col: Detection Results */}
+        <div className="lg:col-span-1 bg-slate-950 rounded-3xl p-5 shadow-sm border border-slate-800 space-y-4 text-white">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-black flex items-center gap-2">
+                <Eye className="w-4 h-4 text-cyan-400" />
+                Detection Results
+              </h3>
+              <p className="text-[11px] text-slate-400 mt-1">Objects, events, OCR and violations</p>
+            </div>
+            <span className="text-xs font-black bg-cyan-400/15 text-cyan-300 px-2 py-1 rounded-lg">
+              {detectionGroups.length} found
+            </span>
+          </div>
+
+          <div className="max-h-[420px] overflow-y-auto space-y-2 pr-1">
+            {!result && <p className="text-xs text-slate-500 py-8 text-center">Run analysis to see model results.</p>}
+            {result && detectionGroups.length === 0 && <p className="text-xs text-slate-400 py-8 text-center">No target detected in this frame.</p>}
+            {detectionGroups.map((item, index) => (
+              <div key={`${item.label}-${index}`} className="flex items-start gap-3 rounded-xl bg-white/5 border border-white/10 p-3">
+                <span className={`mt-1 w-2.5 h-2.5 rounded-full shrink-0 ${detectionColorClasses[item.color] || 'bg-slate-400'}`} />
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold truncate">{item.label}</p>
+                  <p className="text-[10px] text-slate-400 truncate">{item.detail}</p>
+                </div>
+                {typeof item.confidence === 'number' && item.confidence > 0 && (
+                  <span className="text-[10px] font-mono text-slate-300">{Math.round(item.confidence * 100)}%</span>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
 
       </div>
@@ -667,7 +771,7 @@ const MLDetectionUpload = () => {
 
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold text-slate-700 bg-slate-100 px-3 py-1.5 rounded-xl font-mono">
-              Total Fines: <strong className="text-emerald-600">₹{result?.echallans_generated?.total_fine_amount_inr || 3500}</strong>
+              Total Fines: <strong className="text-emerald-600">₹{result?.echallans_generated?.total_fine_amount_inr || 0}</strong>
             </span>
           </div>
         </div>
@@ -687,7 +791,7 @@ const MLDetectionUpload = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {(result?.echallans_generated?.challans || [
+              {(result ? (result.echallans_generated?.challans || []) : [
                 { challan_number: 'CH-RSH-984210', vehicle_number: 'KA 01 AB 1234', owner_name: 'Rajesh Kumar', vehicle_model: 'Honda City (White)', title: 'Rash / Reckless Driving at 88 km/h', legal_section: 'Section 184 MVA (Dangerous Driving)', fine_amount: 1500, status: 'ISSUED', location: 'Silk Board Junction, Bengaluru' },
                 { challan_number: 'CH-HLM-849201', vehicle_number: 'KA 05 MN 9876', owner_name: 'Priya Sharma', vehicle_model: 'TVS Jupiter (Black)', title: 'No Helmet on Two-Wheeler Rider', legal_section: 'Section 129 MVA', fine_amount: 500, status: 'ISSUED', location: 'Silk Board Junction, Bengaluru' },
                 { challan_number: 'CH-SIG-110294', vehicle_number: 'KA 03 HA 4567', owner_name: 'Mohammed Arif', vehicle_model: 'Bajaj RE Auto', title: 'Red Light Jumping / Stop Line Violation', legal_section: 'Section 119/177 MVA', fine_amount: 1000, status: 'ISSUED', location: 'Silk Board Junction, Bengaluru' }

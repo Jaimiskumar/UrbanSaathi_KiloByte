@@ -19,7 +19,10 @@ export class AccidentEmergencyAgent extends BaseAgent {
       escalationLevel: isCritical ? 'CRITICAL' : 'HIGH',
       needsAmbulance: true,
       needsPolice: true,
-      needsTrafficDiversion: context.roadBlocked
+      needsTrafficDiversion: context.roadBlocked,
+      issue: 'ACCIDENT',
+      authorityId: 'BENGALURU_TRAFFIC_POLICE',
+      department: 'Traffic Police and Emergency Response'
     };
   }
 
