@@ -58,7 +58,7 @@ def load_contractor_model(tensorflow_runtime, model_path):
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-ACCIDENT_CONFIDENCE_THRESHOLD = float(os.getenv("URBANSAATHI_ACCIDENT_CONFIDENCE", "0.90"))
+ACCIDENT_CONFIDENCE_THRESHOLD = float(os.getenv("URBANSAATHI_ACCIDENT_CONFIDENCE", "0.50"))
 URBAN_ISSUE_CONFIDENCE = float(os.getenv("URBANSAATHI_URBAN_ISSUE_CONFIDENCE", "0.45"))
 POTHOLE_CONFIDENCE = float(os.getenv("URBANSAATHI_POTHOLE_CONFIDENCE", "0.20"))
 SPECIALIZED_CONFIDENCE = {

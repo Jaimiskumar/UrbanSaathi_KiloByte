@@ -415,6 +415,20 @@ const MLDetectionUpload = () => {
     drawDetectionBoxes((data.speed_tracking_detections || []).filter((item) => Number.isFinite(item.speed_kmh)), '#0EA5E9');
     drawDetectionBoxes(data.crowd_detections || [], '#EC4899');
 
+    // 3. Draw Accident / Collision Warning Overlay on Canvas
+    if (data.accident_detection?.accident_detected) {
+      const accConf = Math.round((data.accident_detection.details?.confidence || 0.90) * 100);
+      ctx.strokeStyle = '#EF4444';
+      ctx.lineWidth = 4;
+      ctx.fillStyle = 'rgba(239, 68, 68, 0.18)';
+      ctx.fillRect(0, 0, canvas.width, 36);
+      ctx.fillStyle = '#EF4444';
+      ctx.fillRect(0, 0, Math.min(320, canvas.width), 36);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = 'bold 14px monospace';
+      ctx.fillText(`🚨 ACCIDENT DETECTED (${accConf}%)`, 12, 23);
+    }
+
     return canvas.toDataURL('image/jpeg', 0.92);
   };
 
@@ -633,6 +647,10 @@ const MLDetectionUpload = () => {
             <span className="bg-white/90 backdrop-blur-md border border-blue-200 text-blue-700 px-3 py-1.5 rounded-2xl flex items-center gap-2 shadow-xs">
               <span className="w-2 h-2 rounded-full bg-blue-500"></span>
               ALPR Plate Detector (YOLOv8)
+            </span>
+            <span className="bg-white/90 backdrop-blur-md border border-rose-200 text-rose-700 px-3 py-1.5 rounded-2xl flex items-center gap-2 shadow-xs">
+              <span className="w-2 h-2 rounded-full bg-rose-500"></span>
+              ResNet-18 Accident Classifier
             </span>
             <span className="bg-white/90 backdrop-blur-md border border-purple-200 text-purple-700 px-3 py-1.5 rounded-2xl flex items-center gap-2 shadow-xs">
               <span className="w-2 h-2 rounded-full bg-purple-500"></span>
@@ -915,15 +933,15 @@ const MLDetectionUpload = () => {
               </p>
             </div>
 
-            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl space-y-1">
-              <p className="text-[10px] text-rose-700 font-bold uppercase flex items-center gap-1">
-                <AlertOctagon className="w-3 h-3" /> Collision Risks (TTC)
+            <div className={`p-3 rounded-xl space-y-1 ${result?.accident_detection?.accident_detected ? 'bg-red-100 border border-red-300 animate-pulse' : 'bg-rose-50 border border-rose-200'}`}>
+              <p className={`text-[10px] font-bold uppercase flex items-center gap-1 ${result?.accident_detection?.accident_detected ? 'text-red-800' : 'text-rose-700'}`}>
+                <AlertOctagon className="w-3 h-3" /> {result?.accident_detection?.accident_detected ? 'Collision / Crash' : 'Collision Risks (TTC)'}
               </p>
-              <p className="text-base font-black text-rose-900">
-                {result?.time_to_collision_analysis?.total_collision_risks_detected || 0}
+              <p className={`text-base font-black ${result?.accident_detection?.accident_detected ? 'text-red-900' : 'text-rose-900'}`}>
+                {result?.accident_detection?.accident_detected ? '1 (Active Impact)' : (result?.time_to_collision_analysis?.total_collision_risks_detected || 0)}
               </p>
-              <p className="text-[9px] text-rose-600">
-                {result?.time_to_collision_analysis?.critical_risks || 0} Critical (&lt;1.8s)
+              <p className={`text-[9px] ${result?.accident_detection?.accident_detected ? 'text-red-700 font-bold' : 'text-rose-600'}`}>
+                {result?.accident_detection?.accident_detected ? `Confidence: ${Math.round((result.accident_detection.details?.confidence || 0.90)*100)}%` : `${result?.time_to_collision_analysis?.critical_risks || 0} Critical (<1.8s)`}
               </p>
             </div>
           </div>
