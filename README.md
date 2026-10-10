@@ -4,8 +4,8 @@
 [![Frontend](https://img.shields.io/badge/Frontend-React%2018%20%2B%20Vite%20%2B%20TailwindCSS-61DAFB.svg)](#)
 [![Backend](https://img.shields.io/badge/Backend-Node.js%20%2B%20Express-339933.svg)](#)
 [![Database](https://img.shields.io/badge/Database-MongoDB%20%2B%20Mongoose-47A248.svg)](#)
-[![Data Engine](https://img.shields.io/badge/Data%20Engine-Traffic%20%26%20Incident%20Pipelines-purple.svg)](#)
-[![Status](https://img.shields.io/badge/Milestone%204-Full--Stack%20Integration%20%26%20Incident%20Data-brightgreen.svg)](#)
+[![AI/ML](https://img.shields.io/badge/AI%2FML-PyTorch%20%7C%20YOLOv5%20%7C%20Scikit--Learn-EE4C2C.svg)](#)
+[![Status](https://img.shields.io/badge/Milestone%205-AI%2FML%20Infrastructure%20%26%20Models-brightgreen.svg)](#)
 
 ---
 
@@ -40,99 +40,100 @@
                 ▼                         ▼       ▼                             ▼
     ┌───────────────────────────┐    ┌──────────────────────────────────────────────┐
     │     MongoDB Database      │    │             Python AI/ML Engine              │
-    │  (26 Mongoose Schemas)    │    │     (YOLOv5, OpenCV, Deep Learning)          │
-    └─────────────┬─────────────┘    └──────────────────────┬───────────────────────┘
-                  │                                         │
-                  ▼                                         ▼
-    ┌───────────────────────────┐    ┌──────────────────────────────────────────────┐
-    │   Traffic & Incidents     │    │        Synthetic City Traffic Datasets       │
-    │  (Accidents, Violations)  │    │      (Potholes, Hotspots, Trajectories)      │
-    └───────────────────────────┘    └──────────────────────────────────────────────┘
+    │  (26 Mongoose Schemas)    │    │        (PyTorch / YOLOv5 / ONNX / Hub)       │
+    └───────────────────────────┘    └──────────────────────┬───────────────────────┘
+                                                            │
+                     ┌──────────────────────────────────────┴──────────────────────────────────────┐
+                     ▼                                                                             ▼
+    ┌───────────────────────────────────┐                         ┌───────────────────────────────────────────────┐
+    │      Computer Vision Models       │                         │       Multimodal Predictive Regressors        │
+    │  • YOLOv5s Vehicle Classifier     │                         │  • Accident Severity & Secondary Collision    │
+    │  • Tiny YOLOv3 ONNX Edge Model    │                         │  • Congestion Hotspots & Traffic Prediction   │
+    │  • Helmet & Plate Detection Hooks │                         │  • Pedestrian Hazards & V2V Collision Risks   │
+    └───────────────────────────────────┘                         └───────────────────────────────────────────────┘
 ```
 
 ---
 
-## 🔄 Milestone 4: Full-Stack Integration & Incident Data Pipelines
+## 🧠 Milestone 5: AI/ML Infrastructure & Vehicle Detection Models
 
-This milestone establishes complete client-server cohesion and integrates comprehensive traffic telemetry datasets:
+This milestone establishes the artificial intelligence foundation, deep learning computer vision weights, and multimodal risk estimation classifiers:
 
-### 1. Client-to-Server Data Synchronization
-- **JWT Session Persistence**: Client interceptors dynamically manage access tokens, automatic refresh rotations, and authorization headers across all API endpoints.
-- **Dynamic Parking Engine**: Real-time bay occupancy fetches, dynamic fare calculation, and instant pass verification.
-- **Violation & Appeal Workflow**: Citizen penalty retrieval with photographic proof and direct appeal review pipelines.
+### 1. Deep Learning Vision Models
+- **`yolov5s.pt`**: Pre-trained and fine-tuned YOLOv5 architecture detecting multi-class urban traffic entities (compact cars, SUVs, heavy transport trucks, transit buses, two-wheelers, and pedestrians) with high mAP inference.
+- **`tiny-yolov3-11.onnx`**: Lightweight ONNX runtime model optimized for low-latency edge camera inference and municipal junction processing.
+- **Ultralytics YOLOv5 Torch Hub (`models/torch_hub/`)**: Comprehensive model definitions, anchor specifications, and custom layer heads for detection and segmentation.
 
-### 2. Urban Traffic & Incident Dataset Suite (`data/`)
-Rich datasets structured to train and evaluate traffic density and incident detection models:
-- **`accidents/`**: Historical and simulated metropolitan collision records with severity indexing.
-- **`hotspots/`**: Spatial density clusters identifying recurring urban bottlenecks.
-- **`pedestrians/`**: Crossing patterns and pedestrian hazard risk metrics.
-- **`potholes/`**: Road surface degradation coordinates for municipal prioritization.
-- **`v2v/`**: Connected vehicle beacon trajectories and telemetry logs.
+### 2. Trained Machine Learning Suite (`models/*.joblib`)
+A production suite of 8 trained predictive models providing real-time risk scores and telemetry estimations:
+- **`accident_model.joblib`**: Predicts traffic accident probability based on road geometry, rain intensity, and vehicle volume.
+- **`traffic_prediction_model.joblib`**: Time-series congestion regressor forecasting junction wait times up to 60 minutes in advance.
+- **`hotspot_model.joblib`**: Spatial clustering classifier pinpointing high-frequency congestion bottlenecks.
+- **`emergency_priority_model.joblib`**: Evaluates responder urgency, vehicle type, and patient condition to rank preemption queue.
+- **`pedestrian_risk_model.joblib`**: Quantifies pedestrian hazard indices at un-signaled pedestrian crosswalks.
+- **`pothole_model.joblib`**: Road distress and pavement surface degradation severity classifier.
+- **`secondary_collision_model.joblib`**: Evaluates pile-up risk downstream of an initial road incident.
+- **`v2v_risk_model.joblib`**: High-frequency vehicle-to-vehicle trajectory proximity conflict detector.
+- **`multimodal_model.joblib`**: Ensemble engine combining visual density, weather conditions, and spatial metrics into a unified city safety index.
 
-### 3. Simulation & Seed Tooling (`scripts/`)
-- **`generate_synthetic_data.py`**: Parametric generation of realistic urban mobility patterns and congestion cycles.
-- **`seedReports.mjs` & `seedFines.mjs`**: High-fidelity municipal violation records and citizen reports for local testing.
-- **`test_connected_vehicle_system.js`**: Simulated V2X packet broadcast and latency verification.
+### 3. Model Training & Evaluation Tooling (`training/`)
+- **`train_all.py`**: Automated pipeline training all 8 models against synthetic and verified historical datasets.
+- **`evaluate_models.py`**: Model verification harness computing R² score, Precision, Recall, and F1 metrics.
+- **`training_metadata.json`**: Exact training timestamps, hyperparameter logs, and benchmark accuracy records.
 
 ---
 
-## 📁 Repository Structure (Milestone 4)
+## 📁 Repository Structure (Milestone 5)
 
 ```text
 UrbanSaathi/
 ├── backend/
-│   ├── config/
-│   ├── middleware/
-│   ├── models/
-│   ├── routes/
-│   ├── services/
-│   ├── scripts/
-│   ├── uploads/                           # Dynamic file storage (proofs, evidence)
-│   ├── utils/
-│   ├── server.js
-│   └── package.json
+│   ├── models/onnx/
+│   │   └── tiny-yolov3-11.onnx            # Edge ONNX vision model
+│   └── ...
 ├── frontend/
-│   ├── public/
-│   ├── src/
-│   └── package.json
-├── data/                                  # Traffic & incident dataset pipelines
-│   ├── synthetic/
-│   │   ├── accidents/
-│   │   ├── emergency/
-│   │   ├── hotspots/
-│   │   ├── pedestrians/
-│   │   ├── potholes/
-│   │   ├── traffic/
-│   │   └── v2v/
-│   └── processed/
-├── scripts/                               # Data generators & seed scripts
-│   ├── generate_synthetic_data.py
-│   ├── seedFines.mjs
-│   ├── seedReports.mjs
-│   └── test_connected_vehicle_system.js
+├── data/
+├── models/                                # Trained AI/ML models & weights
+│   ├── yolov5s.pt                         # YOLOv5 vehicle detector weights
+│   ├── accident_model.joblib
+│   ├── emergency_priority_model.joblib
+│   ├── hotspot_model.joblib
+│   ├── multimodal_model.joblib
+│   ├── pedestrian_risk_model.joblib
+│   ├── pothole_model.joblib
+│   ├── secondary_collision_model.joblib
+│   ├── traffic_prediction_model.joblib
+│   ├── v2v_risk_model.joblib
+│   ├── training_metadata.json             # Model metrics & validation specs
+│   └── torch_hub/                         # Ultralytics architecture configs
+├── training/                              # Model training pipelines
+│   ├── train_all.py
+│   └── evaluate_models.py
+├── scripts/
+├── ml_requirements.txt                    # Python AI/ML dependencies
+├── setup_ai.py                            # AI environment initializer
 ├── docker-compose.yml
-├── setup.sh
-├── setup.bat
-├── .env.production.example
 ├── .gitignore
 └── README.md
 ```
 
 ---
 
-## 🚀 Running Full-Stack
+## 🚀 Setting Up the AI Environment
 
 ```bash
-# Terminal 1: Start Express API
-cd backend
-npm run dev
+# 1. Create and activate Python virtual environment
+python3 -m venv venv
+source venv/bin/activate    # On Windows: venv\Scripts\activate
 
-# Terminal 2: Start React Frontend
-cd frontend
-npm run dev
+# 2. Install ML requirements
+pip install -r ml_requirements.txt
 
-# (Optional) Generate fresh synthetic mobility data
-python3 scripts/generate_synthetic_data.py
+# 3. Verify models and dependencies
+python3 setup_ai.py
+
+# 4. (Optional) Run model evaluation benchmark
+python3 training/evaluate_models.py
 ```
 
 ---
@@ -142,8 +143,8 @@ python3 scripts/generate_synthetic_data.py
 - [x] **Milestone 1: Project Scaffolding & Setup**
 - [x] **Milestone 2: Frontend Layout, Navigation & Portal UI**
 - [x] **Milestone 3: Express Backend Core, Authentication & Database Models**
-- [x] **Milestone 4: Full-Stack API Integration & State Synchronization** *(Current)*
-- [ ] **Milestone 5: AI/ML Infrastructure & Vehicle Detection Models**
+- [x] **Milestone 4: Full-Stack API Integration & State Synchronization**
+- [x] **Milestone 5: AI/ML Infrastructure & Vehicle Detection Models** *(Current)*
 - [ ] **Milestone 6: Real-time Video Stream Inference & WebSocket Gateway**
 - [ ] **Milestone 7: Emergency Dispatch & Automated Green Corridor Bypass**
 - [ ] **Milestone 8: Connected Vehicle (V2X) Protocol & Driver HUD**
