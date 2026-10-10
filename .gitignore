@@ -43,5 +43,4 @@ data/additional_real/
 data/helmet_real/
 data/urban_issues_real/
 models/real/*/
-yolov8n.pt
 *$py.class
