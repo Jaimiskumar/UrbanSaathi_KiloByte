@@ -5,8 +5,9 @@
 [![Backend](https://img.shields.io/badge/Backend-Node.js%20%2B%20Express-339933.svg)](#)
 [![Database](https://img.shields.io/badge/Database-MongoDB%20%2B%20Mongoose-47A248.svg)](#)
 [![AI/ML](https://img.shields.io/badge/AI%2FML-PyTorch%20%7C%20YOLOv5%20%7C%20OpenCV-EE4C2C.svg)](#)
-[![V2X Safety](https://img.shields.io/badge/V2X%20Mesh-Connected%20Vehicle%20HUD-blueviolet.svg)](#)
-[![Status](https://img.shields.io/badge/Milestone%208-Connected%20Vehicle%20(V2X)%20%26%20Driver%20HUD-brightgreen.svg)](#)
+[![Multi-Agent](https://img.shields.io/badge/Multi--Agent-Decentralized%20Junction%20Swarm-blueviolet.svg)](#)
+[![Explainability](https://img.shields.io/badge/XAI-Explainable%20Decision%20Auditing-orange.svg)](#)
+[![Status](https://img.shields.io/badge/Milestone%209-Multi--Agent%20Coordination%20%26%20Explainability-brightgreen.svg)](#)
 
 ---
 
@@ -28,73 +29,67 @@
 ```
                           ┌─────────────────────────────────────────┐
                           │           UrbanSaathi Client            │
-                          │   (Command Center & In-Cabin HUD)       │
+                          │     (AIAgentCenter.jsx / Command)       │
                           └────────────────────┬────────────────────┘
                                                │ REST / Socket.IO
                                                ▼
                           ┌─────────────────────────────────────────┐
                           │        Express API & Socket Gateway     │
-                          │         (Node.js / Port 5001)           │
-                          └────────────┬──────────────────┬─────────┘
-                                       │                  │
-                ┌──────────────────────┴──────┐      ┌────┴────────────────────────┐
-                ▼                             ▼      ▼                             ▼
-    ┌─────────────────────────────┐    ┌───────────────────────────────────────────────┐
-    │      MongoDB Database       │    │           V2X Safety & Mesh Gateway           │
-    │  (Fleets, Waypoints, Alerts)│    │          (V2VSafetyCenter.jsx)                │
-    └─────────────────────────────┘    └──────────────────────┬────────────────────────┘
+                          │   (Node.js / Multi-Agent Coordinator)   │
+                          └───────┬──────────────────────────┬──────┘
+                                  │                          │
+                 ┌────────────────┴───────────┐         ┌────┴────────────────────────┐
+                 ▼                            ▼         ▼                             ▼
+    ┌─────────────────────────────┐    ┌──────────────────────────────────────────────┐
+    │     MongoDB Database        │    │         Multi-Agent Orchestrator             │
+    │ (Agent States, Audit Logs)  │    │      (multiAgentOrchestrator.js)             │
+    └─────────────────────────────┘    └──────────────────────┬───────────────────────┘
                                                               │
                      ┌────────────────────────────────────────┴────────────────────────────────────────┐
                      ▼                                                                                 ▼
     ┌───────────────────────────────────┐                             ┌────────────────────────────────────────────────┐
-    │       Mobile Dashcam Client       │                             │         In-Cabin HUD Collision Warning         │
-    │  • iPhone / Android Camera Mount  │                             │  • Emergency Vehicle Approaching Alert         │
-    │  • Viidure Wi-Fi Camera Bridge    │                             │  • Pothole & Road Hazard Audio-Visual Cue      │
-    │  • Zero-Lag WebRTC/HTTP Stream    │                             │  • Dynamic Speed Advisory & Safe Gap Guidance  │
+    │    Inter-Junction Agent Swarm     │                             │        Transparent Explainable AI (XAI)        │
+    │  • Node-to-Node Pressure Exchange │                             │  • Human-Readable Decision Audit Trails        │
+    │  • Cooperative Game Optimization  │                             │  • Queue Length & Wait-Time Feature Weights    │
+    │  • Phantom Jam Spillback Damping  │                             │  • Real-time Confidence & Rationale Log HUD    │
     └───────────────────────────────────┘                             └────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 🛰️ Milestone 8: Connected Vehicle (V2X) Protocol & Driver In-Cabin HUD
+## 🤝 Milestone 9: Multi-Agent Signal Coordination & AI Explainability
 
-This milestone introduces decentralized vehicular communication and intelligent in-cabin telemetry:
+This milestone establishes decentralized swarm intelligence and transparent decision-making across municipal traffic junctions:
 
-### 1. Vehicle-to-Everything (V2X) Telemetry Engine
-- **Proximity Mesh Broadcasting**: Vehicles continuously publish micro-beacons containing GPS coordinates, speed vectors, yaw rates, and sudden deceleration triggers.
-- **Predictive Crash Mitigation**: `v2v_risk_model.joblib` evaluates trajectories of adjacent connected nodes to compute Time-To-Collision (TTC), dispatching audible warnings before human reaction thresholds.
-- **Secondary Pile-Up Suppression**: An initial collision alert automatically informs trailing vehicles up to 800 meters upstream to brake preemptively.
+### 1. Multi-Agent Grid Orchestration (`multiAgentOrchestrator.js`)
+- **Autonomous Node Agents**: Every intersection acts as an independent software agent assessing localized camera feeds and vehicle queues.
+- **Neighbor Consensus Protocol**: Agents continuously negotiate with upstream and downstream neighboring intersections, dampening shockwaves and preventing gridlock spillback.
+- **Cooperative Game Theory**: Optimizes network-wide vehicular throughput rather than selfish single-intersection cycle hoarding.
 
-### 2. Mobile In-Cabin HUD & Dashcam (`/dashcam`, `/v2v-mobile`)
-- **Smartphone Cockpit Mount**: Turns any smartphone mounted on a car dashboard into an intelligent vision sensor and HUD.
-- **Rear/Front Camera Ingestion**: Captures live road surfaces, feeds frames directly to AI models, and broadcasts road conditions across the city mesh.
-- **Driver Warning HUD**: Displays real-time speed, safe following distance, approaching emergency siren notifications, and speed-camera radar pins.
+### 2. Explainable AI Decision Engine (XAI)
+- **Transparent Audit Trails**: Eliminates "black-box" automation by generating real-time human-readable rationale logs for every signal phase extension or truncation:
+  > *"Extended Green Phase on Hosur North approach by +15s: 38 vehicles queued (82% heavy transit), downstream capacity clear (91% confidence score)."*
+- **AIAgentCenter Command Console (`AIAgentCenter.jsx`)**: Administrative dashboard displaying agent states, active negotiations, consensus scores, and decision attribution graphs.
 
-### 3. Verification & Specifications Suite
-- **`ADVANCED_FEATURES_COMPLETE.md`**: Deep architectural dive into V2X protocol schemas, latency benchmarks, and edge synchronization.
-- **`ML_MODELS_DATASET_SPECIFICATION.md`**: Complete training feature schema, input shapes, and normalization standards for vehicular telemetry.
-- **`ML_AND_ADAPTIVE_SYSTEM.md`**: Dynamic signal cycle adaptation driven by connected vehicle density.
-- **`QUICK_CHALLAN_IMPLEMENTATION.md`**: Immediate violation synthesis from mobile dashcam snapshots.
+### 3. Model Deployment & Benchmark Runbooks
+- **`DEPLOYMENT_GUIDE_ML_MODELS.md`**: Step-by-step instructions for containerized multi-agent edge nodes.
+- **`ML_MODELS_DEPLOYMENT_SUMMARY.md`**: Complete summary of model architectures, inference latency budgets (<45ms), and precision benchmarks.
+- **`QUICK_START.md`**: Quick reference guide to initialize, verify, and monitor multi-agent networks.
 
 ---
 
-## 📁 Repository Structure (Milestone 8)
+## 📁 Repository Structure (Milestone 9)
 
 ```text
 UrbanSaathi/
-├── ADVANCED_FEATURES_COMPLETE.md          # Complete V2X & connected vehicle specification
-├── ML_AND_ADAPTIVE_SYSTEM.md              # Adaptive signal timing specs
-├── ML_MODELS_DATASET_SPECIFICATION.md     # Feature schemas & dataset architecture
-├── QUICK_CHALLAN_IMPLEMENTATION.md        # Rapid violation generation pipeline
-├── frontend/
-│   ├── public/videos/                     # Traffic camera test streams
-│   │   ├── Hikvision_Traffic_Flow_Analysis_Camera_240P.mp4
-│   │   ├── Vehicle Detection and Traffic Counting using AI..mp4
-│   │   └── video_2.mp4, video_3.mp4, video_4.mp4
-│   └── src/
-│       ├── pages/MobileV2VDashcam.jsx     # Mobile windshield HUD & dashcam app
-│       └── components/admin/V2VSafetyCenter.jsx # Municipal fleet safety command
+├── DEPLOYMENT_GUIDE_ML_MODELS.md          # Multi-agent edge deployment runbook
+├── ML_MODELS_DEPLOYMENT_SUMMARY.md        # AI inference latency & accuracy summary
+├── QUICK_START.md                         # Quick start guide
 ├── backend/
+│   ├── services/multiAgentOrchestrator.js # Swarm intelligence coordinator
+│   └── services/signalCoordinationService.js # Inter-signal synchronization
+├── frontend/
+│   └── src/components/admin/AIAgentCenter.jsx # Real-time AI agent telemetry UI
 ├── ml_backend_api.py
 ├── urbanflow_app/
 ├── docs/
@@ -109,17 +104,15 @@ UrbanSaathi/
 
 ---
 
-## 📱 Launching Mobile Dashcam HUD
+## 🧪 Inspecting Multi-Agent State & Decisions
 
 ```bash
-# 1. Start application on your local network
-cd frontend
-npm run dev -- --host 0.0.0.0
+# Query active agent consensus status
+curl http://localhost:5001/api/signals/coordination-status
 
-# 2. Open on your mobile phone browser
-http://<YOUR-LAPTOP-IP>:5173/dashcam
+# Fetch real-time AI decision explanation log
+curl http://localhost:5001/api/signals/explainability-logs
 ```
-Mount your phone on the vehicle dashboard — the HUD will activate camera vision, speedometer, and real-time hazard alerts!
 
 ---
 
@@ -132,6 +125,6 @@ Mount your phone on the vehicle dashboard — the HUD will activate camera visio
 - [x] **Milestone 5: AI/ML Infrastructure & Vehicle Detection Models**
 - [x] **Milestone 6: Real-time Video Stream Inference & WebSocket Gateway**
 - [x] **Milestone 7: Emergency Dispatch & Automated Green Corridor Bypass**
-- [x] **Milestone 8: Connected Vehicle (V2X) Protocol & Driver HUD** *(Current)*
-- [ ] **Milestone 9: Multi-Agent Signal Coordination & Explainable AI**
+- [x] **Milestone 8: Connected Vehicle (V2X) Protocol & Driver HUD**
+- [x] **Milestone 9: Multi-Agent Signal Coordination & Explainable AI** *(Current)*
 - [ ] **Milestone 10: Urban Digital Twin, Production Hardening & Final Polishing**
