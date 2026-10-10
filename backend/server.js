@@ -31,12 +31,14 @@ import roadIntelligenceRoutes from './routes/roadIntelligence.js';
 import { initializeTrafficSimulation } from './services/trafficSimulator.js';
 import User from './models/User.js';
 import { env } from './config/env.js';
+import { setSocketServer } from './services/socketServer.js';
 
 const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: { origin: env.CORS_ORIGIN }
 });
+setSocketServer(io);
 app.set('io', io);
 
 const corsOptions = {

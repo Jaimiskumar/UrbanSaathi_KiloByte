@@ -80,19 +80,35 @@ export async function processAgentDetections(result, frame, userId) {
       source: frame.source || 'camera_ml',
       agentWorkflow: {
         eventId: event.eventId,
-        selectedAgents: workflow.targets || [],
+        selectedAgents: [...new Set([...(workflow.targets || []), ...(authority ? ['AuthorityCoordinationAgent'] : [])])],
         completedAt: new Date(),
         status: workflow.status,
         authorityStatus: authority?.status || (event.eventType === 'ACCIDENT_DETECTED' ? 'EMERGENCY_ESCALATED' : 'PENDING'),
         authorityTicketId: authority?.complaintId,
         authorityId: authority?.authorityId || issueData.authorityId,
         department: authority?.department || issueData.department,
+        authorityJurisdiction: issueData.authorityJurisdiction,
+        contractorName: issueData.contractorName,
+        contractorId: issueData.contractorId,
+        contractorContact: issueData.contractorContact,
+        contractorPerformanceScore: issueData.contractorPerformanceScore,
         slaHours: issueData.slaHours,
-        mlConfidence: event.detection.confidence
+        mlConfidence: event.detection.confidence,
+        dispatches: authority?.dispatches || []
       }
     });
     workflowRecords.push({ issue: record, workflow });
     io.emit('new-road-issue', { issueId: record._id, type: record.issueType, status: record.status, agentWorkflow: record.agentWorkflow });
+    if (authority?.dispatches?.length) {
+      io.emit('complaint_ticket_created', {
+        issueId: record._id,
+        issueType: record.issueType,
+        locationName: record.locationName,
+        priority: record.priority,
+        dispatches: authority.dispatches,
+        agentWorkflow: record.agentWorkflow
+      });
+    }
   }
   return workflowRecords;
 }

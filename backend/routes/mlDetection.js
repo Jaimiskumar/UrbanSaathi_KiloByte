@@ -17,6 +17,7 @@ import { createChallanFromViolation } from '../services/challanGenerationService
 import { uploadMiddleware, processUploadedFile, processVideoFrames } from '../services/fileUploadService.js';
 import { authMiddleware } from '../middleware/auth.js';
 import { processAgentDetections } from '../services/agentWorkflowService.js';
+import { processEnforcementDetections, processEncroachmentDetections } from '../services/enforcementWorkflowService.js';
 import { io } from '../server.js';
 
 const router = express.Router();
@@ -106,13 +107,25 @@ router.post('/process-frame', authMiddleware, async (req, res) => {
       timestamp: new Date()
     };
 
+    const uploadedImageUrl = frameUrl || (frameBase64 ? `data:image/jpeg;base64,${frameBase64}` : '');
+
     // Run REAL ML inference
     const detectionResult = await realMLInference.processFrame(frameData);
     const agentWorkflows = await processAgentDetections(detectionResult, {
       ...frameData,
-      imageUrl: normalizedFrameUrl || frameUrl || '',
+      imageUrl: uploadedImageUrl,
       source: 'camera_ml'
     }, req.user.userId);
+    const enforcementWorkflows = await processEnforcementDetections(detectionResult, {
+      ...frameData,
+      imageUrl: uploadedImageUrl,
+      source: 'camera_ml'
+    });
+    const encroachmentWorkflows = await processEncroachmentDetections(detectionResult, {
+      ...frameData,
+      imageUrl: uploadedImageUrl,
+      source: 'camera_ml'
+    });
 
     const violationsSummary = {
       helmet: [],
@@ -429,13 +442,19 @@ router.post('/process-frame', authMiddleware, async (req, res) => {
       },
       challansCreated: challengesCreated,
       detectionLogId: detectionLog?._id || null,
-      agentWorkflows: agentWorkflows.map(({ issue, workflow }) => ({
+      agentWorkflows: [
+        ...agentWorkflows.map(({ issue, workflow }) => ({
         issueId: issue._id,
         issueType: issue.issueType,
         status: issue.status,
         agentWorkflow: issue.agentWorkflow,
         workflow
-      }))
+        })),
+        ...enforcementWorkflows,
+        ...encroachmentWorkflows
+      ],
+      enforcementWorkflows,
+      encroachmentWorkflows
     });
 
   } catch (error) {

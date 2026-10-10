@@ -5,6 +5,7 @@ import { Truck, MapPin, Clock, Navigation, Zap, TrendingDown, CheckCircle, Alert
 
 export default function EmergencyControl() {
   const [emergencies, setEmergencies] = useState([]);
+  const [usingMockEmergencies, setUsingMockEmergencies] = useState(false);
 
   useEffect(() => {
     fetchEmergencies();
@@ -50,25 +51,34 @@ export default function EmergencyControl() {
       });
       if (Array.isArray(data) && data.length > 0) {
         setEmergencies(data);
+        setUsingMockEmergencies(false);
       } else {
         setEmergencies(mockEmergencies);
+        setUsingMockEmergencies(true);
       }
     } catch (error) {
       console.error('Error fetching emergencies:', error);
       setEmergencies(mockEmergencies);
+      setUsingMockEmergencies(true);
     }
   };
 
   const handleComplete = async (id) => {
+    if (usingMockEmergencies) {
+      setEmergencies((current) => current.filter((emergency) => emergency._id !== id));
+      toast.success('Demo emergency completed and corridor released');
+      return;
+    }
+
     try {
       const token = localStorage.getItem('token');
-      await axios.put(`/api/emergency/${id}/complete`, {}, {
+      const response = await axios.put(`/api/emergency/${id}/complete`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      toast.success('Emergency completed successfully');
+      toast.success(response.data?.message || 'Emergency completed successfully');
       fetchEmergencies();
     } catch (error) {
-      toast.error('Failed to complete emergency');
+      toast.error(error.response?.data?.message || 'Failed to complete emergency');
     }
   };
 

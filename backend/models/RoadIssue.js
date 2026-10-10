@@ -77,8 +77,14 @@ const roadIssueSchema = new mongoose.Schema(
       authorityTicketId: String,
       authorityId: String,
       department: String,
+      authorityJurisdiction: String,
+      contractorName: String,
+      contractorId: String,
+      contractorContact: String,
+      contractorPerformanceScore: Number,
       slaHours: Number,
-      mlConfidence: Number
+      mlConfidence: Number,
+      dispatches: { type: mongoose.Schema.Types.Mixed, default: [] }
     }
   },
   {

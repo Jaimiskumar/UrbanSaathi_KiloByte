@@ -6,15 +6,13 @@ export class EnforcementAgent extends BaseAgent {
   }
 
   async retrieveContext(event) {
-    // For speeding, we need the speed limit of the road.
-    let speedLimit = 50; 
-    
-    // In a real system, we would track multiple frames to validate evidence.
-    // For the POC, we assume the provided event has frames.
+    const speedLimit = Number(event.detection?.speedLimit || 50);
+    const frames = event.evidence?.frames || [];
     return {
       speedLimit,
-      hasMultipleFrames: (event.evidence && event.evidence.frames && event.evidence.frames.length >= 2) || true,
-      hasOCR: !!event.detection.licensePlate
+      hasEvidence: Boolean(event.evidence?.image || frames.length),
+      hasMultipleFrames: frames.length >= 2,
+      hasOCR: Boolean(event.detection?.licensePlate)
     };
   }
 
@@ -23,11 +21,11 @@ export class EnforcementAgent extends BaseAgent {
     let status = 'REVIEW_REQUIRED';
     let violationCandidate = null;
 
-    if (!context.hasOCR) {
+    if (!context.hasEvidence || !context.hasOCR) {
       status = 'EVIDENCE_INSUFFICIENT';
     } else {
       if (eventType === 'OVERSPEEDING') {
-        const speed = detection.speed || 70;
+        const speed = Number(detection.speed || 0);
         if (speed > context.speedLimit) {
           status = 'VALIDATED';
           violationCandidate = {
@@ -39,7 +37,7 @@ export class EnforcementAgent extends BaseAgent {
           };
         }
       } else if (eventType === 'HELMET_VIOLATION') {
-        if (context.hasMultipleFrames) {
+        if (context.hasMultipleFrames || detection.confidence >= 0.2) {
           status = 'VALIDATED';
           violationCandidate = {
             type: 'NO_HELMET',
@@ -55,6 +53,25 @@ export class EnforcementAgent extends BaseAgent {
             type: 'ILLEGAL_PARKING',
             vehicleNumber: detection.licensePlate,
             duration: stationaryDuration
+          };
+        }
+      } else if (eventType === 'SIGNAL_VIOLATION') {
+        status = 'VALIDATED';
+        violationCandidate = {
+          type: 'SIGNAL_BREAKING',
+          vehicleNumber: detection.licensePlate,
+          confidence: detection.confidence
+        };
+      } else if (eventType === 'RASH_DRIVING') {
+        const speed = Number(detection.speed || 0);
+        if (speed > context.speedLimit) {
+          status = 'VALIDATED';
+          violationCandidate = {
+            type: 'RASH_DRIVING',
+            vehicleNumber: detection.licensePlate,
+            recordedSpeed: speed,
+            limit: context.speedLimit,
+            excessSpeed: speed - context.speedLimit
           };
         }
       }
@@ -81,11 +98,12 @@ export class EnforcementAgent extends BaseAgent {
       // For this POC, we'll return it so the Orchestrator or caller can pass it.
       return {
         status: 'VALIDATED',
-        candidate: decision.candidate
+        candidate: decision.candidate,
+        reason: 'Model evidence, OCR identity, and violation rule validated'
       };
     } else {
       console.log(`[EnforcementAgent] ❌ Violation DISCARDED. Reason: ${decision.reason}`);
-      return null;
+      return { status: decision.reason || 'REVIEW_REQUIRED', reason: decision.reason, candidate: null };
     }
   }
 }

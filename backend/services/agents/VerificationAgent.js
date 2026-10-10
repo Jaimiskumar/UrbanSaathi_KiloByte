@@ -25,10 +25,28 @@ export class VerificationAgent extends BaseAgent {
   }
 
   async reason(event, context) {
-    // If the event is a new detection of an old issue (e.g. pothole seen again)
-    // we would check if it was marked resolved and re-open.
-    // For POC, we just acknowledge.
-    return { action: 'TRACK_WORKFLOW', trackedCount: context.trackedIssues.size };
+    const workflowResults = event.workflowResults || {};
+    const checks = Object.entries(workflowResults)
+      .filter(([agentName]) => agentName !== 'VerificationAgent')
+      .map(([agentName, result]) => ({
+        agent: agentName,
+        status: result?.status || 'MISSING',
+        passed: result?.status === 'SUCCESS' && result.actionResult !== null && result.actionResult !== undefined,
+        error: result?.error || null
+      }));
+    const failedAgents = checks.filter((check) => !check.passed);
+
+    return {
+      action: 'VERIFY_WORKFLOW',
+      eventId: event.eventId,
+      trackedCount: context.trackedIssues.size,
+      checkedAt: new Date().toISOString(),
+      overallStatus: checks.length > 0 && failedAgents.length === 0 ? 'VERIFIED' : 'FAILED',
+      checks,
+      passedAgents: checks.filter((check) => check.passed).map((check) => check.agent),
+      failedAgents: failedAgents.map((check) => check.agent),
+      failureDetails: failedAgents
+    };
   }
 
   async decide(event, context, reasoning) {
@@ -36,6 +54,19 @@ export class VerificationAgent extends BaseAgent {
   }
 
   async act(decision) {
-    return { status: decision.action, trackedCount: decision.trackedCount };
+    return {
+      status: decision.overallStatus,
+      action: decision.action,
+      eventId: decision.eventId,
+      checkedAt: decision.checkedAt,
+      trackedCount: decision.trackedCount,
+      totalAgents: decision.checks.length,
+      passedCount: decision.passedAgents.length,
+      failedCount: decision.failedAgents.length,
+      passedAgents: decision.passedAgents,
+      failedAgents: decision.failedAgents,
+      checks: decision.checks,
+      failureDetails: decision.failureDetails
+    };
   }
 }

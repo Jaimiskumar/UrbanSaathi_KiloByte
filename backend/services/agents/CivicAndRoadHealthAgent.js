@@ -13,7 +13,7 @@ export class CivicAndRoadHealthAgent extends BaseAgent {
     const road = MockDBService.getRoadByLocation(lat, lng);
     
     // 2. Identify responsible authority
-    const authority = MockDBService.getAuthorityForIssue(event.detection.class.toUpperCase() || 'POTHOLE');
+    const authority = MockDBService.getAuthorityForIssue(event.detection.class || 'POTHOLE');
     
     // 3. Find active contract/contractor (mainly for road health issues like pothole)
     const contractor = MockDBService.getContractorForZone(authority?.department, road?.zone);
@@ -24,7 +24,7 @@ export class CivicAndRoadHealthAgent extends BaseAgent {
   async reason(event, context) {
     const { road, authority, contractor } = context;
     const { class: issueType, severity } = event.detection;
-    const issueUpper = (issueType || 'POTHOLE').toUpperCase();
+    const issueUpper = (issueType || 'POTHOLE').toUpperCase().replace(/[-\s]+/g, '_');
     
     let priority = 'LOW';
     let requiresTrafficDiversion = false;
@@ -39,8 +39,8 @@ export class CivicAndRoadHealthAgent extends BaseAgent {
     else if (issueUpper === 'WATERLOGGING') {
       priority = severity === 'HIGH' ? 'HIGH' : 'MEDIUM';
       if (severity === 'HIGH') requiresTrafficDiversion = true;
-    } else if (issueUpper === 'TREE') {
-      const blocksRoad = event.detection.blocksRoad || false;
+    } else if (['TREE', 'FALLEN_TREE'].includes(issueUpper)) {
+      const blocksRoad = event.detection.blocksRoad || event.detection.roadBlocked || false;
       if (blocksRoad) {
         priority = 'CRITICAL';
         requiresTrafficDiversion = true;
@@ -63,7 +63,10 @@ export class CivicAndRoadHealthAgent extends BaseAgent {
       department: authority ? authority.department : 'BBMP Encroachment & Civic',
       contractorName: contractor ? contractor.name : 'Unknown Contractor',
       contractorId: contractor ? contractor.contractorId : 'UNASSIGNED',
-      slaHours: contractor ? contractor.slaHours : 48,
+      contractorContact: contractor ? contractor.contact : null,
+      contractorPerformanceScore: contractor ? contractor.performanceScore : null,
+      authorityJurisdiction: authority ? authority.jurisdiction : 'Bengaluru Urban',
+      slaHours: contractor?.slaHours || authority?.slaHours || 48,
       requiresTrafficDiversion,
       status: 'OPEN'
     };

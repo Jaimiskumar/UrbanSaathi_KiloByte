@@ -1,7 +1,7 @@
 import Challan from '../models/Challan.js';
 import User from '../models/User.js';
 import VehicleRC from '../models/VehicleRC.js';
-import { io } from '../server.js';
+import { getSocketServer } from './socketServer.js';
 
 /**
  * Generate unique challan number
@@ -254,6 +254,7 @@ export async function createChallanFromViolation(violation, violationModel = 'Tr
     };
 
     // Step 4: Multi-Channel Real-time Broadcast across all Admin and Citizen portals
+    const io = getSocketServer();
     io.emit('challan_issued', broadcastPayload);
     io.emit('new_challan_issued', broadcastPayload);
     io.emit('new-fine', broadcastPayload);

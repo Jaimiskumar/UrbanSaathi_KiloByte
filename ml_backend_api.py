@@ -60,6 +60,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 ACCIDENT_CONFIDENCE_THRESHOLD = float(os.getenv("URBANSAATHI_ACCIDENT_CONFIDENCE", "0.90"))
 URBAN_ISSUE_CONFIDENCE = float(os.getenv("URBANSAATHI_URBAN_ISSUE_CONFIDENCE", "0.45"))
+POTHOLE_CONFIDENCE = float(os.getenv("URBANSAATHI_POTHOLE_CONFIDENCE", "0.20"))
 SPECIALIZED_CONFIDENCE = {
     "vendor_detector": float(os.getenv("URBANSAATHI_VENDOR_CONFIDENCE", "0.40")),
     "plate_detector": float(os.getenv("URBANSAATHI_PLATE_CONFIDENCE", "0.25")),
@@ -486,7 +487,7 @@ def run_pothole_detector(image: np.ndarray) -> List[Dict[str, Any]]:
         return []
     detections = []
     try:
-        results = models.pothole_detector.predict(image, conf=URBAN_ISSUE_CONFIDENCE, imgsz=640, max_det=50, verbose=False)
+        results = models.pothole_detector.predict(image, conf=POTHOLE_CONFIDENCE, imgsz=640, max_det=50, verbose=False)
         for result in results:
             names = result.names or {}
             for box in result.boxes:
@@ -501,6 +502,12 @@ def run_pothole_detector(image: np.ndarray) -> List[Dict[str, Any]]:
                         'x2': round(float(coords[2]), 1),
                         'y2': round(float(coords[3]), 1)
                     },
+                    'segmentation_polygon': generate_segmentation_polygon({
+                        'x1': float(coords[0]),
+                        'y1': float(coords[1]),
+                        'x2': float(coords[2]),
+                        'y2': float(coords[3])
+                    }),
                     'model': models.pothole_detector_name,
                     'type': 'pothole'
                 })
@@ -1599,12 +1606,13 @@ async def process_comprehensive_traffic_video(request: VideoAnalysisRequest):
 
         # Hawkers data
         hawkers_data = {
-            'hawkersDetected': False,
-            'hawkerCount': 0,
+            'hawkersDetected': len(vendor_detections) > 0,
+            'hawkerCount': len(vendor_detections),
+            'detections': vendor_detections,
             'roadBlockagePercentage': None,
             'merchandiseItems': 0,
-            'model': 'vendor_detector_not_configured',
-            'requires_model_confirmation': True
+            'model': models.vendor_detector_name or 'vendor_detector_not_configured',
+            'requires_model_confirmation': models.vendor_detector is None
         }
 
         # Use color and reflectance together because flood water is often gray,

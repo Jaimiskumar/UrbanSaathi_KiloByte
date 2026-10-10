@@ -12,6 +12,8 @@ import { urbanflowService } from '../services/urbanflowService.js';
 import { multiAgentOrchestrator } from '../services/multiAgentOrchestrator.js';
 import { communityCloudService } from '../services/communityCloudService.js';
 
+const getEventBus = async () => (await import('../services/agents/index.js')).eventBus;
+
 const router = express.Router();
 
 /**
@@ -114,6 +116,210 @@ router.get('/agents/status', async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ status: 'error', message: error.message });
+  }
+});
+
+/**
+ * POST /api/urbanflow/echallan-agent/demo
+ * Runs the real enforcement -> EChallanAgent graph with a controlled sample event.
+ */
+router.post('/echallan-agent/demo', async (req, res) => {
+  try {
+    const eventBus = await getEventBus();
+    const payload = req.body || {};
+    const vehicleNumber = payload.vehicleNumber || 'KA01AB1234';
+    const { workflow, event } = await eventBus.publishAndWait({
+      eventType: payload.eventType || 'OVERSPEEDING',
+      location: { lat: 12.9172, lng: 77.6228, name: payload.location || 'Silk Board Junction, Bengaluru' },
+      detection: {
+        speed: Number(payload.speed || 82),
+        speedLimit: Number(payload.speedLimit || 60),
+        licensePlate: vehicleNumber,
+        confidence: 0.98
+      },
+      evidence: { image: payload.evidenceImage || 'demo://echallan-agent/evidence.jpg' },
+      source: { type: 'AGENT_DEMO', model: 'enforcement-echallan-agent' },
+      cameraId: 'AGENT-DEMO-CAM-01'
+    });
+
+    const enforcement = workflow?.results?.EnforcementAgent;
+    const challan = workflow?.results?.EChallanAgent;
+    if (challan?.status === 'ERROR') {
+      return res.status(503).json({
+        success: false,
+        message: challan.error,
+        event,
+        workflow
+      });
+    }
+
+    return res.json({
+      success: Boolean(challan?.actionResult),
+      event,
+      enforcement,
+      challan: challan?.actionResult || null,
+      workflow
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * POST /api/urbanflow/accident-agent/demo
+ * Runs the critical accident/hazard graph and returns emergency dispatch artifacts.
+ */
+router.post('/accident-agent/demo', async (req, res) => {
+  try {
+    const eventBus = await getEventBus();
+    const payload = req.body || {};
+    const { workflow, event } = await eventBus.publishAndWait({
+      eventType: payload.eventType || 'ACCIDENT_DETECTED',
+      location: {
+        lat: Number(payload.latitude || 12.9172),
+        lng: Number(payload.longitude || 77.6228),
+        name: payload.location || 'Silk Board Junction, Bengaluru'
+      },
+      detection: {
+        severity: payload.severity || 'CRITICAL',
+        roadBlocked: payload.roadBlocked !== false,
+        involvesPedestrian: Boolean(payload.involvesPedestrian),
+        confidence: 0.97
+      },
+      evidence: { image: payload.evidenceImage || 'demo://accident-agent/evidence.jpg' },
+      source: { type: 'AGENT_DEMO', model: 'accident-emergency-agent' },
+      cameraId: 'AGENT-DEMO-CAM-02',
+      vehicleId: payload.vehicleId || 'AMB-112',
+      destination: payload.destination || 'City General Hospital'
+    });
+
+    const emergency = workflow?.results?.AccidentEmergencyAgent;
+    const corridor = workflow?.results?.GreenCorridorAgent;
+    const result = {
+      success: emergency?.status === 'SUCCESS',
+      event,
+      emergency: emergency?.actionResult || null,
+      traffic: workflow?.results?.TrafficAgent?.actionResult || null,
+      greenCorridor: corridor?.actionResult || null,
+      workflow
+    };
+
+    if (!result.success) {
+      return res.status(503).json({ ...result, message: emergency?.error || 'Emergency agent did not escalate' });
+    }
+
+    req.app.get('io')?.emit('accident_emergency_escalated', {
+      eventId: event.eventId,
+      dispatchId: result.emergency?.dispatchId,
+      escalationLevel: result.emergency?.escalationLevel,
+      location: event.location,
+      greenCorridor: result.greenCorridor
+    });
+    return res.json(result);
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * POST /api/urbanflow/green-corridor-agent/demo
+ * Runs GreenCorridorAgent through the agent graph for an ambulance V2X route.
+ */
+router.post('/green-corridor-agent/demo', async (req, res) => {
+  try {
+    const eventBus = await getEventBus();
+    const payload = req.body || {};
+    const route = Array.isArray(payload.route) && payload.route.length
+      ? payload.route
+      : ['SIG001', 'SIG002', 'SIG003', 'SIG004'];
+    const { workflow, event } = await eventBus.publishAndWait({
+      eventType: 'EMERGENCY_VEHICLE',
+      vehicleId: payload.vehicleId || 'AMB-112',
+      destination: payload.destination || 'City General Hospital',
+      route,
+      priority: payload.priority || 'CRITICAL',
+      location: payload.location || 'Hosur Road Corridor',
+      source: { type: 'AGENT_DEMO', model: 'green-corridor-agent' }
+    });
+
+    const corridor = workflow?.results?.GreenCorridorAgent;
+    const result = {
+      success: corridor?.status === 'SUCCESS',
+      event,
+      corridor: corridor?.actionResult || null,
+      workflow
+    };
+
+    if (!result.success) {
+      return res.status(503).json({ ...result, message: corridor?.error || 'Green corridor agent did not activate' });
+    }
+
+    const io = req.app.get('io');
+    io?.emit('green_corridor_activated', {
+      vehicleId: result.corridor.vehicle,
+      destination: result.corridor.destination,
+      route: result.corridor.route,
+      corridorId: result.corridor.corridorId,
+      signalsCovered: result.corridor.signalPlan.length,
+      estimatedTimeSavedMinutes: result.corridor.estimatedTimeSavedMinutes,
+      timestamp: result.corridor.activatedAt
+    });
+    io?.emit('v2x_corridor_broadcast', result.corridor.v2xBroadcast);
+    return res.json(result);
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * POST /api/urbanflow/verification-agent/demo
+ * Runs a complete emergency graph and returns VerificationAgent's health verdict.
+ */
+router.post('/verification-agent/demo', async (req, res) => {
+  try {
+    const eventBus = await getEventBus();
+    const payload = req.body || {};
+    const { workflow, event } = await eventBus.publishAndWait({
+      eventType: 'ACCIDENT_DETECTED',
+      vehicleId: payload.vehicleId || 'AMB-112',
+      destination: payload.destination || 'City General Hospital',
+      route: payload.route || ['SIG001', 'SIG002', 'SIG003'],
+      location: { lat: 12.9172, lng: 77.6228, name: payload.location || 'Silk Board Junction, Bengaluru' },
+      detection: {
+        severity: 'CRITICAL',
+        roadBlocked: true,
+        involvesPedestrian: Boolean(payload.involvesPedestrian),
+        confidence: 0.97
+      },
+      evidence: { image: 'demo://verification-agent/evidence.jpg' },
+      source: { type: 'AGENT_DEMO', model: 'verification-agent' },
+      cameraId: 'AGENT-DEMO-CAM-03'
+    });
+
+    const verification = workflow?.results?.VerificationAgent;
+    const result = {
+      success: verification?.status === 'SUCCESS' && verification.actionResult?.status === 'VERIFIED',
+      event,
+      verification: verification?.actionResult || null,
+      workflow
+    };
+
+    if (!result.success) {
+      return res.status(503).json({ ...result, message: verification?.error || 'Agent workflow verification failed' });
+    }
+
+    req.app.get('io')?.emit('agent_verification_complete', {
+      eventId: event.eventId,
+      status: result.verification.status,
+      totalAgents: result.verification.totalAgents,
+      passedCount: result.verification.passedCount,
+      failedCount: result.verification.failedCount,
+      failedAgents: result.verification.failedAgents,
+      timestamp: result.verification.checkedAt
+    });
+    return res.json(result);
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
   }
 });
 

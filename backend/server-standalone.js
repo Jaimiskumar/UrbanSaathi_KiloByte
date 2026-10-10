@@ -12,12 +12,15 @@ import multer from 'multer';
 import urbanflowRoutes from './routes/urbanflow.js';
 import bangaloreRoutes from './routes/bangaloreRoutes.js';
 import { orchestratorAgent, eventBus } from './services/agents/index.js';
+import { processEnforcementDetections, processEncroachmentDetections } from './services/enforcementWorkflowService.js';
+import { setSocketServer } from './services/socketServer.js';
 
 const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: { origin: '*' }
 });
+setSocketServer(io);
 app.set('io', io);
 
 // Configure multer storage for video / evidence uploads
@@ -339,10 +342,13 @@ const generateFallbackDetection = (reqBody = {}) => {
   };
 };
 
-const syncFallbackEvents = async (data, location) => {
+const syncFallbackEvents = async (data, location, imageUrl = '') => {
   const payload = data || {};
   const timestamp = new Date().toISOString();
-  const issueTypes = (payload.urban_issues || []).map((issue) => issue.type || issue.issueType || issue.label);
+  const issueTypes = [
+    ...(payload.potholes || []).map((issue) => issue.type || issue.issueType || issue.label || 'pothole'),
+    ...(payload.urban_issues || []).map((issue) => issue.type || issue.issueType || issue.label)
+  ];
 
   if (issueTypes.some((issue) => /pothole|road blockage|accident|vendor|water|blockage/i.test(issue))) {
     const enrichedEvent = eventBus.publish({
@@ -351,21 +357,35 @@ const syncFallbackEvents = async (data, location) => {
       detection: { class: 'pothole', severity: 'HIGH', confidence: 0.95 },
       timestamp
     });
-    const results = await orchestratorAgent.handleNewEvent(enrichedEvent);
-    
-    // Check if CivicAndRoadHealthAgent processed it
-    const complaintResult = results.find(r => r && r.agent === 'Civic And Road Health Agent');
-    if (complaintResult && complaintResult.actionResult) {
-      const c = complaintResult.actionResult;
+    const workflow = await orchestratorAgent.handleNewEvent(enrichedEvent);
+    const civicResult = workflow?.results?.CivicAndRoadHealthAgent;
+    const c = civicResult?.actionResult?.complaint || civicResult?.actionResult;
+    if (c) {
       
       const newIssue = {
         _id: c.complaintId || `COMP-${Date.now()}`,
-        issueType: c.issue,
+        issueType: /pothole/i.test(c.issue || '') ? 'Pothole' : c.issue,
         locationName: c.roadName || location,
         coordinates: { lat: 12.9172, lng: 77.6227 },
         priority: c.priority,
+        riskScore: c.priority === 'CRITICAL' ? 95 : c.priority === 'HIGH' ? 75 : 40,
         status: 'Assigned',
-        source: 'agent',
+        source: 'camera_ml',
+        imageUrl,
+        aiRecommendation: `Responsible authority: ${c.department}. SLA: ${c.slaHours || 48} hours.`,
+        agentWorkflow: {
+          selectedAgents: ['CivicAndRoadHealthAgent'],
+          status: 'WORK_ORDER_CREATED',
+          authorityStatus: 'WORK_ORDER_CREATED',
+          authorityId: c.authorityId,
+          department: c.department,
+          authorityJurisdiction: c.authorityJurisdiction,
+          contractorName: c.contractorName,
+          contractorId: c.contractorId,
+          contractorContact: c.contractorContact,
+          contractorPerformanceScore: c.contractorPerformanceScore,
+          slaHours: c.slaHours
+        },
         timestamp: timestamp
       };
       roadIssueStore.unshift(newIssue);
@@ -680,8 +700,32 @@ app.post('/api/ml-detection/process-frame', async (req, res) => {
     mlDetectionStore.unshift(issueRecord);
     if (mlDetectionStore.length > 20) mlDetectionStore.pop();
 
-    await syncFallbackEvents(result, issueRecord.location);
-    return res.json({ success: true, data: { ...result, generated_fines: generatedFines }, message: 'Synchronized multi-model analysis complete.' });
+    const uploadedImageUrl = frameUrl || (frameBase64 ? `data:image/jpeg;base64,${frameBase64}` : '');
+    await syncFallbackEvents(result, issueRecord.location, uploadedImageUrl);
+    const enforcementWorkflows = await processEnforcementDetections(result, {
+      imageUrl: uploadedImageUrl,
+      location: issueRecord.location,
+      latitude: 12.9172,
+      longitude: 77.6227,
+      speedLimit,
+      signalStatus
+    });
+    const encroachmentWorkflows = await processEncroachmentDetections(result, {
+      imageUrl: uploadedImageUrl,
+      location: issueRecord.location,
+      latitude: 12.9172,
+      longitude: 77.6227,
+      speedLimit,
+      signalStatus
+    });
+    return res.json({
+      success: true,
+      data: { ...result, generated_fines: generatedFines },
+      enforcementWorkflows,
+      encroachmentWorkflows,
+      agentWorkflows: [...enforcementWorkflows, ...encroachmentWorkflows],
+      message: 'Synchronized multi-model analysis complete.'
+    });
   } catch (error) {
     console.error('ML detection route failed:', error);
     const fallback = generateFallbackDetection(req.body || {});
@@ -943,8 +987,19 @@ function initializeData() {
       status: 'Verification',
       priority: 'HIGH',
       riskScore: 72,
-      aiRecommendation: 'Prioritize field inspection and create a maintenance complaint.',
+      aiRecommendation: 'Responsible authority: BBMP Road Maintenance. SLA: 36 hours.',
       source: 'demo_road_intelligence',
+      agentWorkflow: {
+        selectedAgents: ['CivicAndRoadHealthAgent'],
+        status: 'WORK_ORDER_CREATED',
+        authorityStatus: 'WORK_ORDER_CREATED',
+        authorityId: 'AUTH_BBMP_ROAD',
+        department: 'BBMP Road Maintenance',
+        authorityJurisdiction: 'South Bengaluru / Ward 174 (HSR Layout)',
+        contractorName: 'V.L. Muniraju & Infra Projects Ltd.',
+        contractorId: 'CTR-3188',
+        slaHours: 36
+      },
       reportedAt: new Date().toISOString(),
       roadIntelligence: {
         roadIdentified: true,

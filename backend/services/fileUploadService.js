@@ -11,6 +11,7 @@ import HelmetViolation from '../models/HelmetViolation.js';
 import MLDetectionLog from '../models/MLDetectionLog.js';
 import { createChallanFromViolation } from './challanGenerationService.js';
 import { processAgentDetections } from './agentWorkflowService.js';
+import { processEnforcementDetections, processEncroachmentDetections } from './enforcementWorkflowService.js';
 import { io } from '../server.js';
 
 const execFileAsync = promisify(execFile);
@@ -84,6 +85,16 @@ export async function processUploadedFile(filePath, fileType = 'image', cameraId
         source: 'file_upload'
       }, userId)
       : [];
+    const enforcementWorkflows = await processEnforcementDetections(detectionResult, {
+      ...frameData,
+      imageUrl: evidenceUrl,
+      source: 'file_upload'
+    });
+    const encroachmentWorkflows = await processEncroachmentDetections(detectionResult, {
+      ...frameData,
+      imageUrl: evidenceUrl,
+      source: 'file_upload'
+    });
 
     // Create violation records for detected issues
     const violations = [];
@@ -254,13 +265,19 @@ export async function processUploadedFile(filePath, fileType = 'image', cameraId
         fineAmount: v.fineAmount || 500
       })),
       detectionLogId: detectionLog?._id || null
-      ,agentWorkflows: agentWorkflows.map(({ issue, workflow }) => ({
+      ,agentWorkflows: [
+        ...agentWorkflows.map(({ issue, workflow }) => ({
         issueId: issue._id,
         issueType: issue.issueType,
         status: issue.status,
         agentWorkflow: issue.agentWorkflow,
         workflow
-      }))
+        })),
+        ...enforcementWorkflows,
+        ...encroachmentWorkflows
+      ]
+      ,enforcementWorkflows
+      ,encroachmentWorkflows
     };
 
   } catch (error) {

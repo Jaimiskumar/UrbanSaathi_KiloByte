@@ -97,6 +97,14 @@ export default function AIAgentCenter() {
   const [operatorApprovalStatus, setOperatorApprovalStatus] = useState(null); // null | 'approved' | 'rejected'
   const [executionResult, setExecutionResult] = useState(null);
   const [isExecuting, setIsExecuting] = useState(false);
+  const [echallanDemo, setEchallanDemo] = useState(null);
+  const [isEchallanDemoRunning, setIsEchallanDemoRunning] = useState(false);
+  const [accidentDemo, setAccidentDemo] = useState(null);
+  const [isAccidentDemoRunning, setIsAccidentDemoRunning] = useState(false);
+  const [corridorDemo, setCorridorDemo] = useState(null);
+  const [isCorridorDemoRunning, setIsCorridorDemoRunning] = useState(false);
+  const [verificationDemo, setVerificationDemo] = useState(null);
+  const [isVerificationDemoRunning, setIsVerificationDemoRunning] = useState(false);
   const [showSharedContextInspector, setShowSharedContextInspector] = useState(false);
 
   // Socket.IO Live Event Stream
@@ -219,6 +227,21 @@ export default function AIAgentCenter() {
 
     socket.on('incident_resolved', (data) => {
       logSocketEvent('incident_resolved', data, 'success');
+    });
+
+    socket.on('accident_emergency_escalated', (data) => {
+      setCurrentActiveAgent('Emergency Response Dispatched');
+      logSocketEvent('accident_emergency_escalated', data, 'warning');
+    });
+
+    socket.on('v2x_corridor_broadcast', (data) => {
+      setCurrentActiveAgent('V2X Green Corridor Active');
+      logSocketEvent('v2x_corridor_broadcast', data, 'success');
+    });
+
+    socket.on('agent_verification_complete', (data) => {
+      setCurrentActiveAgent(data.status === 'VERIFIED' ? 'All Agents Verified' : 'Agent Verification Failed');
+      logSocketEvent('agent_verification_complete', data, data.status === 'VERIFIED' ? 'success' : 'warning');
     });
 
     // Legacy event listeners for complete compatibility
@@ -389,6 +412,102 @@ export default function AIAgentCenter() {
       toast.error('Operator Rejected AI Recommendation. No execution applied.', { duration: 4000 });
     } catch (e) {
       setOperatorApprovalStatus('rejected');
+    }
+  };
+
+  const runEchallanAgentDemo = async () => {
+    setIsEchallanDemoRunning(true);
+    setEchallanDemo(null);
+    try {
+      const response = await axios.post('/api/urbanflow/echallan-agent/demo', {
+        vehicleNumber: 'KA01AB1234',
+        speed: 82,
+        speedLimit: 60
+      });
+      setEchallanDemo(response.data);
+      if (response.data.success) {
+        toast.success(`E-Challan ${response.data.challan.challanNumber} persisted and broadcast`);
+      } else {
+        toast.error(response.data.message || 'E-Challan agent needs review');
+      }
+    } catch (error) {
+      setEchallanDemo({ success: false, message: error.response?.data?.message || error.message });
+      toast.error(error.response?.data?.message || 'E-Challan agent demo failed');
+    } finally {
+      setIsEchallanDemoRunning(false);
+    }
+  };
+
+  const runAccidentAgentDemo = async () => {
+    setIsAccidentDemoRunning(true);
+    setAccidentDemo(null);
+    try {
+      const response = await axios.post('/api/urbanflow/accident-agent/demo', {
+        eventType: 'ACCIDENT_DETECTED',
+        severity: 'CRITICAL',
+        roadBlocked: true,
+        involvesPedestrian: true,
+        vehicleId: 'AMB-112',
+        destination: 'City General Hospital'
+      });
+      setAccidentDemo(response.data);
+      if (response.data.success) {
+        toast.success(`Emergency ${response.data.emergency.dispatchId} escalated to ambulance and police`);
+      } else {
+        toast.error(response.data.message || 'Emergency agent needs review');
+      }
+    } catch (error) {
+      setAccidentDemo({ success: false, message: error.response?.data?.message || error.message });
+      toast.error(error.response?.data?.message || 'Accident agent demo failed');
+    } finally {
+      setIsAccidentDemoRunning(false);
+    }
+  };
+
+  const runGreenCorridorAgentDemo = async () => {
+    setIsCorridorDemoRunning(true);
+    setCorridorDemo(null);
+    try {
+      const response = await axios.post('/api/urbanflow/green-corridor-agent/demo', {
+        vehicleId: 'AMB-112',
+        destination: 'City General Hospital',
+        route: ['SIG001', 'SIG002', 'SIG003', 'SIG004'],
+        priority: 'CRITICAL'
+      });
+      setCorridorDemo(response.data);
+      if (response.data.success) {
+        toast.success(`${response.data.corridor.corridorId} active across ${response.data.corridor.signalPlan.length} signals`);
+      } else {
+        toast.error(response.data.message || 'Green corridor agent needs review');
+      }
+    } catch (error) {
+      setCorridorDemo({ success: false, message: error.response?.data?.message || error.message });
+      toast.error(error.response?.data?.message || 'Green corridor demo failed');
+    } finally {
+      setIsCorridorDemoRunning(false);
+    }
+  };
+
+  const runVerificationAgentDemo = async () => {
+    setIsVerificationDemoRunning(true);
+    setVerificationDemo(null);
+    try {
+      const response = await axios.post('/api/urbanflow/verification-agent/demo', {
+        vehicleId: 'AMB-112',
+        destination: 'City General Hospital',
+        involvesPedestrian: true
+      });
+      setVerificationDemo(response.data);
+      if (response.data.success) {
+        toast.success(`Verification passed: ${response.data.verification.passedCount}/${response.data.verification.totalAgents} agents healthy`);
+      } else {
+        toast.error(response.data.message || 'Agent verification failed');
+      }
+    } catch (error) {
+      setVerificationDemo({ success: false, message: error.response?.data?.message || error.message });
+      toast.error(error.response?.data?.message || 'Verification agent demo failed');
+    } finally {
+      setIsVerificationDemoRunning(false);
     }
   };
 
@@ -587,6 +706,146 @@ export default function AIAgentCenter() {
             <span className="font-black uppercase tracking-wider text-amber-800">SAFETY & OPERATOR INTEGRITY MANDATE: </span>
             AI decision is simulated against the digital twin and MUST NEVER directly modify real traffic infrastructure without explicit Operator Approval. For V2X Emergency, the UrbanSathi execution layer (<code className="bg-amber-100 text-amber-900 px-1 py-0.5 rounded font-mono">greenCorridorService.js</code>) is invoked in the prototype.
           </div>
+        </div>
+
+        <div className="bg-white rounded-3xl p-6 shadow-sm border border-cyan-200">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div>
+              <p className="text-[10px] uppercase tracking-widest font-black text-cyan-700">Legal Enforcement Workflow</p>
+              <h3 className="text-lg font-black text-slate-900 mt-1">EChallanAgent: validation to citizen ticket</h3>
+              <p className="text-xs text-slate-500 mt-1">Runs EnforcementAgent, legal fine mapping, owner lookup, database upsert, and Socket.IO dispatch.</p>
+            </div>
+            <button
+              onClick={runEchallanAgentDemo}
+              disabled={isEchallanDemoRunning}
+              className="shrink-0 inline-flex items-center justify-center gap-2 bg-cyan-700 hover:bg-cyan-800 text-white px-4 py-3 rounded-xl text-xs font-black uppercase tracking-wider disabled:opacity-50"
+            >
+              {isEchallanDemoRunning ? <RotateCw className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
+              Run E-Challan Agent
+            </button>
+          </div>
+          {echallanDemo && (
+            <div className={`mt-4 rounded-2xl p-4 border ${echallanDemo.success ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-200'}`}>
+              {echallanDemo.success ? (
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-xs">
+                  <div><p className="text-slate-500">Ticket</p><p className="font-black text-emerald-800">{echallanDemo.challan.challanNumber}</p></div>
+                  <div><p className="text-slate-500">Vehicle</p><p className="font-black text-slate-900">{echallanDemo.challan.vehicleNumber}</p></div>
+                  <div><p className="text-slate-500">Owner</p><p className="font-black text-slate-900">{echallanDemo.challan.ownerName}</p></div>
+                  <div><p className="text-slate-500">Fine</p><p className="font-black text-slate-900">₹{echallanDemo.challan.fineAmount}</p></div>
+                  <div><p className="text-slate-500">Legal section</p><p className="font-black text-slate-900">{echallanDemo.challan.legalSection}</p></div>
+                </div>
+              ) : (
+                <p className="text-xs font-bold text-rose-800">Persistence unavailable: {echallanDemo.message}</p>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="bg-white rounded-3xl p-6 shadow-sm border border-rose-200">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div>
+              <p className="text-[10px] uppercase tracking-widest font-black text-rose-700">Critical Incident Workflow</p>
+              <h3 className="text-lg font-black text-slate-900 mt-1">AccidentEmergencyAgent: detect, dispatch, divert</h3>
+              <p className="text-xs text-slate-500 mt-1">Escalates ambulance and police response, asks TrafficAgent for diversion, and starts a green corridor for the emergency vehicle.</p>
+            </div>
+            <button
+              onClick={runAccidentAgentDemo}
+              disabled={isAccidentDemoRunning}
+              className="shrink-0 inline-flex items-center justify-center gap-2 bg-rose-700 hover:bg-rose-800 text-white px-4 py-3 rounded-xl text-xs font-black uppercase tracking-wider disabled:opacity-50"
+            >
+              {isAccidentDemoRunning ? <RotateCw className="w-4 h-4 animate-spin" /> : <Siren className="w-4 h-4" />}
+              Run Emergency Agent
+            </button>
+          </div>
+          {accidentDemo && (
+            <div className={`mt-4 rounded-2xl p-4 border ${accidentDemo.success ? 'bg-rose-50 border-rose-200' : 'bg-amber-50 border-amber-200'}`}>
+              {accidentDemo.success ? (
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-xs">
+                  <div><p className="text-slate-500">Dispatch</p><p className="font-black text-rose-800">{accidentDemo.emergency.dispatchId}</p></div>
+                  <div><p className="text-slate-500">Priority</p><p className="font-black text-rose-800">{accidentDemo.emergency.escalationLevel}</p></div>
+                  <div><p className="text-slate-500">Response</p><p className="font-black text-slate-900">112 + Police</p></div>
+                  <div><p className="text-slate-500">Diversion</p><p className="font-black text-slate-900">{accidentDemo.emergency.needsTrafficDiversion ? 'Required' : 'Not required'}</p></div>
+                  <div><p className="text-slate-500">Corridor</p><p className="font-black text-slate-900">{accidentDemo.greenCorridor ? 'Established' : 'Pending'}</p></div>
+                </div>
+              ) : (
+                <p className="text-xs font-bold text-amber-800">Emergency workflow unavailable: {accidentDemo.message}</p>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="bg-white rounded-3xl p-6 shadow-sm border border-emerald-200">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div>
+              <p className="text-[10px] uppercase tracking-widest font-black text-emerald-700">V2X Priority Routing</p>
+              <h3 className="text-lg font-black text-slate-900 mt-1">GreenCorridorAgent: ambulance signal preemption</h3>
+              <p className="text-xs text-slate-500 mt-1">Builds a signal-by-signal priority path, publishes V2X messages, and activates the emergency corridor state.</p>
+            </div>
+            <button
+              onClick={runGreenCorridorAgentDemo}
+              disabled={isCorridorDemoRunning}
+              className="shrink-0 inline-flex items-center justify-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-3 rounded-xl text-xs font-black uppercase tracking-wider disabled:opacity-50"
+            >
+              {isCorridorDemoRunning ? <RotateCw className="w-4 h-4 animate-spin" /> : <Route className="w-4 h-4" />}
+              Run Green Corridor Agent
+            </button>
+          </div>
+          {corridorDemo && (
+            <div className={`mt-4 rounded-2xl p-4 border ${corridorDemo.success ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200'}`}>
+              {corridorDemo.success ? (
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-xs">
+                  <div><p className="text-slate-500">Corridor</p><p className="font-black text-emerald-800">{corridorDemo.corridor.corridorId}</p></div>
+                  <div><p className="text-slate-500">Vehicle</p><p className="font-black text-slate-900">{corridorDemo.corridor.vehicle}</p></div>
+                  <div><p className="text-slate-500">Signals</p><p className="font-black text-slate-900">{corridorDemo.corridor.signalPlan.length} preempted</p></div>
+                  <div><p className="text-slate-500">Time saved</p><p className="font-black text-slate-900">{corridorDemo.corridor.estimatedTimeSavedMinutes} min</p></div>
+                  <div><p className="text-slate-500">V2X status</p><p className="font-black text-emerald-800">{corridorDemo.corridor.status}</p></div>
+                </div>
+              ) : (
+                <p className="text-xs font-bold text-amber-800">Corridor workflow unavailable: {corridorDemo.message}</p>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="bg-white rounded-3xl p-6 shadow-sm border border-indigo-200">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div>
+              <p className="text-[10px] uppercase tracking-widest font-black text-indigo-700">Workflow Integrity</p>
+              <h3 className="text-lg font-black text-slate-900 mt-1">VerificationAgent: verify the complete agent chain</h3>
+              <p className="text-xs text-slate-500 mt-1">Runs a critical emergency workflow, checks every downstream agent result, and reports exactly which agents passed or failed.</p>
+            </div>
+            <button
+              onClick={runVerificationAgentDemo}
+              disabled={isVerificationDemoRunning}
+              className="shrink-0 inline-flex items-center justify-center gap-2 bg-indigo-700 hover:bg-indigo-800 text-white px-4 py-3 rounded-xl text-xs font-black uppercase tracking-wider disabled:opacity-50"
+            >
+              {isVerificationDemoRunning ? <RotateCw className="w-4 h-4 animate-spin" /> : <CheckCheck className="w-4 h-4" />}
+              Verify Agent Chain
+            </button>
+          </div>
+          {verificationDemo && (
+            <div className={`mt-4 rounded-2xl p-4 border ${verificationDemo.success ? 'bg-indigo-50 border-indigo-200' : 'bg-rose-50 border-rose-200'}`}>
+              {verificationDemo.success ? (
+                <div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                    <div><p className="text-slate-500">Overall</p><p className="font-black text-indigo-800">{verificationDemo.verification.status}</p></div>
+                    <div><p className="text-slate-500">Checked</p><p className="font-black text-slate-900">{verificationDemo.verification.totalAgents} agents</p></div>
+                    <div><p className="text-slate-500">Passed</p><p className="font-black text-emerald-700">{verificationDemo.verification.passedCount}</p></div>
+                    <div><p className="text-slate-500">Failed</p><p className="font-black text-rose-700">{verificationDemo.verification.failedCount}</p></div>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {verificationDemo.verification.checks.map((check) => (
+                      <span key={check.agent} className={`px-2.5 py-1 rounded-full text-[10px] font-black ${check.passed ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
+                        {check.passed ? 'PASS' : 'FAIL'} · {check.agent}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs font-bold text-rose-800">Verification failed: {verificationDemo.message}</p>
+              )}
+            </div>
+          )}
         </div>
 
         {/* ── 3. FOUR SCENARIO SELECTORS ── */}

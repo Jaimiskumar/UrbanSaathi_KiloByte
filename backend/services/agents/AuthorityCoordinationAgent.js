@@ -7,18 +7,16 @@ export class AuthorityCoordinationAgent extends BaseAgent {
 
   async retrieveContext(event) {
     return {
-      ticketDetails: event.complaint || event.actionResult || {}
+      ticketDetails: event.complaints || (event.complaint ? [event.complaint] : [event.actionResult || {}])
     };
   }
 
   async reason(event, context) {
-    const { ticketDetails } = context;
-    // Ensure all required fields for an official ticket are present
-    const isComplete = ticketDetails.authorityId && ticketDetails.issue;
+    const tickets = context.ticketDetails.filter((ticket) => ticket?.authorityId && ticket?.issue);
     
     return {
-      isValidTicket: isComplete,
-      ticket: ticketDetails
+      isValidTicket: tickets.length > 0,
+      tickets
     };
   }
 
@@ -26,7 +24,7 @@ export class AuthorityCoordinationAgent extends BaseAgent {
     if (reasoning.isValidTicket) {
       return {
         action: 'DISPATCH_OFFICIAL_TICKET',
-        ticket: reasoning.ticket
+        tickets: reasoning.tickets
       };
     }
     return { action: 'IGNORE' };
@@ -34,8 +32,28 @@ export class AuthorityCoordinationAgent extends BaseAgent {
 
   async act(decision) {
     if (decision.action === 'DISPATCH_OFFICIAL_TICKET') {
-      console.log(`[AuthorityCoordination] 🏛️ Ticket dispatched to official government API for ${decision.ticket.department}.`);
-      return { status: 'DISPATCHED', ...decision.ticket };
+      const dispatches = decision.tickets.map((ticket) => ({
+        ticketId: ticket.complaintId || `AUTH-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        issue: ticket.issue,
+        authorityId: ticket.authorityId,
+        department: ticket.department,
+        priority: ticket.priority || 'MEDIUM',
+        slaHours: ticket.slaHours || 48,
+        status: 'DISPATCHED',
+        dispatchedAt: new Date().toISOString()
+      }));
+      dispatches.forEach((dispatch) => {
+        console.log(`[AuthorityCoordination] Ticket ${dispatch.ticketId} dispatched to ${dispatch.department}.`);
+      });
+      return {
+        status: 'DISPATCHED',
+        dispatches,
+        ticketId: dispatches[0]?.ticketId,
+        complaintId: dispatches[0]?.ticketId,
+        authorityId: dispatches[0]?.authorityId,
+        department: dispatches[0]?.department,
+        priority: dispatches[0]?.priority
+      };
     }
     return null;
   }

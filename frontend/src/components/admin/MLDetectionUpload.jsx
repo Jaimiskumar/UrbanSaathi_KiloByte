@@ -334,7 +334,18 @@ const MLDetectionUpload = () => {
         if (!b) return;
         ctx.strokeStyle = '#F97316';
         ctx.lineWidth = 4;
-        ctx.strokeRect(b.x1, b.y1, b.x2 - b.x1, b.y2 - b.y1);
+        const polygon = pothole.segmentation_polygon;
+        if (polygon?.length > 2) {
+          ctx.beginPath();
+          ctx.moveTo(polygon[0][0], polygon[0][1]);
+          polygon.slice(1).forEach(([x, y]) => ctx.lineTo(x, y));
+          ctx.closePath();
+          ctx.fillStyle = 'rgba(249, 115, 22, 0.28)';
+          ctx.fill();
+          ctx.stroke();
+        } else {
+          ctx.strokeRect(b.x1, b.y1, b.x2 - b.x1, b.y2 - b.y1);
+        }
         ctx.fillStyle = '#F97316';
         ctx.fillRect(b.x1, Math.max(0, b.y1 - 24), 190, 24);
         ctx.fillStyle = '#FFFFFF';
@@ -514,6 +525,7 @@ const MLDetectionUpload = () => {
       agent: 'CivicAndRoadHealthAgent'
     }] : []),
     ...(result.potholes || []).map((item) => ({ label: item.label || 'Pothole', detail: 'Road damage', confidence: item.confidence, color: 'orange', agent: 'CivicAndRoadHealthAgent' })),
+    ...(result.vendors || []).map((item) => ({ label: item.label || item.type || 'Street vendor', detail: 'Vendor / hawker detection', confidence: item.confidence, color: 'purple', agent: 'Model detection' })),
     ...(result.urban_issues || []).filter((item) => !/pothole/i.test(item.label || item.class_name || item.type || '')).map((item) => ({ label: item.label || item.class_name || item.type || 'Urban issue', detail: 'Civic issue', confidence: item.confidence, color: 'amber', agent: 'CivicAndRoadHealthAgent' })),
     ...(result.plate_detections || result.plates || []).map((item) => ({ label: item.plate_text || item.plateNumber || 'Plate detected', detail: 'Number plate OCR', confidence: item.confidence, color: 'cyan' })),
     ...(result.helmets || result.helmet_detections || []).map((item) => ({
@@ -521,15 +533,15 @@ const MLDetectionUpload = () => {
       detail: item.helmetType || 'Helmet detection',
       confidence: item.confidence,
       color: item.helmetDetected === false ? 'red' : 'yellow',
-      agent: 'EnforcementAgent'
+      agent: 'Model detection'
     })),
-    ...(result.speeds || []).filter((item) => Number.isFinite(item.speed)).map((item) => ({ label: item.isSpeeding ? 'Speeding' : 'Speed detected', detail: `${item.speed} km/h`, confidence: item.confidence, color: item.isSpeeding ? 'red' : 'blue', agent: item.isSpeeding ? 'EnforcementAgent' : 'TrafficAgent' })),
+    ...(result.speeds || []).filter((item) => Number.isFinite(item.speed)).map((item) => ({ label: item.isSpeeding ? 'Speeding' : 'Speed detected', detail: `${item.speed} km/h`, confidence: item.confidence, color: item.isSpeeding ? 'red' : 'blue', agent: 'Model detection' })),
     ...(result.speed_tracking_detections || []).filter((item) => Number.isFinite(item.speed_kmh)).map((item) => ({ label: 'Speed detected', detail: `${item.speed_kmh} km/h`, confidence: item.confidence, color: 'blue', agent: 'TrafficAgent' })),
     ...(result.crowd_detections || []).map((item) => ({ label: item.label || 'Crowd / person', detail: 'Crowd detection', confidence: item.confidence, color: 'pink' })),
-    ...(result.violations_summary?.violations || []).map((item) => ({ label: item.title || item.type || 'Traffic violation', detail: item.vehicle_number || 'Violation', confidence: 1, color: 'red', agent: 'EnforcementAgent' }))
+    ...(result.violations_summary?.violations || []).map((item) => ({ label: item.title || item.type || 'Traffic violation', detail: item.vehicle_number || 'Violation', confidence: 1, color: 'red', agent: 'Model detection' }))
   ] : [];
   const detectionColorClasses = {
-    red: 'bg-red-400', orange: 'bg-orange-400', amber: 'bg-amber-400', cyan: 'bg-cyan-400',
+    red: 'bg-red-400', orange: 'bg-orange-400', amber: 'bg-amber-400', cyan: 'bg-cyan-400', purple: 'bg-purple-400',
     yellow: 'bg-yellow-400', blue: 'bg-blue-400', pink: 'bg-pink-400'
   };
 
@@ -896,9 +908,47 @@ const MLDetectionUpload = () => {
                   <Bot className="w-3.5 h-3.5" /> Agent assignment complete
                 </p>
                 {agentWorkflows.map((workflow) => (
-                  <div key={String(workflow.issueId)} className="text-[11px] text-slate-200">
-                    <p className="font-bold">{workflow.issueType}: {workflow.agentWorkflow?.selectedAgents?.join(', ') || 'CivicAndRoadHealthAgent'}</p>
-                    <p className="text-slate-400 flex items-center gap-1 mt-1"><Building2 className="w-3 h-3" /> {workflow.agentWorkflow?.department || 'Authority assignment pending'} · {workflow.agentWorkflow?.authorityStatus || 'PENDING'}</p>
+                  <div key={String(workflow.eventId || workflow.issueId)} className="text-[11px] text-slate-200">
+                    {workflow.agent === 'EncroachmentAgent' ? (
+                      <>
+                        <p className="font-bold">EncroachmentAgent: {workflow.eventType}</p>
+                        <p className={`mt-1 font-black ${workflow.status === 'VALIDATED' ? 'text-emerald-300' : 'text-amber-300'}`}>
+                          {workflow.status}{workflow.reason ? ` · ${workflow.reason}` : ''}
+                        </p>
+                        {workflow.violation && (
+                          <p className="text-slate-400 mt-1">{workflow.violation.type} · {workflow.authority || 'Civic enforcement review'}</p>
+                        )}
+                        {workflow.challan && (
+                          <p className="text-cyan-300 font-mono text-[10px] mt-1">Violation notice: {workflow.challan.challanNumber || workflow.challan.challanId} · ₹{workflow.challan.fineAmount}</p>
+                        )}
+                      </>
+                    ) : workflow.agent === 'EnforcementAgent' ? (
+                      <>
+                        <p className="font-bold">EnforcementAgent: {workflow.eventType}</p>
+                        <p className={`mt-1 font-black ${workflow.status === 'VALIDATED' ? 'text-emerald-300' : 'text-amber-300'}`}>
+                          {workflow.status}{workflow.reason ? ` · ${workflow.reason}` : ''}
+                        </p>
+                        {workflow.candidate && (
+                          <p className="text-slate-400 mt-1">{workflow.candidate.vehicleNumber} · {workflow.candidate.type}</p>
+                        )}
+                        {workflow.challan && (
+                          <p className="text-cyan-300 font-mono text-[10px] mt-1">E-Challan: {workflow.challan.challanNumber || workflow.challan.challanId} · ₹{workflow.challan.fineAmount}</p>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <p className="font-bold">{workflow.issueType}: {workflow.agentWorkflow?.selectedAgents?.join(', ') || 'CivicAndRoadHealthAgent'}</p>
+                        <p className="text-slate-400 flex items-center gap-1 mt-1"><Building2 className="w-3 h-3" /> {workflow.agentWorkflow?.department || 'Authority assignment pending'} · {workflow.agentWorkflow?.authorityStatus || 'PENDING'}</p>
+                        {workflow.agentWorkflow?.authorityTicketId && (
+                          <p className="text-cyan-300 font-mono text-[10px] mt-1">Ticket: {workflow.agentWorkflow.authorityTicketId}</p>
+                        )}
+                        {workflow.agentWorkflow?.dispatches?.map((dispatch) => (
+                          <p key={dispatch.ticketId} className="text-slate-400 text-[10px] mt-1">
+                            {dispatch.department}: {dispatch.status} · {dispatch.ticketId}
+                          </p>
+                        ))}
+                      </>
+                    )}
                   </div>
                 ))}
               </div>

@@ -134,10 +134,11 @@ function resolveRoadIntelligence(issue) {
   );
 
   if (matched) {
+    const useVerifiedDirectory = issue.source === 'demo_road_intelligence';
     return {
-      kgisRoad: existing?.kgisRoad?.id ? existing.kgisRoad : matched.kgisRoad,
-      verifiedRoadHistory: existing?.verifiedRoadHistory?.bbmpSegmentId ? existing.verifiedRoadHistory : matched.verifiedRoadHistory,
-      aiPrediction: existing?.aiPrediction?.predictedContractor ? existing.aiPrediction : matched.aiPrediction,
+      kgisRoad: !useVerifiedDirectory && existing?.kgisRoad?.id ? existing.kgisRoad : matched.kgisRoad,
+      verifiedRoadHistory: !useVerifiedDirectory && existing?.verifiedRoadHistory?.bbmpSegmentId ? existing.verifiedRoadHistory : matched.verifiedRoadHistory,
+      aiPrediction: !useVerifiedDirectory && existing?.aiPrediction?.predictedContractor ? existing.aiPrediction : matched.aiPrediction,
       recommendation: issue.aiRecommendation || matched.recommendation
     };
   }
@@ -384,7 +385,7 @@ export default function RoadIntelligence() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-[180px_1fr] gap-4 mt-5">
+                <div className={`grid grid-cols-1 ${issue.imageUrl ? 'lg:grid-cols-[180px_1fr]' : 'lg:grid-cols-1'} gap-4 mt-5`}>
                   {issue.imageUrl && (
                     <img
                       src={issue.imageUrl.startsWith('data:') || issue.imageUrl.startsWith('/') ? issue.imageUrl : `/${issue.imageUrl.replace(/^\\+/, '')}`}
@@ -409,12 +410,31 @@ export default function RoadIntelligence() {
                       <div>
                         <p className="text-slate-500 font-semibold flex items-center gap-1"><Building2 className="w-3 h-3" /> Authority</p>
                         <p className="text-slate-900 font-bold mt-0.5">{issue.agentWorkflow?.department || 'Pending assignment'}</p>
+                        {issue.agentWorkflow?.authorityJurisdiction && (
+                          <p className="text-[10px] text-slate-500 mt-0.5">{issue.agentWorkflow.authorityJurisdiction}</p>
+                        )}
                       </div>
                       <div>
                         <p className="text-slate-500 font-semibold flex items-center gap-1"><Clock className="w-3 h-3" /> Dispatch</p>
                         <p className="text-slate-900 font-bold mt-0.5">{issue.agentWorkflow?.authorityStatus || 'PENDING'}</p>
                       </div>
                     </div>
+                    {issue.agentWorkflow?.authorityTicketId && (
+                      <p className="text-[10px] font-mono text-cyan-700 mt-3">Authority ticket: {issue.agentWorkflow.authorityTicketId}</p>
+                    )}
+                    {issue.agentWorkflow?.contractorName && issue.agentWorkflow.contractorName !== 'Unknown Contractor' && (
+                      <p className="text-[10px] font-semibold text-emerald-700 mt-2">Assigned contractor: {issue.agentWorkflow.contractorName} · {issue.agentWorkflow.contractorId}</p>
+                    )}
+                    {issue.agentWorkflow?.dispatches?.length > 0 && (
+                      <div className="mt-3 space-y-1 border-t border-cyan-100 pt-3">
+                        {issue.agentWorkflow.dispatches.map((dispatch) => (
+                          <div key={dispatch.ticketId} className="flex flex-wrap items-center justify-between gap-2 text-[10px]">
+                            <span className="font-semibold text-slate-700">{dispatch.department}</span>
+                            <span className="font-mono text-cyan-700">{dispatch.ticketId} · {dispatch.status}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     {issue.agentWorkflow?.eventId && (
                       <p className="text-[10px] font-mono text-slate-500 mt-3">Event: {issue.agentWorkflow.eventId} · Confidence: {issue.agentWorkflow.mlConfidence == null ? 'n/a' : `${Math.round(issue.agentWorkflow.mlConfidence * 100)}%`}</p>
                     )}
