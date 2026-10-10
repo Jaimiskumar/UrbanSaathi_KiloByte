@@ -408,8 +408,8 @@ const MLDetectionUpload = () => {
         const data = res.data?.data || res.data;
         setResult(data);
 
-        if (data.processed_video_url) {
-          setVideoResultUrl(data.processed_video_url);
+        if (data.processed_video_url || data.processed_video_b64) {
+          setVideoResultUrl(data.processed_video_url || data.processed_video_b64);
         }
 
         const challansCount = data.echallans_generated?.total_challans_count || 0;

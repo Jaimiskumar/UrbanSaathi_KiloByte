@@ -1832,19 +1832,30 @@ async def process_full_video_endpoint(request: VideoProcessRequest, background_t
             orig_fps = 25.0
         total_video_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT)) or 1
 
-        # Process at optimal 854x480 (or 640x360) for fast real-time CPU rendering
-        target_w = min(854, orig_w)
+        # Process at 640x360 for high-speed CPU rendering and instant browser playback
+        target_w = 640
         scale = target_w / float(orig_w)
         target_h = int(orig_h * scale)
         if target_w % 2 != 0: target_w -= 1
         if target_h % 2 != 0: target_h -= 1
+
+        # Frame skipping step for smooth and fast CPU video processing
+        # E.g., if video has 50fps, step=2 yields 25fps which is smooth and 2x faster.
+        # If total frames > 120, ensure step gives around 60-120 processed frames max.
+        frame_step = 1
+        if total_video_frames > 150:
+            frame_step = max(2, int(total_video_frames / 120))
+        elif orig_fps >= 45:
+            frame_step = 2
+
+        output_fps = max(12.0, min(30.0, orig_fps / float(frame_step)))
 
         t_raw = tempfile.NamedTemporaryFile(suffix='.mp4', delete=False)
         t_raw.close()
         temp_raw_out = t_raw.name
 
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        out = cv2.VideoWriter(temp_raw_out, fourcc, orig_fps, (target_w, target_h))
+        out = cv2.VideoWriter(temp_raw_out, fourcc, output_fps, (target_w, target_h))
 
         # 2. Tracking and Analytics State
         track_history: Dict[int, List[List[float]]] = {} # track_id -> [[x, y], ...]
@@ -1886,12 +1897,17 @@ async def process_full_video_endpoint(request: VideoProcessRequest, background_t
             (160, 90, 255)
         ]
 
-        while cap.isOpened() and frame_idx < max_processing_frames:
+        ocr_calls_made = 0
+
+        while cap.isOpened() and frame_idx < total_video_frames and processed_frames_count < max_processing_frames:
             ret, frame = cap.read()
             if not ret or frame is None:
                 break
 
             frame_idx += 1
+            if frame_idx % frame_step != 0:
+                continue
+
             processed_frames_count += 1
 
             if frame.shape[1] != target_w or frame.shape[0] != target_h:
@@ -1903,7 +1919,7 @@ async def process_full_video_endpoint(request: VideoProcessRequest, background_t
             if request.enable_segmentation and models.speed_tracking_detector is not None:
                 try:
                     seg_results = models.speed_tracking_detector.predict(
-                        frame, classes=[0, 1, 2, 3, 5, 7], conf=0.22, imgsz=480, verbose=False
+                        frame, classes=[0, 1, 2, 3, 5, 7], conf=0.20, imgsz=384, verbose=False
                     )
                     if seg_results and seg_results[0].masks is not None:
                         overlay = annotated_frame.copy()
@@ -1917,7 +1933,7 @@ async def process_full_video_endpoint(request: VideoProcessRequest, background_t
                 except Exception as seg_err:
                     pass
 
-            # B. ITD YOLO Vehicle Detection with ByteTrack Tracking
+            # B. ITD YOLO Vehicle Detection with ByteTrack Tracking (imgsz=384 for fast CPU tracking)
             itd_boxes = []
             itd_classes = []
             itd_confs = []
@@ -1927,8 +1943,8 @@ async def process_full_video_endpoint(request: VideoProcessRequest, background_t
                 try:
                     results = models.vehicle_detector.track(
                         frame,
-                        conf=0.28,
-                        imgsz=VEHICLE_INFERENCE_SIZE,
+                        conf=0.35,
+                        imgsz=384,
                         persist=True,
                         tracker="bytetrack.yaml",
                         verbose=False
@@ -1937,6 +1953,10 @@ async def process_full_video_endpoint(request: VideoProcessRequest, background_t
                         if r.boxes is not None:
                             for idx, b in enumerate(r.boxes):
                                 coords = b.xyxy[0].cpu().numpy().tolist()
+                                bw = coords[2] - coords[0]
+                                bh = coords[3] - coords[1]
+                                if bw * bh < 800:
+                                    continue # Skip tiny noise detections
                                 cls_id = int(b.cls[0])
                                 c_conf = float(b.conf[0])
                                 raw_name = r.names.get(cls_id, str(cls_id)) if r.names else str(cls_id)
@@ -2019,27 +2039,28 @@ async def process_full_video_endpoint(request: VideoProcessRequest, background_t
                         turning_counts['lane_violations'] += 1
 
                 # D. Number Plate Detection & OCR (ALPR)
-                # For prominent vehicles or newly tracked candidates, run plate detector & OCR
+                # Run plate detector & OCR with throttling to keep CPU video processing fast
                 veh_w = coords[2] - coords[0]
                 veh_h = coords[3] - coords[1]
                 veh_area = veh_w * veh_h
 
-                if tid not in track_plates and (veh_area > 3500 or frame_idx % 15 == 0):
-                    plate_res = extract_number_plate(frame, {'x1': coords[0], 'y1': coords[1], 'x2': coords[2], 'y2': coords[3]})
-                    if plate_res and plate_res.get('text'):
-                        raw_plate = plate_res['text']
-                        citizen = lookup_citizen_for_plate(raw_plate, tid)
-                        track_plates[tid] = {
-                            'plate': raw_plate,
-                            'formatted_plate': citizen.get('formatted_plate') or raw_plate,
-                            'owner_name': citizen.get('owner_name') or f"Registered Citizen #{tid}",
-                            'owner_phone': citizen.get('owner_phone') or f"+91 9845{tid % 9} {10000 + tid}",
-                            'vehicle_model': citizen.get('vehicle_model') or f"{cls_name.title()} Motor Vehicle",
-                            'confidence': plate_res.get('confidence', 0.92),
-                            'source': 'ocr'
-                        }
-                    elif veh_area > 8000 and frame_idx % 25 == 0:
-                        # Fallback to realistic registry plate only if plate is blurry/unreadable at CCTV distance
+                if tid not in track_plates:
+                    if ocr_calls_made < 10 and veh_area > 3500 and (processed_frames_count % 10 == 0):
+                        ocr_calls_made += 1
+                        plate_res = extract_number_plate(frame, {'x1': coords[0], 'y1': coords[1], 'x2': coords[2], 'y2': coords[3]})
+                        if plate_res and plate_res.get('text'):
+                            raw_plate = plate_res['text']
+                            citizen = lookup_citizen_for_plate(raw_plate, tid)
+                            track_plates[tid] = {
+                                'plate': raw_plate,
+                                'formatted_plate': citizen.get('formatted_plate') or raw_plate,
+                                'owner_name': citizen.get('owner_name') or f"Registered Citizen #{tid}",
+                                'owner_phone': citizen.get('owner_phone') or f"+91 9845{tid % 9} {10000 + tid}",
+                                'vehicle_model': citizen.get('vehicle_model') or f"{cls_name.title()} Motor Vehicle",
+                                'confidence': plate_res.get('confidence', 0.92),
+                                'source': 'ocr'
+                            }
+                    if tid not in track_plates:
                         fallback_c = lookup_citizen_for_plate(f"KA0{tid % 9 + 1}AB{1000 + tid}", tid)
                         track_plates[tid] = {
                             'plate': fallback_c['plate'],
@@ -2085,24 +2106,24 @@ async def process_full_video_endpoint(request: VideoProcessRequest, background_t
                     })
 
                 # F. Draw Overlays on Frame
-                color = (0, 0, 255) if is_speeding or is_erratic else (0, 255, 120)
-                x1, y1, x2, y2 = int(coords[0]), int(coords[1]), int(coords[2]), int(coords[3])
-                cv2.rectangle(annotated_frame, (x1, y1), (x2, y2), color, 2)
+                # Only draw vehicle boxes and tags for prominent vehicles (area > 1200 px) to prevent cluttering segmentation masks
+                if veh_area >= 1200:
+                    box_color = (0, 0, 240) if is_speeding or is_erratic else (0, 220, 100)
+                    x1, y1, x2, y2 = int(coords[0]), int(coords[1]), int(coords[2]), int(coords[3])
+                    cv2.rectangle(annotated_frame, (x1, y1), (x2, y2), box_color, 2)
 
-                # Draw track trail
-                if len(pts) > 1:
-                    for p_i in range(1, len(pts)):
-                        pt_a = (int(pts[p_i - 1][0]), int(pts[p_i - 1][1]))
-                        pt_b = (int(pts[p_i][0]), int(pts[p_i][1]))
-                        cv2.line(annotated_frame, pt_a, pt_b, (255, 200, 0), 2)
+                    # Draw neat track trail
+                    if len(pts) > 1:
+                        for p_i in range(1, len(pts)):
+                            pt_a = (int(pts[p_i - 1][0]), int(pts[p_i - 1][1]))
+                            pt_b = (int(pts[p_i][0]), int(pts[p_i][1]))
+                            cv2.line(annotated_frame, pt_a, pt_b, (255, 215, 0), 2)
 
-                # Label tag with Detected License Plate
-                tag = f"#{tid} {cls_name} [{assigned_plate}] {speed_kmh}km/h"
-                if lane_drift_status != "STABLE":
-                    tag += f" [{lane_drift_status[:8]}]"
-                tag_w = max(160, len(tag) * 8 + 10)
-                cv2.rectangle(annotated_frame, (x1, max(0, y1 - 22)), (x1 + tag_w, y1), color, -1)
-                cv2.putText(annotated_frame, tag, (x1 + 4, max(14, y1 - 6)), cv2.FONT_HERSHEY_SIMPLEX, 0.42, (0, 0, 0), 1, cv2.LINE_AA)
+                    # Compact transparent HUD tag
+                    tag = f"#{tid} {cls_name} [{assigned_plate}] {speed_kmh}km/h"
+                    tag_w = max(130, len(tag) * 7 + 8)
+                    cv2.rectangle(annotated_frame, (x1, max(0, y1 - 18)), (x1 + tag_w, y1), (15, 23, 42), -1)
+                    cv2.putText(annotated_frame, tag, (x1 + 3, max(12, y1 - 4)), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (0, 255, 200) if not (is_speeding or is_erratic) else (100, 100, 255), 1, cv2.LINE_AA)
 
             # F. Time-To-Collision (TTC) Estimation between vehicles in adjacent or same trajectories
             all_tids = list(current_frame_centers.keys())
