@@ -36,7 +36,7 @@ function detectionsToEvents(result, frame) {
 
   for (const item of result.potholes || []) add(item.label || 'pothole', item);
   const water = result.events?.water_logging || result.water_logging;
-  if (water?.detected) add('waterlogging', water);
+  if (!result.potholes?.length && water?.detected) add('waterlogging', water);
   if (result.fallen_tree?.label) add('fallen tree', result.fallen_tree);
   if (result.accident_detection?.accident_detected) add('accident', result.accident_detection.details || result.accident_detection);
   for (const item of result.urban_issues || []) add(item.label || item.class_name || item.type, item);

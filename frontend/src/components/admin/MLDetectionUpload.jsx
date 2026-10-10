@@ -26,7 +26,9 @@ import {
   MapPin,
   X,
   ExternalLink,
-  Sparkles
+  Sparkles,
+  Bot,
+  Building2
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { io } from 'socket.io-client';
@@ -54,6 +56,7 @@ const MLDetectionUpload = () => {
   const cameraId = 'BANGALORE-SILKBOARD-CAM-01';
   const speedLimit = 60;
   const modelStatus = result?.model;
+  const [agentWorkflows, setAgentWorkflows] = useState([]);
 
   // Initialize Socket.IO Real-time alerts
   useEffect(() => {
@@ -425,6 +428,7 @@ const MLDetectionUpload = () => {
 
       const detectionData = res.data?.data || res.data;
       setResult(detectionData);
+      setAgentWorkflows(res.data?.agentWorkflows || []);
 
       const challansCreated = detectionData.echallans_generated?.total_challans_count || res.data.challansCreated?.length || 0;
       const fineTotal = detectionData.echallans_generated?.total_fine_amount_inr || 0;
@@ -439,6 +443,7 @@ const MLDetectionUpload = () => {
     }
   };
 
+  const hasPotholeDetection = Boolean(result?.potholes?.length);
   const detectionGroups = result ? [
     ...(result.accident_detection?.accident_detected ? [{
       label: 'Accident / collision',
@@ -446,7 +451,7 @@ const MLDetectionUpload = () => {
       confidence: result.accident_detection.details?.confidence,
       color: 'red'
     }] : []),
-    ...((result.events?.water_logging?.detected || result.water_logging?.detected) ? [{
+    ...(!hasPotholeDetection && (result.events?.water_logging?.detected || result.water_logging?.detected) ? [{
       label: 'Water logging',
       detail: result.events?.water_logging?.method || 'Road water accumulation',
       confidence: result.events?.water_logging?.confidence || result.water_logging?.confidence,
@@ -737,6 +742,19 @@ const MLDetectionUpload = () => {
           </div>
 
           <div className="max-h-[420px] overflow-y-auto space-y-2 pr-1">
+            {agentWorkflows.length > 0 && (
+              <div className="rounded-xl border border-cyan-400/20 bg-cyan-400/10 p-3 space-y-2">
+                <p className="text-[10px] font-black uppercase tracking-wider text-cyan-300 flex items-center gap-1.5">
+                  <Bot className="w-3.5 h-3.5" /> Agent assignment complete
+                </p>
+                {agentWorkflows.map((workflow) => (
+                  <div key={String(workflow.issueId)} className="text-[11px] text-slate-200">
+                    <p className="font-bold">{workflow.issueType}: {workflow.agentWorkflow?.selectedAgents?.join(', ') || 'CivicAndRoadHealthAgent'}</p>
+                    <p className="text-slate-400 flex items-center gap-1 mt-1"><Building2 className="w-3 h-3" /> {workflow.agentWorkflow?.department || 'Authority assignment pending'} · {workflow.agentWorkflow?.authorityStatus || 'PENDING'}</p>
+                  </div>
+                ))}
+              </div>
+            )}
             {!result && <p className="text-xs text-slate-500 py-8 text-center">Run analysis to see model results.</p>}
             {result && detectionGroups.length === 0 && <p className="text-xs text-slate-400 py-8 text-center">No target detected in this frame.</p>}
             {detectionGroups.map((item, index) => (

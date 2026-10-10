@@ -958,6 +958,10 @@ async def process_comprehensive_traffic_video(request: VideoAnalysisRequest):
         raw_detections = run_vehicle_detector(image)
         pothole_detections = run_pothole_detector(image)
         water_logging_detections = run_water_logging_detector(image)
+        # A pothole mask can resemble standing water. Prefer the specialized
+        # pothole detector when both models fire on the same frame.
+        if pothole_detections:
+            water_logging_detections = []
         urban_issue_detections = run_urban_issue_detector(image)
         fallen_tree_detection = next((item for item in urban_issue_detections if 'tree' in item.get('label', '').lower()), None)
         if fallen_tree_detection is None:
@@ -1349,7 +1353,7 @@ async def process_comprehensive_traffic_video(request: VideoAnalysisRequest):
         reflective_ratio = float(np.count_nonzero(reflective_pixels)) / max(1, lower_half.shape[0] * lower_half.shape[1])
         lower_mean = float(lower_half.mean())
         reflective_water = reflective_ratio > 0.97 and lower_mean > 155
-        water_detected = blue_ratio > 0.22 or reflective_water
+        water_detected = not pothole_detections and (blue_ratio > 0.22 or reflective_water)
         water_score = blue_ratio if blue_ratio > 0.22 else reflective_ratio if reflective_water else 0.0
         meaningful_water_detections = [
             item for item in water_logging_detections
