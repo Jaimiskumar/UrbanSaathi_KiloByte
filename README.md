@@ -1,10 +1,10 @@
 # UrbanSaathi: AI-Powered Smart Traffic & Urban Mobility Ecosystem
 
 [![Architecture](https://img.shields.io/badge/Architecture-Monorepo%20%7C%20Microservices-blue.svg)](#)
-[![Frontend](https://img.shields.io/badge/Frontend-React%20%2B%20Vite%20%2B%20TailwindCSS-61DAFB.svg)](#)
+[![Frontend](https://img.shields.io/badge/Frontend-React%2018%20%2B%20Vite%20%2B%20TailwindCSS-61DAFB.svg)](#)
 [![Backend](https://img.shields.io/badge/Backend-Node.js%20%2B%20Express-339933.svg)](#)
 [![Database](https://img.shields.io/badge/Database-MongoDB%20%2B%20Mongoose-47A248.svg)](#)
-[![Status](https://img.shields.io/badge/Milestone%201-Project%20Scaffolding%20%26%20Setup-orange.svg)](#)
+[![Status](https://img.shields.io/badge/Milestone%202-Frontend%20Portals%20%26%20Dashboards-brightgreen.svg)](#)
 
 ---
 
@@ -24,90 +24,115 @@
 ## 🏗️ System Architecture Blueprint
 
 ```
-                          ┌────────────────────────┐
-                          │   UrbanSaathi Client   │
-                          │ (React / Vite / Mapbox)│
-                          └───────────┬────────────┘
-                                      │ REST / WebSocket
-                                      ▼
-                          ┌────────────────────────┐
-                          │   Express API Server   │
-                          │   (Node.js / JWT Auth) │
-                          └─────┬────────────┬─────┘
-                                │            │
-                ┌───────────────┴────┐  ┌────┴─────────────────┐
-                ▼                    ▼  ▼                      ▼
-    ┌───────────────────────┐   ┌────────────────────────────────┐
-    │   MongoDB Database    │   │      Python AI/ML Engine       │
-    │ (Traffic, Users, Hubs)│   │  (YOLOv5, OpenCV, Deep Learning│
-    └───────────────────────┘   └────────────────────────────────┘
+                          ┌─────────────────────────────────────┐
+                          │         UrbanSaathi Client          │
+                          │ (React 18 / Vite / Tailwind / Lucide│
+                          └──────────────────┬──────────────────┘
+                                             │ REST / WebSocket
+                                             ▼
+                          ┌─────────────────────────────────────┐
+                          │         Express API Server          │
+                          │       (Node.js / JWT Auth)          │
+                          └──────────┬─────────────────┬────────┘
+                                     │                 │
+                ┌────────────────────┴────┐       ┌────┴────────────────────────┐
+                ▼                         ▼       ▼                             ▼
+    ┌───────────────────────────┐    ┌──────────────────────────────────────────────┐
+    │     MongoDB Database      │    │             Python AI/ML Engine              │
+    │  (Traffic, Users, Hubs)   │    │     (YOLOv5, OpenCV, Deep Learning)          │
+    └───────────────────────────┘    └──────────────────────────────────────────────┘
 ```
 
 ---
 
-## 📁 Repository Structure (Milestone 1)
+## 💻 Milestone 2: Frontend Architecture & User Interfaces
+
+This milestone establishes the comprehensive client-side architecture with high-fidelity, role-based interfaces:
+
+### 1. Multi-Role Portal Gateway (`/`)
+- Unified access portal routing users to **Citizen**, **Traffic Police/Authority**, or **Mobile Dashcam** interfaces.
+- Dynamic session persistence and role-based route guard transitions.
+
+### 2. Citizen Services Portal (`/citizen`)
+- **Smart Parking Hub**: Visual parking bay selection, real-time vacancy indicators, slot reservation, and duration pricing.
+- **My Bookings & QR Verification**: Active parking pass management with instant status indicators.
+- **E-Challan & Violation Appeals**: Review disputed traffic penalties, view violation timestamps, and submit verification appeals.
+- **Civic Issue Reporting**: Citizen hazard submission interface with photo attachment and geolocation tagging.
+- **Live Traffic Map**: City-wide congestion heatmaps and incident advisories.
+
+### 3. Traffic Authority Command Center (`/admin`)
+- **Live Junction Grid**: Real-time camera feeds, vehicle classification counters, and adaptive signal phase indicators.
+- **Violation & Encroachment Center**: Multi-camera AI surveillance feed monitoring helmet compliance, stop-line violations, and illegal parking.
+- **Emergency Vehicle Dispatch**: Dedicated priority routing controls, dynamic green wave toggle, and signal preemption telemetry.
+- **V2X Fleet Safety Hub**: Connected vehicle incident broadcasting and in-cabin alert dissemination.
+
+### 4. Mobile Driver Dashcam & In-Cabin HUD (`/dashcam`, `/app`)
+- Optimized for mobile viewports and vehicle mount displays.
+- Live road stream rendering, GPS telemetry overlay, and collision advisory warnings.
+
+---
+
+## 📁 Repository Structure (Milestone 2)
 
 ```text
 UrbanSaathi/
 ├── backend/
-│   ├── package.json               # Backend dependencies (Express, Mongoose, Socket.io, JWT)
+│   ├── package.json
 │   ├── package-lock.json
-│   └── .env.example               # Backend environment templates
+│   └── .env.example
 ├── frontend/
-│   ├── package.json               # Frontend dependencies (React, Vite, TailwindCSS, Lucide)
+│   ├── index.html
+│   ├── package.json
 │   ├── package-lock.json
-│   ├── vite.config.js             # Vite build & proxy configuration
-│   ├── tailwind.config.js         # Tailwind styling tokens
+│   ├── vite.config.js
+│   ├── tailwind.config.js
 │   ├── postcss.config.js
-│   └── index.html                 # Single page application entrypoint
-├── docker-compose.yml             # Container orchestration (App + Mongo + Redis)
-├── setup.sh                       # Automated UNIX environment bootstrap script
-├── setup.bat                      # Automated Windows bootstrap script
-├── .env.production.example        # Production environment specification
-├── .gitignore                     # Workspace ignore rules
-└── README.md                      # Project documentation
+│   ├── public/
+│   │   ├── favicon.ico
+│   │   └── images/
+│   └── src/
+│       ├── main.jsx                       # Application entry & DOM bootstrap
+│       ├── App.jsx                        # Global routing, toast alerts & socket hooks
+│       ├── index.css                      # Tailwind base & custom design tokens
+│       ├── config/
+│       │   └── bangaloreGeospatial.js     # Spatial coordinates, bounding boxes & landmarks
+│       ├── pages/
+│       │   ├── PortalGateway.jsx          # Public landing & portal selection
+│       │   ├── Login.jsx                  # Unified role authentication view
+│       │   ├── CitizenDashboard.jsx       # Citizen services hub layout
+│       │   ├── AdminDashboard.jsx         # Command center hub layout
+│       │   ├── MobileAppPage.jsx          # Mobile standalone web app container
+│       │   └── MobileV2VDashcam.jsx       # Vehicle HUD & Dashcam video view
+│       └── components/
+│           ├── citizen/                   # Parking booking, fines, issue reports, maps
+│           ├── admin/                     # Junction monitoring, AI agent center, emergency
+│           ├── mobile/                    # Mobile optimized navigation & components
+│           └── connected-vehicle/         # V2X telemetry & driver alerts
+├── docker-compose.yml
+├── setup.sh
+├── setup.bat
+├── .env.production.example
+├── .gitignore
+└── README.md
 ```
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Running the Frontend
 
-### Prerequisites
-- **Node.js**: `v18.0.0` or higher
-- **npm**: `v9.0.0` or higher
-- **MongoDB**: `v6.0+` (local or MongoDB Atlas)
-- **Python**: `v3.10+` (for future ML services)
-
-### Quick Setup
-
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/sashwatpuri/UrbanSaathi.git
-   cd UrbanSaathi
-   ```
-
-2. **Install Backend Dependencies:**
-   ```bash
-   cd backend
-   npm install
-   cp .env.example .env
-   ```
-
-3. **Install Frontend Dependencies:**
-   ```bash
-   cd ../frontend
-   npm install
-   ```
-
-4. **Environment Initialization:**
-   Review `.env.example` inside `backend/` and configure database connection strings and secret keys.
+```bash
+cd frontend
+npm install
+npm run dev
+```
+The client application will start at `http://localhost:5173`.
 
 ---
 
 ## 🗺️ Implementation Roadmap
 
-- [x] **Milestone 1: Project Scaffolding & Setup** *(Current)*
-- [ ] **Milestone 2: Frontend Layout, Navigation & Portal UI**
+- [x] **Milestone 1: Project Scaffolding & Setup**
+- [x] **Milestone 2: Frontend Layout, Navigation & Portal UI** *(Current)*
 - [ ] **Milestone 3: Express Backend Core, Authentication & Database Models**
 - [ ] **Milestone 4: Full-Stack API Integration & State Synchronization**
 - [ ] **Milestone 5: AI/ML Infrastructure & Vehicle Detection Models**
