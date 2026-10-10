@@ -267,6 +267,27 @@ const MLDetectionUpload = () => {
       });
     }
 
+    const drawDetectionBoxes = (items, color, labelKey = 'label') => {
+      items.forEach((item) => {
+        const b = item.bbox;
+        if (!b) return;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 3;
+        ctx.strokeRect(b.x1, b.y1, b.x2 - b.x1, b.y2 - b.y1);
+        ctx.fillStyle = color;
+        ctx.fillRect(b.x1, Math.max(0, b.y1 - 20), 190, 20);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 11px monospace';
+        ctx.fillText(`${item[labelKey] || item.type || 'detection'} ${(item.confidence * 100 || 0).toFixed(0)}%`, b.x1 + 5, Math.max(14, b.y1 - 6));
+      });
+    };
+
+    drawDetectionBoxes(data.urban_issues || [], '#F97316');
+    drawDetectionBoxes(data.vendors || [], '#A855F7');
+    drawDetectionBoxes(data.plate_detections || [], '#06B6D4');
+    drawDetectionBoxes(data.helmet_detections || [], '#EAB308');
+    drawDetectionBoxes(data.speed_detections || [], '#EF4444');
+
     return canvas.toDataURL('image/jpeg', 0.92);
   };
 
@@ -348,7 +369,7 @@ const MLDetectionUpload = () => {
       setResult(detectionData);
 
       const challansCreated = detectionData.echallans_generated?.total_challans_count || res.data.challansCreated?.length || 0;
-      const fineTotal = detectionData.echallans_generated?.total_fine_amount_inr || 3000;
+      const fineTotal = detectionData.echallans_generated?.total_fine_amount_inr || 0;
 
       toast.success(`🎉 Analysis Complete: ${challansCreated} Legal E-Challans Auto-Issued (₹${fineTotal})!`);
       fetchViolationsAndStats();
@@ -570,15 +591,15 @@ const MLDetectionUpload = () => {
             <div className="grid grid-cols-3 gap-2 text-center font-mono">
               <div className="p-2 bg-white rounded-xl shadow-xs border border-indigo-100">
                 <span className="text-xs">🚗 Cars</span>
-                <p className="text-sm font-black text-slate-800">{result?.vehicles?.filter(v => v.class === '4-wheeler')?.length || 3}</p>
+                <p className="text-sm font-black text-slate-800">{result?.vehicles?.filter(v => v.class === '4-wheeler')?.length || 0}</p>
               </div>
               <div className="p-2 bg-white rounded-xl shadow-xs border border-indigo-100">
                 <span className="text-xs">🛵 2-Wheel</span>
-                <p className="text-sm font-black text-slate-800">{result?.vehicles?.filter(v => v.class === '2-wheeler')?.length || 2}</p>
+                <p className="text-sm font-black text-slate-800">{result?.vehicles?.filter(v => v.class === '2-wheeler')?.length || 0}</p>
               </div>
               <div className="p-2 bg-white rounded-xl shadow-xs border border-indigo-100">
                 <span className="text-xs">🛺 Autos</span>
-                <p className="text-sm font-black text-slate-800">{result?.vehicles?.filter(v => v.class === '3-wheeler')?.length || 1}</p>
+                <p className="text-sm font-black text-slate-800">{result?.vehicles?.filter(v => v.class === '3-wheeler')?.length || 0}</p>
               </div>
             </div>
           </div>
@@ -587,7 +608,7 @@ const MLDetectionUpload = () => {
           <div className="grid grid-cols-2 gap-2 text-xs font-mono">
             <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl">
               <p className="text-[10px] text-blue-700 font-bold">SEGMENTED OBJECTS</p>
-              <p className="text-base font-black text-blue-900">{result?.vehicles?.length || 6} Vehicles</p>
+              <p className="text-base font-black text-blue-900">{result?.vehicles?.length || 0} Vehicles</p>
             </div>
             <div className="p-3 bg-purple-50 border border-purple-200 rounded-xl">
               <p className="text-[10px] text-purple-700 font-bold">AUTO E-CHALLANS</p>
