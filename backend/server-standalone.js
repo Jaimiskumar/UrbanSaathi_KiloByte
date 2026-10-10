@@ -1,9 +1,13 @@
 import express from 'express';
 import cors from 'cors';
-import { createServer } from 'http';
+import http, { createServer } from 'http';
 import { Server } from 'socket.io';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
+
+import fs from 'fs';
+import path from 'path';
+import multer from 'multer';
 
 import urbanflowRoutes from './routes/urbanflow.js';
 import bangaloreRoutes from './routes/bangaloreRoutes.js';
@@ -16,8 +20,29 @@ const io = new Server(httpServer, {
 });
 app.set('io', io);
 
+// Configure multer storage for video / evidence uploads
+const uploadDir = path.join(process.cwd(), 'uploads', 'evidence');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, uploadDir),
+  filename: (req, file, cb) => {
+    const timestamp = Date.now();
+    const safeExt = path.extname(file.originalname || '.mp4');
+    cb(null, `video-${timestamp}-${Math.random().toString(36).substring(7)}${safeExt}`);
+  }
+});
+const videoUpload = multer({
+  storage,
+  limits: { fileSize: 500 * 1024 * 1024 } // 500MB
+});
+
 app.use(cors());
-app.use(express.json({ limit: '15mb' }));
+app.use(express.json({ limit: '500mb' }));
+app.use(express.urlencoded({ limit: '500mb', extended: true }));
+app.use('/public', express.static('public'));
+app.use('/uploads', express.static('uploads'));
 app.use('/api/urbanflow', urbanflowRoutes);
 app.use('/api/bangalore', bangaloreRoutes);
 
@@ -510,6 +535,105 @@ const syncMlOutputs = (result, location, evidenceUrl) => {
   }
   return { generatedFines };
 };
+
+// Full Video ML Processing proxy with turning counts, lane behavior, TTC & video rendering
+app.post('/api/ml-detection/process-video', videoUpload.single('video'), async (req, res) => {
+  try {
+    let videoUrl = req.body.videoUrl;
+    let videoBase64 = req.body.videoBase64;
+    const location = req.body.location || 'Silk Board Junction, Bengaluru';
+    const speedLimit = Number(req.body.speedLimit || 60);
+    const signalStatus = req.body.signalStatus || 'green';
+    const enableSegmentation = req.body.enableSegmentation !== 'false' && req.body.enableSegmentation !== false;
+    const maxFrames = Number(req.body.maxFrames || 300);
+
+    // If file was uploaded via multipart/form-data
+    if (req.file && req.file.path) {
+      videoUrl = req.file.path;
+    }
+
+    const payload = {
+      video_url: videoUrl,
+      video_base64: videoBase64,
+      location,
+      speed_limit: speedLimit,
+      signal_status: signalStatus,
+      enable_segmentation: enableSegmentation,
+      max_frames: maxFrames
+    };
+
+    // Execute request to Python ML engine with extended 10-minute timeout
+    const postData = JSON.stringify(payload);
+    const result = await new Promise((resolve, reject) => {
+      const mlReq = http.request({
+        hostname: '127.0.0.1',
+        port: 8000,
+        path: '/process/video',
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(postData)
+        },
+        timeout: 600000 // 10 minutes
+      }, (mlRes) => {
+        let rawBody = '';
+        mlRes.on('data', chunk => { rawBody += chunk; });
+        mlRes.on('end', () => {
+          if (mlRes.statusCode >= 400) {
+            reject(new Error(`ML Backend error (${mlRes.statusCode}): ${rawBody.slice(0, 300)}`));
+          } else {
+            try {
+              resolve(JSON.parse(rawBody));
+            } catch (err) {
+              reject(new Error(`Failed to parse ML response JSON: ${err.message}`));
+            }
+          }
+        });
+      });
+
+      mlReq.on('timeout', () => {
+        mlReq.destroy();
+        reject(new Error('ML Video processing timed out after 10 minutes'));
+      });
+      mlReq.on('error', (err) => {
+        reject(err);
+      });
+
+      mlReq.write(postData);
+      mlReq.end();
+    });
+
+    if (result.echallans_generated?.challans?.length) {
+      result.echallans_generated.challans.forEach((challan, i) => {
+        const fine = {
+          _id: `ml-vid-fine-${Date.now()}-${i}`,
+          fineId: challan.challan_number,
+          challanNumber: challan.challan_number,
+          vehicleNumber: challan.vehicle_number,
+          violationType: challan.type,
+          amount: challan.fine_amount,
+          location: challan.location || location,
+          imageUrl: challan.evidence_photo,
+          reasoning: challan.title,
+          legalSection: challan.legal_section,
+          source: 'ml_video_pipeline',
+          status: 'pending',
+          issuedAt: new Date().toISOString()
+        };
+        fines.push(fine);
+      });
+    }
+
+    return res.json({
+      success: true,
+      data: result,
+      message: 'Full video ML segmentation, tracking, TTC and turning movement analysis complete.'
+    });
+  } catch (error) {
+    console.error('Process video endpoint failed:', error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
 
 // Keep ML frame analysis available when running the MongoDB-free server.
 app.post('/api/ml-detection/process-frame', async (req, res) => {

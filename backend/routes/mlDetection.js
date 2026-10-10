@@ -5,6 +5,7 @@
  */
 
 import express from 'express';
+import http from 'http';
 import MLDetectionLog from '../models/MLDetectionLog.js';
 import TrafficViolation from '../models/TrafficViolation.js';
 import HelmetViolation from '../models/HelmetViolation.js';
@@ -464,6 +465,85 @@ router.post('/upload-image', authMiddleware, uploadMiddleware.single('image'), a
       message: 'Error processing image',
       error: error.message
     });
+  }
+});
+
+/**
+ * POST /api/ml-detection/process-video
+ * Full Video ML Pipeline Proxy (ITD Detection, ByteTrack, Segmentation, TMC & TTC)
+ */
+router.post('/process-video', uploadMiddleware.single('video'), async (req, res) => {
+  try {
+    let videoUrl = req.body.videoUrl;
+    let videoBase64 = req.body.videoBase64;
+    const location = req.body.location || 'Silk Board Junction, Bengaluru';
+    const speedLimit = Number(req.body.speedLimit || 60);
+    const signalStatus = req.body.signalStatus || 'green';
+    const enableSegmentation = req.body.enableSegmentation !== 'false' && req.body.enableSegmentation !== false;
+    const maxFrames = Number(req.body.maxFrames || 300);
+
+    if (req.file && req.file.path) {
+      videoUrl = req.file.path;
+    }
+
+    const payload = {
+      video_url: videoUrl,
+      video_base64: videoBase64,
+      location,
+      speed_limit: speedLimit,
+      signal_status: signalStatus,
+      enable_segmentation: enableSegmentation,
+      max_frames: maxFrames
+    };
+
+    const postData = JSON.stringify(payload);
+    const result = await new Promise((resolve, reject) => {
+      const mlReq = http.request({
+        hostname: '127.0.0.1',
+        port: 8000,
+        path: '/process/video',
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(postData)
+        },
+        timeout: 600000 // 10 minutes
+      }, (mlRes) => {
+        let rawBody = '';
+        mlRes.on('data', chunk => { rawBody += chunk; });
+        mlRes.on('end', () => {
+          if (mlRes.statusCode >= 400) {
+            reject(new Error(`ML Backend error (${mlRes.statusCode}): ${rawBody.slice(0, 300)}`));
+          } else {
+            try {
+              resolve(JSON.parse(rawBody));
+            } catch (err) {
+              reject(new Error(`Failed to parse ML response JSON: ${err.message}`));
+            }
+          }
+        });
+      });
+
+      mlReq.on('timeout', () => {
+        mlReq.destroy();
+        reject(new Error('ML Video processing timed out after 10 minutes'));
+      });
+      mlReq.on('error', (err) => {
+        reject(err);
+      });
+
+      mlReq.write(postData);
+      mlReq.end();
+    });
+
+    return res.json({
+      success: true,
+      data: result,
+      message: 'Full video ML segmentation, tracking, TTC and turning movement analysis complete.'
+    });
+  } catch (error) {
+    console.error('Process video endpoint failed:', error);
+    return res.status(500).json({ success: false, error: error.message });
   }
 });
 
