@@ -4,7 +4,7 @@
 [![Frontend](https://img.shields.io/badge/Frontend-React%2018%20%2B%20Vite%20%2B%20TailwindCSS-61DAFB.svg)](#)
 [![Backend](https://img.shields.io/badge/Backend-Node.js%20%2B%20Express-339933.svg)](#)
 [![Database](https://img.shields.io/badge/Database-MongoDB%20%2B%20Mongoose-47A248.svg)](#)
-[![Status](https://img.shields.io/badge/Milestone%202-Frontend%20Portals%20%26%20Dashboards-brightgreen.svg)](#)
+[![Status](https://img.shields.io/badge/Milestone%203-Backend%20Core%20%26%20Database%20Architecture-brightgreen.svg)](#)
 
 ---
 
@@ -31,83 +31,93 @@
                                              │ REST / WebSocket
                                              ▼
                           ┌─────────────────────────────────────┐
-                          │         Express API Server          │
-                          │       (Node.js / JWT Auth)          │
+                          │      Express API & Socket Gateway   │
+                          │       (Node.js / JWT Auth / CORS)   │
                           └──────────┬─────────────────┬────────┘
                                      │                 │
                 ┌────────────────────┴────┐       ┌────┴────────────────────────┐
                 ▼                         ▼       ▼                             ▼
     ┌───────────────────────────┐    ┌──────────────────────────────────────────────┐
     │     MongoDB Database      │    │             Python AI/ML Engine              │
-    │  (Traffic, Users, Hubs)   │    │     (YOLOv5, OpenCV, Deep Learning)          │
+    │  (26 Mongoose Schemas)    │    │     (YOLOv5, OpenCV, Deep Learning)          │
     └───────────────────────────┘    └──────────────────────────────────────────────┘
 ```
 
 ---
 
-## 💻 Milestone 2: Frontend Architecture & User Interfaces
+## ⚙️ Milestone 3: Backend Core & Database Architecture
 
-This milestone establishes the comprehensive client-side architecture with high-fidelity, role-based interfaces:
+This milestone establishes the robust server runtime, database schemas, and authenticated RESTful API gateway:
 
-### 1. Multi-Role Portal Gateway (`/`)
-- Unified access portal routing users to **Citizen**, **Traffic Police/Authority**, or **Mobile Dashcam** interfaces.
-- Dynamic session persistence and role-based route guard transitions.
+### 1. Express Application Runtime (`server.js` & `server-standalone.js`)
+- Highly resilient Express server architecture featuring zero-crash fallback mechanisms.
+- Real-time Socket.IO event gateway enabling synchronized telemetry across mobile, desktop, and administrative command consoles.
+- Modular route mounting, request logging, error middleware, and CORS security.
 
-### 2. Citizen Services Portal (`/citizen`)
-- **Smart Parking Hub**: Visual parking bay selection, real-time vacancy indicators, slot reservation, and duration pricing.
-- **My Bookings & QR Verification**: Active parking pass management with instant status indicators.
-- **E-Challan & Violation Appeals**: Review disputed traffic penalties, view violation timestamps, and submit verification appeals.
-- **Civic Issue Reporting**: Citizen hazard submission interface with photo attachment and geolocation tagging.
-- **Live Traffic Map**: City-wide congestion heatmaps and incident advisories.
+### 2. Database Models & Schema Design (`backend/models/`)
+Comprehensive Mongoose data models encapsulating urban municipal operations:
+- **`User.js` & `RefreshToken.js`**: Multi-role identity (Citizen, Admin, Traffic Police, Field Agent) with hashed credentials and secure token invalidation.
+- **`Challan.js`, `Fine.js`, `TrafficViolation.js`**: E-Challan records, violation proofs, payment verification statuses, and citizen appeal logs.
+- **`HelmetViolation.js` & `Encroachment.js`**: AI vision incident structures capturing bounding coordinates, confidence metrics, and timestamped snapshots.
+- **`ParkingSpot.js` & `ParkingBooking.js`**: Real-time slot occupancy tracking, dynamic hourly tariff calculations, and QR verification codes.
+- **`EmergencyVehicle.js` & `SignalCoordination.js`**: Priority vehicle telemetry, destination waypoints, and automated green corridor stages.
+- **`RoadNetwork.js` & `TrafficSignal.js`**: Urban road geometry, intersection junction nodes, and adaptive signal phase timings.
 
-### 3. Traffic Authority Command Center (`/admin`)
-- **Live Junction Grid**: Real-time camera feeds, vehicle classification counters, and adaptive signal phase indicators.
-- **Violation & Encroachment Center**: Multi-camera AI surveillance feed monitoring helmet compliance, stop-line violations, and illegal parking.
-- **Emergency Vehicle Dispatch**: Dedicated priority routing controls, dynamic green wave toggle, and signal preemption telemetry.
-- **V2X Fleet Safety Hub**: Connected vehicle incident broadcasting and in-cabin alert dissemination.
+### 3. Service Layer Architecture (`backend/services/`)
+- **`challanGenerationService.js`**: Automated e-challan synthesis from camera violation events.
+- **`greenCorridorService.js`**: Dynamic signal preemption algorithm routing priority responders through congestion bottlenecks.
+- **`adminCitizenSyncService.js`**: Bidirectional state synchronization between citizen violation appeals and administrative resolutions.
+- **`parkingAmenitiesService.js`**: Real-time bay reservation validation and payment reconciliation.
 
-### 4. Mobile Driver Dashcam & In-Cabin HUD (`/dashcam`, `/app`)
-- Optimized for mobile viewports and vehicle mount displays.
-- Live road stream rendering, GPS telemetry overlay, and collision advisory warnings.
+### 4. API Endpoints Catalog
+| Method | Endpoint | Description | Auth Required |
+|---|---|---|---|
+| `POST` | `/api/auth/login` | Authenticate user & issue JWT tokens | Public |
+| `POST` | `/api/auth/register` | Register citizen profile | Public |
+| `GET` | `/api/parking/spots` | Retrieve live parking bays and vacancy states | Optional |
+| `POST` | `/api/parking/book` | Reserve parking slot and generate pass | Citizen |
+| `GET` | `/api/challans/my-fines` | Fetch outstanding traffic penalties | Citizen |
+| `POST` | `/api/challans/appeal` | Submit penalty review appeal with evidence | Citizen |
+| `GET` | `/api/traffic/junctions` | Live traffic junction congestion levels | Admin |
+| `POST` | `/api/emergency/dispatch` | Trigger green corridor signal preemption | Admin / Fleet |
+| `GET` | `/api/urbanflow/network-info` | Network interface detection for LAN & mobile access | Public |
 
 ---
 
-## 📁 Repository Structure (Milestone 2)
+## 📁 Repository Structure (Milestone 3)
 
 ```text
 UrbanSaathi/
 ├── backend/
 │   ├── package.json
 │   ├── package-lock.json
-│   └── .env.example
+│   ├── .env.example
+│   ├── server.js                          # Core Express API entrypoint
+│   ├── server-standalone.js               # Resilient standalone gateway
+│   ├── test-ml-detection.sh               # API verification script
+│   ├── config/
+│   │   ├── env.js                         # Environment validation
+│   │   └── bangaloreGeospatial.js         # Geospatial landmarks & boundaries
+│   ├── middleware/
+│   │   └── auth.js                        # JWT verification & role authorization
+│   ├── models/                            # 26 Mongoose schema models
+│   │   ├── User.js, RefreshToken.js
+│   │   ├── Challan.js, Fine.js, TrafficViolation.js
+│   │   ├── HelmetViolation.js, Encroachment.js, IllegalParking.js
+│   │   ├── ParkingSpot.js, ParkingBooking.js, ParkingZone.js
+│   │   ├── EmergencyVehicle.js, SignalCoordination.js
+│   │   └── RoadNetwork.js, TrafficSignal.js, Camera.js
+│   ├── routes/                            # 26 Express REST controllers
+│   ├── services/                          # Business logic & automation engines
+│   ├── scripts/                           # Database seeders (seed.js)
+│   └── utils/                             # Token generators & permissions
 ├── frontend/
 │   ├── index.html
 │   ├── package.json
 │   ├── package-lock.json
 │   ├── vite.config.js
-│   ├── tailwind.config.js
-│   ├── postcss.config.js
 │   ├── public/
-│   │   ├── favicon.ico
-│   │   └── images/
 │   └── src/
-│       ├── main.jsx                       # Application entry & DOM bootstrap
-│       ├── App.jsx                        # Global routing, toast alerts & socket hooks
-│       ├── index.css                      # Tailwind base & custom design tokens
-│       ├── config/
-│       │   └── bangaloreGeospatial.js     # Spatial coordinates, bounding boxes & landmarks
-│       ├── pages/
-│       │   ├── PortalGateway.jsx          # Public landing & portal selection
-│       │   ├── Login.jsx                  # Unified role authentication view
-│       │   ├── CitizenDashboard.jsx       # Citizen services hub layout
-│       │   ├── AdminDashboard.jsx         # Command center hub layout
-│       │   ├── MobileAppPage.jsx          # Mobile standalone web app container
-│       │   └── MobileV2VDashcam.jsx       # Vehicle HUD & Dashcam video view
-│       └── components/
-│           ├── citizen/                   # Parking booking, fines, issue reports, maps
-│           ├── admin/                     # Junction monitoring, AI agent center, emergency
-│           ├── mobile/                    # Mobile optimized navigation & components
-│           └── connected-vehicle/         # V2X telemetry & driver alerts
 ├── docker-compose.yml
 ├── setup.sh
 ├── setup.bat
@@ -118,22 +128,28 @@ UrbanSaathi/
 
 ---
 
-## 🚀 Running the Frontend
+## 🚀 Running the Backend
 
 ```bash
-cd frontend
+cd backend
 npm install
+cp .env.example .env
+
+# Seed initial database with Bengaluru urban junctions & parking hubs
+npm run seed
+
+# Start server
 npm run dev
 ```
-The client application will start at `http://localhost:5173`.
+The API server will listen on `http://localhost:5001`.
 
 ---
 
 ## 🗺️ Implementation Roadmap
 
 - [x] **Milestone 1: Project Scaffolding & Setup**
-- [x] **Milestone 2: Frontend Layout, Navigation & Portal UI** *(Current)*
-- [ ] **Milestone 3: Express Backend Core, Authentication & Database Models**
+- [x] **Milestone 2: Frontend Layout, Navigation & Portal UI**
+- [x] **Milestone 3: Express Backend Core, Authentication & Database Models** *(Current)*
 - [ ] **Milestone 4: Full-Stack API Integration & State Synchronization**
 - [ ] **Milestone 5: AI/ML Infrastructure & Vehicle Detection Models**
 - [ ] **Milestone 6: Real-time Video Stream Inference & WebSocket Gateway**
