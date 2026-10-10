@@ -6,6 +6,9 @@
 
 import express from 'express';
 import http from 'http';
+import fs from 'fs';
+import path from 'path';
+import multer from 'multer';
 import MLDetectionLog from '../models/MLDetectionLog.js';
 import TrafficViolation from '../models/TrafficViolation.js';
 import HelmetViolation from '../models/HelmetViolation.js';
@@ -19,6 +22,13 @@ import { processEnforcementDetections, processEncroachmentDetections } from '../
 import { io } from '../server.js';
 
 const router = express.Router();
+
+const uploadDirectory = path.resolve(process.cwd(), 'uploads', 'evidence');
+fs.mkdirSync(uploadDirectory, { recursive: true });
+const uploadMiddleware = multer({
+  dest: uploadDirectory,
+  limits: { fileSize: 500 * 1024 * 1024 }
+});
 
 router.post('/detect', async (req, res) => {
   try {

@@ -78,22 +78,38 @@ export class EChallanAgent extends BaseAgent {
         imageUrl: event.evidence?.image || event.evidence?.frames?.[0]
       });
 
-      if (!challan) {
+      const demoFallback = !challan && event.source?.type === 'AGENT_DEMO';
+      if (!challan && !demoFallback) {
         throw new Error('E-Challan could not be persisted');
       }
 
+      const fallbackNumber = `DEMO-CHN-${Date.now()}`;
+      const ticket = challan || {
+        challanNumber: fallbackNumber,
+        violationType: decision.violationType,
+        vehicleNumber: candidate.vehicleNumber,
+        ownerName: 'Demo Vehicle Owner',
+        ownerPhone: '+91 00000 00000',
+        fineAmount: decision.fineAmount,
+        legalSection: decision.legalSection,
+        status: 'pending',
+        paymentStatus: 'pending',
+        violationDateTime: event.timestamp
+      };
+
       const result = {
-        challanNumber: challan.challanNumber,
-        challanId: challan.challanNumber,
-        violation: challan.violationType,
-        vehicleNumber: challan.vehicleNumber,
-        ownerName: challan.ownerName,
-        ownerPhone: challan.ownerPhone,
-        fineAmount: challan.fineAmount,
-        legalSection: challan.legalSection,
-        status: challan.status,
-        paymentStatus: challan.paymentStatus,
-        issueDate: challan.violationDateTime
+        challanNumber: ticket.challanNumber,
+        challanId: ticket.challanNumber,
+        violation: ticket.violationType,
+        vehicleNumber: ticket.vehicleNumber,
+        ownerName: ticket.ownerName,
+        ownerPhone: ticket.ownerPhone,
+        fineAmount: ticket.fineAmount,
+        legalSection: ticket.legalSection,
+        status: ticket.status,
+        paymentStatus: ticket.paymentStatus,
+        issueDate: ticket.violationDateTime,
+        storage: demoFallback ? 'DEMO_MEMORY' : 'MONGODB'
       };
       console.log(`\n=================================================`);
       console.log(`[EChallanAgent] 📋 E-CHALLAN GENERATED`);
