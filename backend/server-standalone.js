@@ -16,9 +16,36 @@ const io = new Server(httpServer, {
 app.set('io', io);
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '15mb' }));
 app.use('/api/urbanflow', urbanflowRoutes);
 app.use('/api/bangalore', bangaloreRoutes);
+
+// Keep ML frame analysis available when running the MongoDB-free server.
+app.post('/api/ml-detection/process-frame', async (req, res) => {
+  try {
+    const { frameUrl, frameBase64, location, speedLimit, signalStatus } = req.body;
+    const payload = {
+      frame_url: frameUrl?.startsWith('data:') ? undefined : frameUrl,
+      frame_base64: frameBase64 || (frameUrl?.startsWith('data:') ? frameUrl.split(',')[1] : undefined),
+      location,
+      speed_limit: speedLimit,
+      signal_status: signalStatus,
+      enable_segmentation: true
+    };
+    const response = await fetch('http://127.0.0.1:8000/batch/process-frame', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const result = await response.json();
+    if (!response.ok) {
+      return res.status(response.status).json({ message: result.detail || 'ML analysis failed' });
+    }
+    return res.json(result);
+  } catch (error) {
+    return res.status(503).json({ message: `ML backend unavailable: ${error.message}` });
+  }
+});
 
 
 // In-memory data storage

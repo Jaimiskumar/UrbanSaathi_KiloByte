@@ -23,7 +23,12 @@ const mlDetectionLogSchema = new mongoose.Schema({
       'crowd_detected',
       'wrong_parking',
       'hawker_detected',
-      'congestion_high'
+      'congestion_high',
+      'congestion_medium',
+      'accident',
+      'raw_frame',
+      'comprehensive_analysis',
+      'file_upload_analysis'
     ],
     required: true,
     index: true

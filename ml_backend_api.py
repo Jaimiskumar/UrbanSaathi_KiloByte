@@ -69,11 +69,35 @@ class MLModels:
         
         logger.info("🚀 Initializing ML Models...")
         
+        self.vehicle_detector = None
+        self.vehicle_detector_backend = None
+        self.vehicle_detector_name = None
+
+        # Prefer the ITD-trained YOLOv8 detector when its weights are available.
+        # Keep the existing local YOLOv5 detector as a fallback for fresh clones.
+        itd_model_candidates = [
+            os.getenv("ITD_MODEL_PATH"),
+            os.path.join(os.getcwd(), "models", "itd", "itd_yolov8.pt"),
+            os.path.join(os.getcwd(), "models", "itd", "best.pt"),
+            r"e:\turning movement count lane based behaviours analysis and violation .pt",
+        ]
+        itd_model_path = next((p for p in itd_model_candidates if p and os.path.exists(p)), None)
+        if itd_model_path:
+            try:
+                from ultralytics import YOLO
+                self.vehicle_detector = YOLO(itd_model_path)
+                self.vehicle_detector_backend = "ultralytics"
+                self.vehicle_detector_name = os.path.basename(itd_model_path)
+                self.vehicle_detector_imgsz = 992
+                logger.info(f"ITD Vehicle Detector loaded: {itd_model_path} (imgsz=992)")
+            except Exception as e:
+                logger.error(f"Failed to load ITD Vehicle Detector: {e}")
+
         # YOLOv5 for vehicle detection
         try:
             torch.hub.set_dir('./models/torch_hub')
             yolov5_path = os.path.join(os.getcwd(), 'models', 'torch_hub', 'ultralytics_yolov5_master')
-            if os.path.exists(yolov5_path):
+            if self.vehicle_detector is None and os.path.exists(yolov5_path):
                 self.vehicle_detector = torch.hub.load(
                     yolov5_path,
                     'yolov5s',
@@ -82,12 +106,15 @@ class MLModels:
                     skip_validation=True
                 )
                 self.vehicle_detector.conf = 0.4
+                self.vehicle_detector_backend = "torchhub_yolov5"
+                self.vehicle_detector_name = "yolov5s"
                 logger.info("✅ Vehicle Detector (YOLOv5) loaded from local clone")
             else:
-                self.vehicle_detector = None
+                pass
         except Exception as e:
             logger.error(f"❌ Failed to load Vehicle Detector: {e}")
-            self.vehicle_detector = None
+            if self.vehicle_detector_backend is None:
+                self.vehicle_detector = None
         
         # EasyOCR for license plate recognition
         try:
@@ -118,13 +145,41 @@ class MLModels:
         
         self.vehicle_classes = {
             'car': '4-wheeler',
-            'motorbike': '2-wheeler',
-            'bicycle': '2-wheeler',
-            'bus': 'bus',
-            'truck': 'truck',
+            'cars': '4-wheeler',
+            'jeep': '4-wheeler',
+            'jeeps': '4-wheeler',
             'van': '4-wheeler',
+            'vans': '4-wheeler',
+            'car_jeep_van': '4-wheeler',
+            'car/jeep/van': '4-wheeler',
+            'light_commercial_vehicle': 'lcv',
+            'light-commercial-vehicle': 'lcv',
+            'lcv': 'lcv',
+            'motorbike': '2-wheeler',
+            'motorcycle': '2-wheeler',
+            'bike': '2-wheeler',
+            'two_wheeler': '2-wheeler',
+            'two-wheeler': '2-wheeler',
+            '2w': '2-wheeler',
+            'bicycle': '2-wheeler',
+            'cycle': '2-wheeler',
+            'bus': 'bus',
+            'buses': 'bus',
+            'truck': 'truck',
+            'trucks': 'truck',
+            'hcv': 'truck',
+            'truck_hcv': 'truck',
+            'heavy_commercial_vehicle': 'truck',
+            'auto': '3-wheeler',
+            'autorickshaw': '3-wheeler',
+            'auto_rickshaw': '3-wheeler',
+            'auto-rickshaw': '3-wheeler',
+            'three_wheeler': '3-wheeler',
+            'three-wheeler': '3-wheeler',
             'person': 'person',
-            'dog': 'animal'
+            'pedestrian': 'person',
+            'pedestrians': 'person',
+            'pedestrain': 'person'
         }
         
         MLModels._initialized = True
@@ -165,8 +220,76 @@ def load_image(frame_url: Optional[str] = None, frame_base64: Optional[str] = No
         return dummy
 
 def classify_vehicle(yolo_class_name: str, confidence: float) -> str:
-    class_name = yolo_class_name.lower()
+    class_name = normalize_class_name(yolo_class_name)
     return models.vehicle_classes.get(class_name, '4-wheeler')
+
+def normalize_class_name(class_name: str) -> str:
+    return re.sub(r'[^a-z0-9]+', '_', str(class_name).strip().lower()).strip('_')
+
+def is_vehicle_detection(class_name: str) -> bool:
+    normalized = normalize_class_name(class_name)
+    return normalized in models.vehicle_classes and models.vehicle_classes[normalized] != 'person'
+
+def is_person_detection(class_name: str) -> bool:
+    return models.vehicle_classes.get(normalize_class_name(class_name)) == 'person'
+
+def run_vehicle_detector(image: np.ndarray) -> List[Dict[str, Any]]:
+    if models.vehicle_detector is None:
+        return []
+
+    detections = []
+    try:
+        if models.vehicle_detector_backend == "ultralytics":
+            results = models.vehicle_detector.predict(image, conf=0.30, imgsz=992, verbose=False)
+            for result in results:
+                names = result.names or getattr(models.vehicle_detector, "names", {})
+                masks = getattr(result, "masks", None)
+                polygons = []
+                if masks is not None and getattr(masks, "xy", None) is not None:
+                    polygons = [
+                        [[float(x), float(y)] for x, y in mask_xy]
+                        for mask_xy in masks.xy
+                    ]
+
+                boxes = getattr(result, "boxes", None)
+                if boxes is None:
+                    continue
+
+                for idx, box in enumerate(boxes):
+                    class_id = int(box.cls[0])
+                    raw_name = names.get(class_id, str(class_id)) if isinstance(names, dict) else str(class_id)
+                    coords = box.xyxy[0].tolist()
+                    detections.append({
+                        "name": normalize_class_name(raw_name),
+                        "confidence": float(box.conf[0]),
+                        "bbox": {
+                            "x1": float(coords[0]),
+                            "y1": float(coords[1]),
+                            "x2": float(coords[2]),
+                            "y2": float(coords[3])
+                        },
+                        "segmentation_polygon": polygons[idx] if idx < len(polygons) else None
+                    })
+        else:
+            models.vehicle_detector.conf = 0.30
+            results = models.vehicle_detector(image)
+            raw_rows = results.pandas().xyxy[0]
+            for _, row in raw_rows.iterrows():
+                detections.append({
+                    "name": normalize_class_name(row["name"]),
+                    "confidence": float(row["confidence"]),
+                    "bbox": {
+                        "x1": float(row["xmin"]),
+                        "y1": float(row["ymin"]),
+                        "x2": float(row["xmax"]),
+                        "y2": float(row["ymax"])
+                    },
+                    "segmentation_polygon": None
+                })
+    except Exception as e:
+        logger.warning(f"Detector error: {e}")
+
+    return detections
 
 # ==================== VEHICLE REGISTRY & CITIZEN DIRECTORY ====================
 
@@ -365,6 +488,10 @@ async def health_check():
         "service": "SAMVED ML Vision Engine",
         "port": 8000,
         "timestamp": datetime.now().isoformat(),
+        "vehicle_detector_backend": models.vehicle_detector_backend,
+        "vehicle_detector_name": models.vehicle_detector_name,
+        "vehicle_detector_task": "detect",
+        "vehicle_detector_imgsz": getattr(models, "vehicle_detector_imgsz", None),
         "models_loaded": {
             "vehicle_detector": models.vehicle_detector is not None,
             "ocr_reader": models.ocr_reader is not None,
@@ -403,31 +530,19 @@ async def process_comprehensive_traffic_video(request: VideoAnalysisRequest):
         detected_violations_list = []
         auto_generated_echallans = []
 
-        raw_detections = []
-        if models.vehicle_detector:
-            try:
-                models.vehicle_detector.conf = 0.30
-                results = models.vehicle_detector(image)
-                raw_detections = results.pandas().xyxy[0]
-            except Exception as e:
-                logger.warn(f"Detector error: {e}")
+        raw_detections = run_vehicle_detector(image)
 
         vehicle_idx = 0
         person_count = 0
 
         # Process YOLO detections if available
         if len(raw_detections) > 0:
-            for _, row in raw_detections.iterrows():
-                name = row['name'].lower()
+            for row in raw_detections:
+                name = row['name']
                 conf = float(row['confidence'])
-                bbox = {
-                    'x1': float(row['xmin']),
-                    'y1': float(row['ymin']),
-                    'x2': float(row['xmax']),
-                    'y2': float(row['ymax'])
-                }
+                bbox = row['bbox']
 
-                if name in ['car', 'motorbike', 'bicycle', 'bus', 'truck', 'van']:
+                if is_vehicle_detection(name):
                     vehicle_idx += 1
                     veh_id = f"VEH-{vehicle_idx:03d}"
                     v_class = classify_vehicle(name, conf)
@@ -448,7 +563,7 @@ async def process_comprehensive_traffic_video(request: VideoAnalysisRequest):
                         'bbox': bbox
                     })
                     
-                    poly = generate_segmentation_polygon(bbox)
+                    poly = row.get('segmentation_polygon') or generate_segmentation_polygon(bbox)
                     # Simulated realistic vehicle speed with a chance of reckless driving
                     is_rash_speed = (vehicle_idx % 4 == 0)
                     speed_val = round(random.uniform(78.0, 94.0) if is_rash_speed else random.uniform(34.0, 58.0), 1)
@@ -520,7 +635,7 @@ async def process_comprehensive_traffic_video(request: VideoAnalysisRequest):
                         auto_generated_echallans.append(v_item)
 
                     # 3. HELMET VIOLATION (Section 129 Motor Vehicles Act)
-                    if v_class == '2-wheeler' or name in ['motorbike', 'bicycle']:
+                    if v_class == '2-wheeler':
                         has_helmet = (vehicle_idx % 2 == 1)
                         detected_helmets.append({
                             'vehicleId': veh_id,
@@ -612,7 +727,7 @@ async def process_comprehensive_traffic_video(request: VideoAnalysisRequest):
                         'confidence': 0.88
                     })
 
-                elif name == 'person':
+                elif is_person_detection(name):
                     person_count += 1
                     detected_pedestrians.append({
                         'id': f"PED-{person_count:03d}",
@@ -811,6 +926,11 @@ async def process_comprehensive_traffic_video(request: VideoAnalysisRequest):
 
         return {
             'success': True,
+            'model': {
+                'name': models.vehicle_detector_name,
+                'backend': models.vehicle_detector_backend,
+                'source': 'ITD' if models.vehicle_detector_backend == 'ultralytics' else 'fallback'
+            },
             'location': request.location,
             'timestamp': datetime.now().isoformat(),
             'frame_dimensions': {'width': w, 'height': h},

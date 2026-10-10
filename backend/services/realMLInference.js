@@ -60,7 +60,15 @@ export class RealMLInference {
     }
 
     // High-Fidelity Synthetic Fallback if Python server is unreachable
-    return this._generateSynchronizedResult(frameData);
+    return {
+      ...this._generateSynchronizedResult(frameData),
+      model: {
+        name: null,
+        backend: null,
+        source: 'synthetic-fallback',
+        warning: 'Python ML backend is unavailable; ITD inference was not run.'
+      }
+    };
   }
 
   _generateSynchronizedResult(frameData) {

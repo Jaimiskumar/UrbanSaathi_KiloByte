@@ -43,12 +43,17 @@ const MLDetectionUpload = () => {
   const [recentViolations, setRecentViolations] = useState([]);
   const [stats, setStats] = useState({ today: {}, total: {} });
   const [selectedEvidenceModal, setSelectedEvidenceModal] = useState(null);
+  const [itdResultModal, setItdResultModal] = useState(null);
+  const [analysisFrame, setAnalysisFrame] = useState(null);
   
   const canvasRef = useRef(null);
+  const imageRef = useRef(null);
+  const analysisImageRef = useRef(null);
   const videoRef = useRef(null);
   const fileInputRef = useRef(null);
   const cameraId = 'BANGALORE-SILKBOARD-CAM-01';
   const speedLimit = 60;
+  const modelStatus = result?.model;
 
   // Initialize Socket.IO Real-time alerts
   useEffect(() => {
@@ -106,6 +111,9 @@ const MLDetectionUpload = () => {
     const file = e.target.files[0];
     if (file) {
       setSelectedFile(file);
+      setResult(null);
+      setItdResultModal(null);
+      setAnalysisFrame(null);
       const isVideo = file.type.startsWith('video/');
       setFileType(isVideo ? 'video' : 'image');
 
@@ -198,7 +206,12 @@ const MLDetectionUpload = () => {
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    if (!enableSegmentation) return;
+    const sourceImage = imageRef.current || analysisImageRef.current;
+    if (sourceImage?.complete && sourceImage.naturalWidth) {
+      ctx.drawImage(sourceImage, 0, 0, canvas.width, canvas.height);
+    }
+
+    if (!enableSegmentation) return canvas.toDataURL('image/jpeg', 0.92);
 
     // 1. Draw Road Lanes Segmentation
     if (data.segmentation?.road_lanes) {
@@ -253,6 +266,58 @@ const MLDetectionUpload = () => {
         }
       });
     }
+
+    return canvas.toDataURL('image/jpeg', 0.92);
+  };
+
+  useEffect(() => {
+    if (!result || !preview) return;
+    const image = imageRef.current || analysisImageRef.current;
+    if (!image?.complete || !image.naturalWidth) return;
+
+    canvasRef.current.width = image.naturalWidth;
+    canvasRef.current.height = image.naturalHeight;
+    const annotatedImage = drawSegmentationOverlay(result);
+    if (annotatedImage) {
+      setItdResultModal(annotatedImage);
+    }
+  }, [result, preview, analysisFrame, fileType, enableSegmentation]);
+
+  const captureVideoFrame = async () => {
+    const video = videoRef.current;
+    if (!video) throw new Error('The video preview is not ready yet. Please try again.');
+
+    if (video.readyState < 2) {
+      await new Promise((resolve, reject) => {
+        const handleLoaded = () => {
+          video.removeEventListener('loadeddata', handleLoaded);
+          video.removeEventListener('error', handleError);
+          resolve();
+        };
+        const handleError = () => {
+          video.removeEventListener('loadeddata', handleLoaded);
+          video.removeEventListener('error', handleError);
+          reject(new Error('The uploaded video could not be decoded by the browser.'));
+        };
+        video.addEventListener('loadeddata', handleLoaded, { once: true });
+        video.addEventListener('error', handleError, { once: true });
+      });
+    }
+
+    if (video.readyState >= 1) {
+      video.currentTime = 0;
+      await new Promise((resolve) => {
+        if (Math.abs(video.currentTime) < 0.01) resolve();
+        else video.addEventListener('seeked', resolve, { once: true });
+      });
+    }
+
+    const frameCanvas = document.createElement('canvas');
+    const scale = Math.min(1, 1280 / video.videoWidth);
+    frameCanvas.width = Math.max(1, Math.round(video.videoWidth * scale));
+    frameCanvas.height = Math.max(1, Math.round(video.videoHeight * scale));
+    frameCanvas.getContext('2d').drawImage(video, 0, 0, frameCanvas.width, frameCanvas.height);
+    return frameCanvas.toDataURL('image/jpeg', 0.9);
   };
 
   const handleProcessVideoOrFrame = async () => {
@@ -264,9 +329,11 @@ const MLDetectionUpload = () => {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
+      const frameForAnalysis = fileType === 'video' ? await captureVideoFrame() : preview;
+      if (fileType === 'video') setAnalysisFrame(frameForAnalysis);
       const payload = {
         cameraId,
-        frameUrl: preview,
+        frameUrl: frameForAnalysis,
         location: 'Silk Board Junction, Bengaluru',
         speedLimit,
         signalStatus: 'green',
@@ -279,11 +346,6 @@ const MLDetectionUpload = () => {
 
       const detectionData = res.data?.data || res.data;
       setResult(detectionData);
-
-      // Draw canvas segmentation
-      setTimeout(() => {
-        drawSegmentationOverlay(detectionData);
-      }, 100);
 
       const challansCreated = detectionData.echallans_generated?.total_challans_count || res.data.challansCreated?.length || 0;
       const fineTotal = detectionData.echallans_generated?.total_fine_amount_inr || 3000;
@@ -322,9 +384,9 @@ const MLDetectionUpload = () => {
           </div>
 
           <div className="flex items-center gap-3 font-mono text-xs">
-            <span className="bg-white border border-gray-200 text-emerald-700 px-3 py-2 rounded-2xl flex items-center gap-2 shadow-xs">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
-              YOLOv5 + EasyOCR + Segmentation Online
+            <span className={`bg-white border px-3 py-2 rounded-2xl flex items-center gap-2 shadow-xs ${modelStatus?.source === 'ITD' ? 'border-emerald-200 text-emerald-700' : modelStatus?.source === 'synthetic-fallback' ? 'border-amber-200 text-amber-700' : 'border-gray-200 text-gray-500'}`}>
+              <span className={`w-2 h-2 rounded-full ${modelStatus?.source === 'ITD' ? 'bg-emerald-500 animate-ping' : modelStatus?.source === 'synthetic-fallback' ? 'bg-amber-500' : 'bg-gray-400'}`}></span>
+              {modelStatus?.source === 'ITD' ? `ITD ${modelStatus.name} Active` : modelStatus?.source === 'synthetic-fallback' ? 'ITD Not Run: Synthetic Fallback' : 'ITD Detector Not Verified'}
             </span>
           </div>
         </div>
@@ -374,8 +436,16 @@ const MLDetectionUpload = () => {
                 />
               ) : (
                 <img
+                  ref={imageRef}
                   src={preview}
                   alt="Traffic Frame"
+                  onLoad={() => {
+                    if (result && imageRef.current) {
+                      canvasRef.current.width = imageRef.current.naturalWidth;
+                      canvasRef.current.height = imageRef.current.naturalHeight;
+                      drawSegmentationOverlay(result);
+                    }
+                  }}
                   className="w-full h-full object-contain"
                 />
               )
@@ -392,12 +462,29 @@ const MLDetectionUpload = () => {
               </div>
             )}
 
+            {analysisFrame && (
+              <img
+                ref={analysisImageRef}
+                src={analysisFrame}
+                alt="Extracted video analysis frame"
+                className="hidden"
+                onLoad={() => {
+                  if (result && analysisImageRef.current) {
+                    canvasRef.current.width = analysisImageRef.current.naturalWidth;
+                    canvasRef.current.height = analysisImageRef.current.naturalHeight;
+                    const annotatedImage = drawSegmentationOverlay(result);
+                    if (annotatedImage) setItdResultModal(annotatedImage);
+                  }
+                }}
+              />
+            )}
+
             {/* Segmentation Canvas Overlay */}
             {preview && (
               <canvas
                 ref={canvasRef}
-                width={1280}
-                height={720}
+                width={1}
+                height={1}
                 className="absolute inset-0 w-full h-full pointer-events-none"
               />
             )}
@@ -594,6 +681,43 @@ const MLDetectionUpload = () => {
       </div>
 
       {/* ── PHOTO EVIDENCE MODAL ── */}
+      {itdResultModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl p-5 max-w-5xl w-full shadow-2xl border border-cyan-200 space-y-4 relative">
+            <button
+              onClick={() => setItdResultModal(null)}
+              className="absolute top-3 right-3 z-10 p-2 bg-white/90 hover:bg-slate-100 text-slate-700 rounded-full shadow transition"
+              aria-label="Close ITD analysis result"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-cyan-100 text-cyan-700 rounded-xl">
+                <Eye className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-slate-800">ITD Applied Image</h3>
+                <p className="text-xs text-slate-500">
+                  {modelStatus?.source === 'ITD' ? `${modelStatus.name} detections and segmentation overlays` : 'ITD result preview'}
+                </p>
+              </div>
+            </div>
+            <div className="rounded-2xl overflow-hidden border-2 border-cyan-500 bg-slate-950 flex items-center justify-center">
+              <img src={itdResultModal} alt="ITD annotated traffic analysis" className="max-h-[70vh] w-full object-contain" />
+            </div>
+            <div className="flex items-center justify-between gap-3 text-xs">
+              <span className="font-mono text-slate-500">Bounding boxes, labels and segmentation polygons</span>
+              <button
+                onClick={() => setItdResultModal(null)}
+                className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl font-bold transition"
+              >
+                Close Result
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {selectedEvidenceModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-fade-in">
           <div className="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl border border-slate-200 space-y-4 relative">

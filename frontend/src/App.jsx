@@ -12,6 +12,7 @@ import MobileV2VDashcam from './pages/MobileV2VDashcam';
 
 function App() {
   const [user, setUser] = useState(null);
+  const hasValidRole = user?.role === 'admin' || user?.role === 'citizen';
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -101,7 +102,12 @@ function App() {
   };
 
   return (
-    <BrowserRouter>
+    <BrowserRouter
+      future={{
+        v7_startTransition: true,
+        v7_relativeSplatPath: true
+      }}
+    >
       <Toaster position="top-right" />
       <Routes>
         <Route path="/" element={<PortalGateway user={user} />} />
@@ -111,19 +117,19 @@ function App() {
         <Route path="/v2v-mobile" element={<MobileV2VDashcam />} />
         <Route
           path="/login"
-          element={user ? <Navigate to={user.role === 'admin' ? '/admin' : '/citizen'} /> : <Login onLogin={handleLogin} />}
+          element={hasValidRole ? <Navigate to={user.role === 'admin' ? '/admin' : '/citizen'} replace /> : <Login onLogin={handleLogin} />}
         />
         <Route
           path="/admin/*"
-          element={user?.role === 'admin' ? <AdminDashboard user={user} onLogout={handleLogout} /> : <Navigate to="/login" />}
+          element={user?.role === 'admin' ? <AdminDashboard user={user} onLogout={handleLogout} /> : <Navigate to="/login" replace />}
         />
         <Route
           path="/citizen/*"
-          element={user?.role === 'citizen' ? <CitizenDashboard user={user} onLogout={handleLogout} /> : <Navigate to="/login" />}
+          element={user?.role === 'citizen' ? <CitizenDashboard user={user} onLogout={handleLogout} /> : <Navigate to="/login" replace />}
         />
         <Route
           path="*"
-          element={<Navigate to="/" />}
+          element={<Navigate to="/" replace />}
         />
       </Routes>
     </BrowserRouter>
