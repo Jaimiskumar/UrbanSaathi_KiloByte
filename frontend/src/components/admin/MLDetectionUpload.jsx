@@ -409,29 +409,29 @@ const MLDetectionUpload = () => {
   return (
     <div className="space-y-6 pb-20">
       
-      {/* ── TOP HERO HEADER (LIGHT THEME) ── */}
-      <div className="bg-gradient-to-r from-blue-50 via-cyan-50 to-white rounded-3xl p-6 sm:p-8 text-gray-900 shadow-sm border border-blue-200 relative overflow-hidden">
+      {/* ── TOP HERO HEADER (LIQUID GLASS CONTROL ROOM) ── */}
+      <div className="bg-white/80 backdrop-blur-xl rounded-3xl p-6 sm:p-8 text-slate-900 shadow-glass border border-white/70 relative overflow-hidden">
         <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 relative z-10">
           <div>
-            <div className="flex items-center gap-3 mb-2">
-              <div className="p-2.5 bg-blue-100 text-blue-700 border border-blue-300 rounded-2xl">
-                <Film className="w-6 h-6" />
+            <div className="flex items-center gap-2.5 mb-2">
+              <div className="p-2 bg-cyan-50 text-cyan-600 border border-cyan-200/60 rounded-xl shadow-xs">
+                <Film className="w-5 h-5" />
               </div>
-              <span className="bg-blue-100 text-blue-800 text-xs font-black px-3 py-1 rounded-full uppercase tracking-wider border border-blue-200">
+              <span className="bg-cyan-50 text-cyan-700 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider border border-cyan-200/60">
                 Synchronized Vision & Multi-Modal ML Layer
               </span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-gray-900">
+            <h1 className="text-2xl sm:text-3xl font-display font-extrabold tracking-tight text-slate-900">
               Traffic Video Analyzer, Segmentation & Auto E-Challan Engine
             </h1>
-            <p className="text-gray-600 text-xs sm:text-sm font-medium mt-1">
+            <p className="text-slate-500 text-xs sm:text-sm font-medium mt-1">
               Upload any CCTV video or frame to run instance segmentation, detect congestion, detect collisions/accidents, identify violations, and automatically issue legal E-Challans.
             </p>
           </div>
 
           <div className="flex items-center gap-3 font-mono text-xs">
-            <span className={`bg-white border px-3 py-2 rounded-2xl flex items-center gap-2 shadow-xs ${modelStatus?.source === 'ITD' ? 'border-emerald-200 text-emerald-700' : modelStatus?.source === 'synthetic-fallback' ? 'border-amber-200 text-amber-700' : 'border-gray-200 text-gray-500'}`}>
-              <span className={`w-2 h-2 rounded-full ${modelStatus?.source === 'ITD' ? 'bg-emerald-500 animate-ping' : modelStatus?.source === 'synthetic-fallback' ? 'bg-amber-500' : 'bg-gray-400'}`}></span>
+            <span className={`bg-white/90 backdrop-blur-md border px-3.5 py-2 rounded-2xl flex items-center gap-2 shadow-xs ${modelStatus?.source === 'ITD' ? 'border-emerald-200 text-emerald-700' : modelStatus?.source === 'synthetic-fallback' ? 'border-amber-200 text-amber-700' : 'border-slate-200 text-slate-500'}`}>
+              <span className={`w-2 h-2 rounded-full ${modelStatus?.source === 'ITD' ? 'bg-emerald-500 animate-ping' : modelStatus?.source === 'synthetic-fallback' ? 'bg-amber-500' : 'bg-slate-400'}`}></span>
               {modelStatus?.source === 'ITD' ? `ITD ${modelStatus.name} Active` : modelStatus?.source === 'synthetic-fallback' ? 'ITD Not Run: Synthetic Fallback' : 'ITD Detector Not Verified'}
             </span>
           </div>
@@ -442,16 +442,16 @@ const MLDetectionUpload = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* Left 2 Cols: Video / Frame Player & Segmentation Canvas */}
-        <div className="lg:col-span-2 bg-white rounded-3xl p-6 shadow-sm border border-slate-200 space-y-4">
+        <div className="lg:col-span-2 bg-white/80 backdrop-blur-xl rounded-3xl p-6 shadow-glass border border-white/70 space-y-4">
           
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-sm font-black text-slate-800">Traffic Video / Feed Canvas</h2>
+              <h2 className="text-sm font-display font-bold text-slate-800">Traffic Video / Feed Canvas</h2>
               <p className="text-xs text-slate-500">Live bounding boxes, instance segmentation polygons & violation overlays</p>
             </div>
 
             <div className="flex items-center gap-2">
-              <label className="flex items-center gap-2 text-xs font-bold text-slate-600 bg-slate-100 px-3 py-1.5 rounded-xl cursor-pointer">
+              <label className="flex items-center gap-2 text-xs font-bold text-slate-600 bg-slate-100/90 border border-slate-200/60 px-3 py-1.5 rounded-xl cursor-pointer shadow-xs">
                 <input
                   type="checkbox"
                   checked={enableSegmentation}

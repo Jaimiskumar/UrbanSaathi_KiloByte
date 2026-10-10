@@ -20,6 +20,7 @@ import {
   Building2,
   X,
   Car,
+  Camera,
   CreditCard as CardIcon
 } from 'lucide-react';
 

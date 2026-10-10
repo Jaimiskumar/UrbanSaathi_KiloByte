@@ -281,24 +281,24 @@ export default function V2VSafetyCenter() {
   };
 
   return (
-    <div className="space-y-6 pb-20">
+    <div className="space-y-6 pb-20 font-sans">
       
-      {/* ── TOP HERO BANNER (LIGHT THEME) ── */}
-      <div className="bg-gradient-to-r from-blue-50 via-indigo-50 to-white rounded-3xl p-6 sm:p-8 text-gray-900 shadow-sm border border-blue-200 relative overflow-hidden">
+      {/* ── TOP HERO BANNER (LIQUID GLASS CONTROL ROOM) ── */}
+      <div className="bg-white/80 backdrop-blur-xl rounded-3xl p-6 sm:p-8 text-slate-900 shadow-glass border border-white/70 relative overflow-hidden">
         <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 relative z-10">
           <div>
-            <div className="flex items-center gap-3 mb-2">
-              <div className="p-2.5 bg-blue-100 text-blue-700 border border-blue-300 rounded-2xl">
-                <Car className="w-6 h-6" />
+            <div className="flex items-center gap-2.5 mb-2">
+              <div className="p-2 bg-blue-50 text-blue-600 border border-blue-200/60 rounded-xl shadow-xs">
+                <Car className="w-5 h-5" />
               </div>
-              <span className="bg-blue-100 text-blue-800 text-xs font-black px-3 py-1 rounded-full uppercase tracking-wider border border-blue-200">
+              <span className="bg-blue-50 text-blue-700 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider border border-blue-200/60">
                 Phase 5 • V2V & Autonomous Safety Intelligence
               </span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-gray-900">
+            <h1 className="text-2xl sm:text-3xl font-display font-extrabold tracking-tight text-slate-900">
               V2V, Accident Detection & Pedestrian Safety Command Center
             </h1>
-            <p className="text-gray-600 text-xs sm:text-sm font-medium mt-1">
+            <p className="text-slate-500 text-xs sm:text-sm font-medium mt-1">
               Model-driven multi-agent collision prevention, secondary crash mitigation, and crosswalk safety for Bengaluru corridors.
             </p>
           </div>
@@ -326,98 +326,98 @@ export default function V2VSafetyCenter() {
         </div>
 
         {/* Live Network Indicators */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mt-6 pt-6 border-t border-blue-200/80 text-xs font-mono">
-          <div className="bg-white p-2.5 rounded-xl border border-gray-200 flex items-center gap-2 shadow-xs">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mt-6 pt-6 border-t border-slate-200/70 text-xs font-mono">
+          <div className="bg-white/90 backdrop-blur-md p-2.5 rounded-xl border border-slate-200/80 flex items-center gap-2 shadow-xs">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
             <div>
-              <p className="text-[10px] text-gray-500 uppercase font-sans font-bold">V2V Network</p>
+              <p className="text-[10px] text-slate-400 uppercase font-sans font-extrabold">V2V Network</p>
               <p className="text-emerald-700 font-bold">ONLINE ({commMode})</p>
             </div>
           </div>
-          <div className="bg-white p-2.5 rounded-xl border border-gray-200 flex items-center gap-2 shadow-xs">
+          <div className="bg-white/90 backdrop-blur-md p-2.5 rounded-xl border border-slate-200/80 flex items-center gap-2 shadow-xs">
             <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
             <div>
-              <p className="text-[10px] text-gray-500 uppercase font-sans font-bold">RSU-J1 Silk Board</p>
+              <p className="text-[10px] text-slate-400 uppercase font-sans font-extrabold">RSU-J1 Silk Board</p>
               <p className="text-emerald-700 font-bold">ONLINE (100%)</p>
             </div>
           </div>
-          <div className="bg-white p-2.5 rounded-xl border border-gray-200 flex items-center gap-2 shadow-xs">
+          <div className="bg-white/90 backdrop-blur-md p-2.5 rounded-xl border border-slate-200/80 flex items-center gap-2 shadow-xs">
             <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
             <div>
-              <p className="text-[10px] text-gray-500 uppercase font-sans font-bold">RSU-J2 Madiwala</p>
+              <p className="text-[10px] text-slate-400 uppercase font-sans font-extrabold">RSU-J2 Madiwala</p>
               <p className="text-emerald-700 font-bold">ONLINE (100%)</p>
             </div>
           </div>
-          <div className="bg-white p-2.5 rounded-xl border border-gray-200 flex items-center gap-2 shadow-xs">
+          <div className="bg-white/90 backdrop-blur-md p-2.5 rounded-xl border border-slate-200/80 flex items-center gap-2 shadow-xs">
             <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
             <div>
-              <p className="text-[10px] text-gray-500 uppercase font-sans font-bold">RSU-J3 E-City</p>
+              <p className="text-[10px] text-slate-400 uppercase font-sans font-extrabold">RSU-J3 E-City</p>
               <p className="text-emerald-700 font-bold">ONLINE (100%)</p>
             </div>
           </div>
-          <div className="bg-white p-2.5 rounded-xl border border-gray-200 flex items-center gap-2 shadow-xs">
+          <div className="bg-white/90 backdrop-blur-md p-2.5 rounded-xl border border-slate-200/80 flex items-center gap-2 shadow-xs">
             <Cpu className="w-3.5 h-3.5 text-blue-600" />
             <div>
-              <p className="text-[10px] text-gray-500 uppercase font-sans font-bold">ML Models</p>
+              <p className="text-[10px] text-slate-400 uppercase font-sans font-extrabold">ML Models</p>
               <p className="text-blue-700 font-bold">7 / 7 Online</p>
             </div>
           </div>
-          <div className="bg-white p-2.5 rounded-xl border border-gray-200 flex items-center gap-2 shadow-xs">
+          <div className="bg-white/90 backdrop-blur-md p-2.5 rounded-xl border border-slate-200/80 flex items-center gap-2 shadow-xs">
             <Shield className="w-3.5 h-3.5 text-purple-600" />
             <div>
-              <p className="text-[10px] text-gray-500 uppercase font-sans font-bold">Safety Mandate</p>
+              <p className="text-[10px] text-slate-400 uppercase font-sans font-extrabold">Safety Mandate</p>
               <p className="text-purple-700 font-bold">Operator Guarded</p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ── TABS NAVIGATION ── */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-gray-200 pb-2">
+      {/* ── TABS NAVIGATION (FROSTED GLASS PILL) ── */}
+      <div className="bg-white/70 backdrop-blur-xl p-1.5 rounded-2xl shadow-glass border border-white/80 flex flex-wrap items-center gap-1.5">
         <button
           onClick={() => setActiveTab('connected-vehicle')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-            activeTab === 'connected-vehicle' ? 'bg-indigo-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-100'
+            activeTab === 'connected-vehicle' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
           }`}
         >
           <Camera className="w-4 h-4" />
-          Connected Vehicle & Dashcam AI Hub
+          Connected Vehicle Dashboard
         </button>
         <button
           onClick={() => setActiveTab('simulation')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-            activeTab === 'simulation' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-100'
+            activeTab === 'simulation' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
           }`}
         >
-          <Car className="w-4 h-4" />
-          V2V Simulation & Secondary Radar
+          <Radio className="w-4 h-4" />
+          V2V Telemetry Simulation
         </button>
         <button
           onClick={() => setActiveTab('models')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-            activeTab === 'models' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-100'
+            activeTab === 'models' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
           }`}
         >
-          <Database className="w-4 h-4" />
-          AI Data & Models Explorer ({modelsStatus?.models?.length || 9} Loaded)
+          <Cpu className="w-4 h-4" />
+          ML Safety Model Suite
         </button>
         <button
           onClick={() => setActiveTab('hotspots')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-            activeTab === 'hotspots' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-100'
+            activeTab === 'hotspots' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
           }`}
         >
           <MapPin className="w-4 h-4" />
-          Bengaluru Hotspots & Time Predictions
+          Bengaluru Accident Hotspots
         </button>
         <button
           onClick={() => setActiveTab('trace')}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-            activeTab === 'trace' ? 'bg-blue-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-100'
+            activeTab === 'trace' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
           }`}
         >
           <Activity className="w-4 h-4" />
-          Live 12-Agent Trace & Socket Stream
+          Kinematic Trajectory Trace
         </button>
       </div>
 
