@@ -39,6 +39,23 @@ import json
 import joblib
 import pandas as pd
 
+tf = None
+
+def load_contractor_model(tensorflow_runtime, model_path):
+    model = tensorflow_runtime.keras.Sequential([
+        tensorflow_runtime.keras.layers.Input(shape=(15,)),
+        tensorflow_runtime.keras.layers.Dense(256, activation='relu'),
+        tensorflow_runtime.keras.layers.Dropout(0.25),
+        tensorflow_runtime.keras.layers.Dense(128, activation='relu'),
+        tensorflow_runtime.keras.layers.Dropout(0.2),
+        tensorflow_runtime.keras.layers.Dense(64, activation='relu'),
+        tensorflow_runtime.keras.layers.Dropout(0.15),
+        tensorflow_runtime.keras.layers.Dense(32, activation='relu'),
+        tensorflow_runtime.keras.layers.Dense(1161, activation='softmax')
+    ])
+    model.load_weights(model_path)
+    return model
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 ACCIDENT_CONFIDENCE_THRESHOLD = float(os.getenv("URBANSAATHI_ACCIDENT_CONFIDENCE", "0.90"))
@@ -102,8 +119,22 @@ class MLModels:
         self.real_image_model_labels = {}
         self.real_congestion_model = None
         self.real_congestion_features = []
+        self.contractor_model = None
+        self.contractor_preprocessor = None
+        self.contractor_label_encoder = None
 
         real_model_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'models', 'real')
+        contractor_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'models')
+        contractor_model_path = os.path.join(contractor_dir, 'urbansaathi_contractor_500epochs.keras')
+        contractor_preprocessor_path = os.path.join(contractor_dir, 'urbansaathi_preprocessor.pkl')
+        contractor_encoder_path = os.path.join(contractor_dir, 'urbansaathi_label_encoder.pkl')
+        if all(os.path.exists(path) for path in (contractor_model_path, contractor_preprocessor_path, contractor_encoder_path)):
+            try:
+                self.contractor_preprocessor = joblib.load(contractor_preprocessor_path)
+                self.contractor_label_encoder = joblib.load(contractor_encoder_path)
+                logger.info("Contractor prediction assets found; model loading deferred")
+            except Exception as error:
+                logger.warning(f"Contractor prediction assets unavailable: {error}")
         for model_name in ('accident_classifier', 'vehicle_classifier'):
             model_path = os.path.join(real_model_dir, f'{model_name}.pt')
             if os.path.exists(model_path):
@@ -662,6 +693,15 @@ class VideoAnalysisRequest(BaseModel):
     signal_status: str = "green"
     enable_segmentation: bool = True
 
+class ContractorPredictionRequest(BaseModel):
+    latitude: float
+    longitude: float
+    ward_num: Optional[float] = None
+    gis_length_m: Optional[float] = None
+    Road_Type: Optional[str] = None
+    Road_Surface: Optional[str] = None
+    Road_Class: Optional[str] = None
+
 # ==================== API ENDPOINTS ====================
 
 @app.get("/health")
@@ -690,9 +730,42 @@ async def health_check():
             "ocr_reader": models.ocr_reader is not None,
             "segmentation_engine": True,
             "accident_detector": True,
-            "echallan_engine": True
+            "echallan_engine": True,
+            "contractor_prediction_model": models.contractor_model is not None
         }
     }
+
+@app.post("/predict/contractor")
+async def predict_contractor(request: ContractorPredictionRequest):
+    global tf
+    if tf is None:
+        try:
+            import tensorflow as tensorflow_runtime
+            tf = tensorflow_runtime
+            if models.contractor_model is None:
+                models.contractor_model = load_contractor_model(
+                    tf,
+                    os.path.join(os.path.dirname(os.path.abspath(__file__)), 'models', 'urbansaathi_contractor_500epochs.keras')
+                )
+        except Exception as error:
+            logger.warning(f"Contractor prediction runtime unavailable: {error}")
+            return {"available": False, "predicted_contractor": None, "confidence": None, "source": "unavailable"}
+    if not all((models.contractor_model, models.contractor_preprocessor, models.contractor_label_encoder)):
+        return {"available": False, "predicted_contractor": None, "confidence": None, "source": "unavailable"}
+
+    try:
+        features = pd.DataFrame([request.model_dump()])
+        transformed = models.contractor_preprocessor.transform(features)
+        probabilities = models.contractor_model.predict(transformed, verbose=0)[0]
+        prediction_index = int(np.argmax(probabilities))
+        confidence = float(probabilities[prediction_index])
+        predicted_contractor = str(models.contractor_label_encoder.inverse_transform([prediction_index])[0])
+        if confidence < 0.25:
+            return {"available": True, "predicted_contractor": None, "confidence": confidence, "source": "experimental_model", "warning": "Prediction confidence is too low to report a candidate."}
+        return {"available": True, "predicted_contractor": predicted_contractor, "confidence": confidence, "source": "experimental_model", "warning": "Supporting prediction only; verified road history is authoritative."}
+    except Exception as error:
+        logger.warning(f"Contractor prediction failed: {error}")
+        return {"available": False, "predicted_contractor": None, "confidence": None, "source": "error"}
 
 @app.post("/batch/process-frame")
 @app.post("/detect/video")

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, Link, useLocation } from 'react-router-dom';
-import { Car, ParkingCircle, AlertTriangle, Activity, LogOut, Truck, Menu, X, Camera, Ban, Zap, Radio, Shield } from 'lucide-react';
+import { Car, ParkingCircle, AlertTriangle, Activity, LogOut, Truck, Menu, X, Camera, Ban, Zap, Radio, Shield, Construction } from 'lucide-react';
 import TrafficMonitoring from '../components/admin/TrafficMonitoring';
 import ParkingManagement from '../components/admin/ParkingManagement';
 import ViolationManagement from '../components/admin/ViolationManagement';
@@ -13,6 +13,7 @@ import MLDetectionUpload from '../components/admin/MLDetectionUpload';
 import DailyReports from '../components/admin/DailyReports';
 import BangaloreTrafficMap from '../components/admin/BangaloreTrafficMap';
 import V2VSafetyCenter from '../components/admin/V2VSafetyCenter';
+import RoadIntelligence from '../components/admin/RoadIntelligence';
 import { Bot, FileBarChart, Map as MapIcon } from 'lucide-react';
 
 export default function AdminDashboard({ user, onLogout }) {
@@ -37,7 +38,8 @@ export default function AdminDashboard({ user, onLogout }) {
     { id: 'encroachment', label: 'Encroachment Monitor', icon: Camera, path: '/admin/encroachment', color: 'indigo' },
     { id: 'emergency', label: 'Emergency', icon: Truck, path: '/admin/emergency', color: 'red' },
     { id: 'analytics', label: 'Analytics', icon: Activity, path: '/admin/analytics', color: 'purple' },
-    { id: 'reports', label: 'Daily Reports', icon: FileBarChart, path: '/admin/reports', color: 'emerald' }
+    { id: 'reports', label: 'Daily Reports', icon: FileBarChart, path: '/admin/reports', color: 'emerald' },
+    { id: 'road-intelligence', label: 'Road Intelligence', icon: Construction, path: '/admin/road-intelligence', color: 'blue' }
   ];
 
   return (
@@ -147,6 +149,7 @@ export default function AdminDashboard({ user, onLogout }) {
               <Route path="/agents" element={<AIAgentCenter />} />
               <Route path="/analytics" element={<Analytics />} />
               <Route path="/reports" element={<DailyReports />} />
+              <Route path="road-intelligence" element={<RoadIntelligence />} />
             </Routes>
           </div>
         </main>

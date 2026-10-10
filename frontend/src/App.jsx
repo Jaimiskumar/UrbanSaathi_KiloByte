@@ -12,6 +12,7 @@ import MobileV2VDashcam from './pages/MobileV2VDashcam';
 
 function App() {
   const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const hasValidRole = user?.role === 'admin' || user?.role === 'citizen';
 
   useEffect(() => {
@@ -20,6 +21,7 @@ function App() {
     if (token && userData) {
       setUser(JSON.parse(userData));
     }
+    setAuthLoading(false);
   }, []);
 
   useEffect(() => {
@@ -109,6 +111,7 @@ function App() {
       }}
     >
       <Toaster position="top-right" />
+      {authLoading ? null : (
       <Routes>
         <Route path="/" element={<PortalGateway user={user} />} />
         <Route path="/mobile" element={<MobileAppPage />} />
@@ -132,6 +135,7 @@ function App() {
           element={<Navigate to="/" replace />}
         />
       </Routes>
+      )}
     </BrowserRouter>
   );
 }

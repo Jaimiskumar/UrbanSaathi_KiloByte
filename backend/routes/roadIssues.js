@@ -3,6 +3,8 @@ import RoadIssue from '../models/RoadIssue.js';
 import { authMiddleware, requirePermission } from '../middleware/auth.js';
 import { io } from '../server.js';
 import { logAudit } from '../services/auditLogger.js';
+import { lookupRoad } from '../services/roadIntelligenceService.js';
+import IssueVerification from '../models/IssueVerification.js';
 
 const router = express.Router();
 
@@ -33,9 +35,17 @@ router.post('/', authMiddleware, async (req, res) => {
   try {
     const { issueType, locationName, coordinates, description, imageUrl } = req.body;
 
-    if (!issueType || !locationName || !coordinates || !imageUrl) {
+    if (!issueType || !locationName || !coordinates) {
       return res.status(400).json({ message: 'Missing required fields' });
     }
+
+    const roadIntelligence = await lookupRoad({ coordinates, issueType });
+    const priority = roadIntelligence.priority || { level: 'MEDIUM', score: 0 };
+    const aiRecommendation = issueType === 'Roadblock' || issueType === 'Under Construction'
+      ? 'Notify the traffic authority and evaluate a diversion.'
+      : priority.level === 'HIGH' || priority.level === 'CRITICAL'
+        ? 'Prioritize field inspection and create a maintenance complaint.'
+        : 'Create a road maintenance complaint and schedule verification.';
 
     const newIssue = new RoadIssue({
       userId: req.user.userId,
@@ -43,7 +53,11 @@ router.post('/', authMiddleware, async (req, res) => {
       locationName,
       coordinates,
       description,
-      imageUrl,
+      imageUrl: imageUrl || '',
+      roadIntelligence,
+      priority: priority.level,
+      riskScore: priority.score,
+      aiRecommendation,
       status: 'Reported'
     });
 
@@ -130,6 +144,35 @@ router.patch('/:id/status', authMiddleware, requirePermission('road-issues:write
     });
 
     res.json(updatedIssue);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+router.post('/:id/verify', authMiddleware, requirePermission('road-issues:write'), async (req, res) => {
+  try {
+    const { result, coordinates, evidenceReference, notes } = req.body;
+    if (!['Verified Resolved', 'Issue Still Present'].includes(result)) {
+      return res.status(400).json({ message: 'Verification result must be Verified Resolved or Issue Still Present' });
+    }
+
+    const issue = await RoadIssue.findByIdAndUpdate(
+      req.params.id,
+      { $set: { status: result, ...(result === 'Verified Resolved' ? { resolvedAt: new Date() } : {}) } },
+      { new: true }
+    );
+    if (!issue) return res.status(404).json({ message: 'Issue not found' });
+
+    const verification = await IssueVerification.create({
+      roadIssueId: issue._id,
+      result,
+      coordinates,
+      evidenceReference,
+      notes,
+      verifiedBy: req.user.userId
+    });
+    io.emit('road-issue-updated', { issueId: issue._id, newStatus: result, location: issue.locationName });
+    res.json({ issue, verification });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

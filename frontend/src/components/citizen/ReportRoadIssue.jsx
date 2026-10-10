@@ -25,6 +25,8 @@ export default function ReportRoadIssue() {
   const [locating, setLocating] = useState(false);
   const [showAgentModal, setShowAgentModal] = useState(false);
   const [agentMessage, setAgentMessage] = useState('');
+  const [roadLookup, setRoadLookup] = useState(null);
+  const [lookingUpRoad, setLookingUpRoad] = useState(false);
   
   const fileInputRef = useRef(null);
 
@@ -82,6 +84,25 @@ export default function ReportRoadIssue() {
     }
   };
 
+  const handleRoadLookup = async () => {
+    if (!coordinates.lat || !coordinates.lng) {
+      toast.error('Capture your GPS location first.');
+      return;
+    }
+    setLookingUpRoad(true);
+    try {
+      const response = await axios.get('/api/road-intelligence/lookup', {
+        params: { lat: coordinates.lat, lng: coordinates.lng, issueType },
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      setRoadLookup(response.data);
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Road lookup failed');
+    } finally {
+      setLookingUpRoad(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -112,10 +133,11 @@ export default function ReportRoadIssue() {
         imageUrl: previewUrl // Mocking the upload result
       };
 
-      await axios.post('/api/road-issues', payload);
+      const response = await axios.post('/api/road-issues', payload);
       
       // Trigger AI Agent Response
-      setAgentMessage(`Hello! I am S.I.T.A., your city's Intelligent Traffic Agent. I have received your report about a ${issueType} at ${locationName}. Our vision systems are now verifying the impact on city traffic flow. Thank you for your contribution!`);
+      const report = response.data;
+      setAgentMessage(`Your ${issueType} report is recorded at ${locationName}. Priority: ${report.priority || 'MEDIUM'}. ${report.roadIntelligence?.message || 'Verified road context has been attached for authority review.'}`);
       setShowAgentModal(true);
 
       // Reset form
@@ -123,6 +145,7 @@ export default function ReportRoadIssue() {
       setDescription('');
       setPhoto(null);
       setPreviewUrl('');
+      setRoadLookup(null);
       // Keep location as it might be useful for multiple reports in same area
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to submit report');
@@ -235,10 +258,16 @@ export default function ReportRoadIssue() {
                       />
                     </div>
                     {coordinates.lat && (
-                      <p className="text-[10px] text-gray-400 font-bold mt-2 ml-2 tracking-wide uppercase">
+                      <div className="mt-2 ml-2">
+                      <p className="text-[10px] text-gray-400 font-bold tracking-wide uppercase">
                         Coordinates: {coordinates.lat.toFixed(6)}, {coordinates.lng.toFixed(6)} 
                         <span className="ml-2 text-green-500">(Verified via GPS)</span>
                       </p>
+                      <button type="button" onClick={handleRoadLookup} disabled={lookingUpRoad} className="mt-2 inline-flex items-center gap-1 text-xs font-black text-blue-600 hover:text-blue-800 disabled:opacity-50">
+                        {lookingUpRoad ? <Loader2 className="w-3 h-3 animate-spin" /> : <Navigation className="w-3 h-3" />} Identify nearest road
+                      </button>
+                      {roadLookup && <div className="mt-2 rounded-xl bg-blue-50 border border-blue-100 p-3 text-xs text-blue-900"><strong>{roadLookup.kgisRoad?.id || roadLookup.message}</strong>{roadLookup.verifiedRoadHistory?.streetName && <span> · {roadLookup.verifiedRoadHistory.streetName}</span>}{roadLookup.verifiedRoadHistory?.contractor?.name && <span className="block mt-1 font-bold">Assigned contractor: {roadLookup.verifiedRoadHistory.contractor.name}</span>}{roadLookup.aiPrediction?.predictedContractor && <span className="block mt-1">AI predicted contractor: {roadLookup.aiPrediction.predictedContractor}</span>}</div>}
+                      </div>
                     )}
                  </div>
 
@@ -291,8 +320,7 @@ export default function ReportRoadIssue() {
                       </div>
                       <h4 className="font-black text-[#0F172A] text-xl mb-2">Snap a Photo</h4>
                       <p className="text-gray-400 font-bold text-center px-8 text-sm leading-relaxed">
-                        Drag & drop or <span className="text-blue-600">click to upload</span>. 
-                        Required for verification.
+                        Drag & drop or <span className="text-blue-600">click to upload</span>. Evidence is optional but helps verification.
                       </p>
                     </>
                   )}

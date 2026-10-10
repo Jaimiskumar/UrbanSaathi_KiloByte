@@ -27,11 +27,11 @@ const roadIssueSchema = new mongoose.Schema(
     },
     imageUrl: {
       type: String,
-      required: true
+      default: ''
     },
     status: {
       type: String,
-      enum: ['Reported', 'Verification', 'In Progress', 'Resolved', 'Rejected'],
+      enum: ['Reported', 'Assigned', 'Verification', 'In Progress', 'Resolved', 'Verified Resolved', 'Issue Still Present', 'Rejected'],
       default: 'Reported',
       index: true
     },
@@ -42,6 +42,25 @@ const roadIssueSchema = new mongoose.Schema(
     resolvedAt: {
       type: Date,
       default: null
+    },
+    roadIntelligence: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null
+    },
+    priority: {
+      type: String,
+      enum: ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'],
+      default: 'MEDIUM'
+    },
+    riskScore: {
+      type: Number,
+      min: 0,
+      max: 100,
+      default: 0
+    },
+    aiRecommendation: {
+      type: String,
+      default: ''
     }
   },
   {

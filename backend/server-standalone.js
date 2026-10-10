@@ -46,6 +46,25 @@ const roadIssueStore = [];
 const routeAlertStore = [];
 const complaintStore = [];
 
+const distanceBetweenCoordinates = (first, second) => {
+  const earthRadius = 6371e3;
+  const toRadians = (value) => value * Math.PI / 180;
+  const latDelta = toRadians(second.lat - first.lat);
+  const lngDelta = toRadians(second.lng - first.lng);
+  const latitude = toRadians(first.lat);
+  const targetLatitude = toRadians(second.lat);
+  const a = Math.sin(latDelta / 2) ** 2 + Math.cos(latitude) * Math.cos(targetLatitude) * Math.sin(lngDelta / 2) ** 2;
+  return earthRadius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+};
+
+const findNearestDemoRoad = (coordinates) => {
+  const candidates = roadIssueStore
+    .filter((issue) => issue.roadIntelligence?.kgisRoad && issue.coordinates?.lat && issue.coordinates?.lng)
+    .map((issue) => ({ issue, distance: distanceBetweenCoordinates(coordinates, issue.coordinates) }))
+    .sort((first, second) => first.distance - second.distance);
+  return candidates[0]?.distance <= 5000 ? candidates[0] : null;
+};
+
 const getIssueType = (text = '') => {
   const t = text.toLowerCase();
   if (/(pothole|bump|surface|crack)/.test(t)) return 'Pothole';
@@ -689,6 +708,68 @@ function initializeData() {
       });
     }
   }
+
+  roadIssueStore.push(
+    {
+      _id: 'demo-road-issue-pothole',
+      issueType: 'Pothole',
+      locationName: 'Outer Ring Road, Silk Board Junction',
+      coordinates: { lat: 12.9177, lng: 77.6238 },
+      description: 'Demo road-intelligence report for authority review.',
+      imageUrl: '',
+      status: 'Verification',
+      priority: 'HIGH',
+      riskScore: 72,
+      aiRecommendation: 'Prioritize field inspection and create a maintenance complaint.',
+      source: 'demo_road_intelligence',
+      reportedAt: new Date().toISOString(),
+      roadIntelligence: {
+        roadIdentified: true,
+        coordinates: { lat: 12.9177, lng: 77.6238 },
+        kgisRoad: {
+          id: 'DEMO-KGIS-ORR-001',
+          distanceFromRoadMeters: 4,
+          ward: 'DEMO-WARD-151',
+          roadType: 'Arterial Road',
+          roadSurface: 'Bituminous',
+          roadClass: 'High Traffic'
+        },
+        verifiedRoadHistory: {
+          bbmpSegmentId: 'DEMO-BBMP-ORR-001',
+          streetName: 'Outer Ring Road',
+          ward: 'Demo Ward',
+          zone: 'South Bengaluru',
+          matchConfidence: 0.94,
+          matchMethod: 'demo_verified',
+          contractor: { name: 'Demo contractor record', registrationNo: 'DEMO-ONLY', phone: null },
+          workHistory: { workName: 'Demonstration road resurfacing record', workYear: 2024, workOrderNo: 'DEMO-WO-001' }
+        },
+        aiPrediction: { predictedContractor: 'V.L.MUNIRAJU', confidence: 0.6609834432601929, source: 'experimental_model', warning: 'Supporting prediction only; verified road history is authoritative.' }
+      }
+    },
+    {
+      _id: 'demo-road-issue-encroachment',
+      issueType: 'Roadblock',
+      locationName: 'Bellandur Main Road',
+      coordinates: { lat: 12.9352, lng: 77.6960 },
+      description: 'Demo obstruction report connected to traffic diversion review.',
+      imageUrl: '',
+      status: 'Assigned',
+      priority: 'CRITICAL',
+      riskScore: 88,
+      aiRecommendation: 'Notify the traffic authority and evaluate a diversion.',
+      source: 'demo_road_intelligence',
+      reportedAt: new Date().toISOString(),
+      roadIntelligence: {
+        roadIdentified: true,
+        coordinates: { lat: 12.9352, lng: 77.6960 },
+        kgisRoad: { id: 'DEMO-KGIS-BMR-002', distanceFromRoadMeters: 7, ward: 'DEMO-WARD-150', roadType: 'Main Road', roadSurface: 'Concrete', roadClass: 'Arterial' },
+        verifiedRoadHistory: null,
+        message: 'Road identified, but verified BBMP road-history information is unavailable.',
+        aiPrediction: { predictedContractor: 'K.R.D.L', confidence: 0.45544183254241943, source: 'experimental_model', warning: 'Supporting prediction only; verified road history is authoritative.' }
+      }
+    }
+  );
 
   console.log('✅ Data initialized');
 }
@@ -1513,6 +1594,30 @@ app.get('/api/road-issues', (req, res) => {
   res.json(roadIssueStore.filter((issue) => issue.status !== 'Resolved'));
 });
 
+app.get('/api/road-intelligence/lookup', authMiddleware, (req, res) => {
+  const coordinates = { lat: Number(req.query.lat), lng: Number(req.query.lng) };
+  const nearest = findNearestDemoRoad(coordinates);
+  const roadIntelligence = nearest ? {
+    ...nearest.issue.roadIntelligence,
+    coordinates,
+    kgisRoad: { ...nearest.issue.roadIntelligence.kgisRoad, distanceFromRoadMeters: Math.round(nearest.distance) }
+  } : null;
+  res.json(roadIntelligence || {
+    roadIdentified: false,
+    coordinates,
+    message: 'Demo mode: no KGIS road is loaded for these coordinates.',
+    verifiedRoadHistory: null,
+    aiPrediction: null
+  });
+});
+
+app.patch('/api/road-issues/:id/status', authMiddleware, adminOnly, (req, res) => {
+  const issue = roadIssueStore.find((item) => item._id === req.params.id);
+  if (!issue) return res.status(404).json({ message: 'Issue not found' });
+  issue.status = req.body.status;
+  res.json(issue);
+});
+
 app.post('/api/road-issues', authMiddleware, async (req, res) => {
   const { issueType, locationName, coordinates, description, imageUrl } = req.body;
   if (!issueType || !locationName || !coordinates?.lat || !coordinates?.lng || !imageUrl) {
@@ -1548,6 +1653,18 @@ app.post('/api/road-issues', authMiddleware, async (req, res) => {
   const matchingReports = roadIssueStore.filter((issue) =>
     issue.issueType === issueType && issue.locationName.toLowerCase() === locationName.toLowerCase() && issue.status !== 'Resolved'
   );
+  const nearestRoad = findNearestDemoRoad(coordinates);
+  const roadIntelligence = nearestRoad ? {
+    ...nearestRoad.issue.roadIntelligence,
+    coordinates,
+    kgisRoad: { ...nearestRoad.issue.roadIntelligence.kgisRoad, distanceFromRoadMeters: Math.round(nearestRoad.distance) }
+  } : {
+    roadIdentified: false,
+    coordinates,
+    message: 'Demo mode: no KGIS road is loaded for these coordinates.',
+    verifiedRoadHistory: null,
+    aiPrediction: null
+  };
   const priority = matchingReports.length >= 1 ? 'HIGH' : 'MEDIUM';
   const report = {
     _id: `citizen-${Date.now()}`,
@@ -1562,6 +1679,8 @@ app.post('/api/road-issues', authMiddleware, async (req, res) => {
     reportedBy: req.user.userId,
     reportedAt: new Date().toISOString(),
     validation: { ...validation, matchedReports: matchingReports.length }
+    ,roadIntelligence,
+    assignedContractor: roadIntelligence.verifiedRoadHistory?.contractor?.name || roadIntelligence.aiPrediction?.predictedContractor || null
   };
   roadIssueStore.unshift(report);
   const ticket = { ...report, ticketId: `TKT-${Date.now()}`, status: 'Open', assignedTo: 'Municipal Authority' };
