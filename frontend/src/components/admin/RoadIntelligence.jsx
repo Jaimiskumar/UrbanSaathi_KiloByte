@@ -178,27 +178,27 @@ function resolveRoadIntelligence(issue) {
     };
   }
 
-  // Generic Bengaluru corridor fallback
+  // Generic Noida corridor fallback
   const idSuffix = (issue._id || '001').slice(-3).toUpperCase();
-  const roadTitle = issue.locationName ? issue.locationName.split(',')[0].trim() : 'Bengaluru Urban Corridor';
+  const roadTitle = issue.locationName ? issue.locationName.split(',')[0].trim() : 'Noida Urban Corridor';
   
   return {
     kgisRoad: existing?.kgisRoad?.id ? existing.kgisRoad : {
-      id: `KGIS-BLR-${idSuffix}`,
+      id: `UPGIS-NOI-${idSuffix}`,
       roadClass: 'Urban Sub-Arterial Municipal Road',
-      ward: 'BBMP Zonal Engineering Division',
+      ward: 'Noida Authority Civil Division',
       roadType: 'Sub-Arterial Road',
-      roadSurface: 'Bituminous'
+      roadSurface: 'Heavy-Duty Bituminous'
     },
     verifiedRoadHistory: existing?.verifiedRoadHistory?.bbmpSegmentId ? existing.verifiedRoadHistory : {
-      bbmpSegmentId: `BBMP-SEG-${idSuffix}`,
+      bbmpSegmentId: `NOIDA-SEG-${idSuffix}`,
       streetName: roadTitle,
-      ward: 'BBMP Zonal Ward',
-      zone: 'Bengaluru Smart City Grid',
+      ward: 'Noida Central Ward',
+      zone: 'Noida - NCR Smart City Grid',
       contractor: {
-        name: 'Karnataka State Road Dev Corp (KSHIP Infra)',
-        registrationNo: 'KSHIP-ZONAL-09',
-        phone: '+91 80 2297 5555'
+        name: 'Noida Infrastructure & Highway Authority Ltd.',
+        registrationNo: 'NOIDA-ZONAL-09',
+        phone: '+91 120 242 5555'
       },
       workHistory: {
         workName: 'Routine Municipal Maintenance & Surface Dressing',
@@ -358,10 +358,10 @@ export default function RoadIntelligence() {
                     </div>
                     <p className="mt-2.5 flex items-center gap-2 text-sm font-semibold text-slate-700">
                       <MapPin className="w-4 h-4 text-blue-600 shrink-0" />
-                      {issue.locationName || 'Bengaluru Corridor'}
+                      {issue.locationName || 'Noida Corridor'}
                     </p>
                     <p className="text-xs font-mono text-slate-400 mt-1 pl-6">
-                      GPS: {issue.coordinates?.lat?.toFixed(5) || '12.91760'}, {issue.coordinates?.lng?.toFixed(5) || '77.62380'}
+                      GPS: {issue.coordinates?.lat?.toFixed(5) || '28.54490'}, {issue.coordinates?.lng?.toFixed(5) || '77.33310'}
                     </p>
                   </div>
 

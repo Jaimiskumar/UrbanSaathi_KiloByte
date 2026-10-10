@@ -345,7 +345,7 @@ router.post('/police-issue-challan', async (req, res) => {
       vehicleNumber,
       violationType = 'illegal_parking',
       fineAmount = 1000,
-      location = 'Silk Board Junction, Bengaluru',
+      location = 'Sector 18 Atta Market, Noida',
       officerId = 'POL-OFFICER-042',
       officerName = 'Inspector K. Sharma',
       notes = 'Issued on-spot by Traffic Police Officer',

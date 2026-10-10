@@ -140,7 +140,7 @@ export class TrafficAgent extends BaseAgent {
     }
 
     return {
-      area: location.areaName || location.zone || location.name || 'Bengaluru',
+      area: location.areaName || location.zone || location.name || 'Noida',
       areas,
       signals,
       currentTime: new Date().toISOString(),

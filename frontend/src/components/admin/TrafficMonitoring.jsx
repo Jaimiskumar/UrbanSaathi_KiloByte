@@ -365,7 +365,7 @@ export default function TrafficMonitoring() {
 
       {/* Bottom Horizontal Row of Zone Bento Cards */}
       <div className="mb-2 flex items-center justify-between">
-        <h3 className="text-sm font-display font-bold text-slate-700 uppercase tracking-wider">Bengaluru Grid Corridors ({zones.length})</h3>
+        <h3 className="text-sm font-display font-bold text-slate-700 uppercase tracking-wider">Noida - NCR Grid Corridors ({zones.length})</h3>
         <span className="text-xs text-slate-400 font-medium">Click any corridor to switch live feed</span>
       </div>
 

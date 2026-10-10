@@ -518,7 +518,7 @@ router.post('/process-video', uploadMiddleware.single('video'), async (req, res)
   try {
     let videoUrl = req.body.videoUrl;
     let videoBase64 = req.body.videoBase64;
-    const location = req.body.location || 'Silk Board Junction, Bengaluru';
+    const location = req.body.location || 'Sector 18 Atta Market, Noida';
     const speedLimit = Number(req.body.speedLimit || 60);
     const signalStatus = req.body.signalStatus || 'green';
     const enableSegmentation = req.body.enableSegmentation !== 'false' && req.body.enableSegmentation !== false;

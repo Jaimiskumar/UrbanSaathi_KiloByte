@@ -543,9 +543,9 @@ export default function AIAgentCenter() {
                 href="/admin/bangalore-map"
                 className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-500 hover:to-emerald-500 text-white px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider shadow-lg shadow-blue-600/30 transition-all active:scale-95"
               >
-                <MapPin className="w-3.5 h-3.5" /> Open Bangalore Traffic Map
+                <MapPin className="w-3.5 h-3.5" /> Open Noida - NCR Traffic Map
               </a>
-              <span className="text-slate-500 text-xs font-mono">Silk Board • ORR • Hebbal • Tin Factory</span>
+              <span className="text-slate-500 text-xs font-mono">Sector 18 • Noida Expressway • Botanical Garden • Mahamaya Flyover</span>
             </div>
           </div>
 

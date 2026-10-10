@@ -54,7 +54,7 @@ export default function DailyReports() {
     let rows = [];
 
     if (type === 'All' || type === 'Challans') {
-      data.details.fines.forEach(f => rows.push(['E-Challan', f.id, f.amount, f.status, f.location || 'Bengaluru']));
+      data.details.fines.forEach(f => rows.push(['E-Challan', f.id, f.amount, f.status, f.location || 'Noida - NCR']));
     }
     if (type === 'All' || type === 'Parking') {
       data.details.bookings.forEach(b => rows.push(['Parking', b.id, b.amount, b.status, b.spot]));
@@ -72,7 +72,7 @@ export default function DailyReports() {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `Bengaluru_SmartHorizon_${type}_Report_${date}.csv`);
+    link.setAttribute("download", `Noida_NCR_${type}_Report_${date}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -200,7 +200,7 @@ export default function DailyReports() {
                <div className="relative z-10">
                   <span className="text-[10px] font-black uppercase tracking-widest text-blue-200 bg-white/15 px-3 py-1 rounded-full inline-block mb-3 border border-white/20">Autonomous Engine</span>
                   <h3 className="text-2xl sm:text-3xl font-display font-extrabold mb-2 leading-tight">Smart City Grid Optimization</h3>
-                  <p className="text-blue-100/90 text-xs sm:text-sm font-medium mb-8 max-w-xl">Continuous machine learning rebalancing and dynamic resource orchestration across Bengaluru's smart traffic sensors.</p>
+                  <p className="text-blue-100/90 text-xs sm:text-sm font-medium mb-8 max-w-xl">Continuous machine learning rebalancing and dynamic resource orchestration across Noida - NCR's smart traffic sensors.</p>
                   
                   <div className="grid grid-cols-2 gap-4">
                      <div className="bg-white/10 backdrop-blur-md p-5 rounded-2xl border border-white/15">

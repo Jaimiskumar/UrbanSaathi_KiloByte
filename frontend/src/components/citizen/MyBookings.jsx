@@ -58,7 +58,7 @@ export default function MyBookings() {
 
   const navigateToParking = (booking) => {
     // Generate a maps URL based on the zone name/location
-    const query = encodeURIComponent(`${booking.zone} Bengaluru Smart Horizon Parking`);
+    const query = encodeURIComponent(`${booking.zone} Noida Smart Parking`);
     const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${query}`;
     window.open(mapsUrl, '_blank');
   };

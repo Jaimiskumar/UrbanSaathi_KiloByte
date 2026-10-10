@@ -812,7 +812,7 @@ export default function V2VSafetyCenter() {
                 Synthetic Dataset & ML Model Evaluation Layer
               </h2>
               <p className="text-xs text-gray-500">
-                Models trained with scikit-learn on 94,000+ synthetic Bengaluru traffic & V2V records
+                Models trained with scikit-learn on 94,000+ synthetic traffic & V2V records
               </p>
             </div>
 

@@ -101,7 +101,7 @@ export default function PortalGateway({ user }) {
               <div>
                 <h3 className="text-xl font-black text-gray-900">Desktop Web Command Portal</h3>
                 <p className="text-xs sm:text-sm text-gray-600 font-medium mt-1">
-                  Full-featured traffic management workstation with live multi-camera feeds, Bangalore geospatial heatmaps, 12-agent AI orchestrator, and daily analytics.
+                  Full-featured traffic management workstation with live multi-camera feeds, Noida geospatial heatmaps, 12-agent AI orchestrator, and daily analytics.
                 </p>
               </div>
 
@@ -112,7 +112,7 @@ export default function PortalGateway({ user }) {
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-blue-600 shrink-0" />
-                  <span>Bangalore Geospatial Map & Signal Actuation</span>
+                  <span>Noida Geospatial Map & Signal Actuation</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-blue-600 shrink-0" />
@@ -273,7 +273,7 @@ export default function PortalGateway({ user }) {
       {/* ── FOOTER BAR ── */}
       <footer className="max-w-6xl w-full mx-auto text-center py-4 border-t border-gray-200/80 text-xs text-gray-500 font-mono flex flex-col sm:flex-row items-center justify-between gap-2">
         <span>UrbanSathi Smart Traffic & V2V System</span>
-        <span>Bengaluru Smart City Corridors • Clean Light Theme</span>
+        <span>Noida - NCR Smart City Corridors • Clean Light Theme</span>
       </footer>
 
     </div>

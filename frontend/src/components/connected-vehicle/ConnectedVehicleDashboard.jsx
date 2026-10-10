@@ -358,7 +358,7 @@ export default function ConnectedVehicleDashboard() {
     setIsLiveStreaming(false);
     setWifiStreamConnected(false);
     setRealYoloDetections([]);
-    toast('🚗 Switched to Bengaluru Dashcam Simulation Engine', { icon: '🚗' });
+    toast('🚗 Switched to Noida Dashcam Simulation Engine', { icon: '🚗' });
   };
 
   // Run Real-Time YOLO-v11 ML Vision Analysis on Current Frame
@@ -584,13 +584,13 @@ export default function ConnectedVehicleDashboard() {
           ? 'LIVE IP CAMERA STREAM'
           : (videoSourceMode === 'IPHONE_RELAY'
             ? 'LIVE IPHONE WIRELESS RELAY'
-            : 'SIMULATED BENGALURU FEED'));
+            : 'SIMULATED NOIDA FEED'));
       ctx.fillText(`● REC 1080P • ${sourceLabel}`, 22, 30);
       ctx.fillStyle = '#cbd5e1';
       ctx.font = '10px monospace';
       const currentSpeed = mobileLiveFrame?.speed || 48;
-      const currentLoc = mobileLiveFrame?.location || 'Hosur Rd / Silk Board';
-      ctx.fillText(`GPS: 12.9178° N, 77.6239° E | SPD: ${currentSpeed} km/h`, 22, 45);
+      const currentLoc = mobileLiveFrame?.location || 'Noida Expressway / Amity Gate';
+      ctx.fillText(`GPS: 28.5449° N, 77.3331° E | SPD: ${currentSpeed} km/h`, 22, 45);
       ctx.fillText(`V2V NODE: ${selectedVehicleId} | ${currentLoc}`, 22, 59);
 
       animationFrameRef.current = requestAnimationFrame(render);
@@ -818,7 +818,7 @@ export default function ConnectedVehicleDashboard() {
                       )}
                       {videoSourceMode === 'WIFI_STREAM' && '📡 Live IP Camera Stream (Secondary Option)'}
                       {videoSourceMode === 'IPHONE_RELAY' && '📲 Live iPhone V2V Wireless Relay (Socket.IO)'}
-                      {videoSourceMode === 'SIMULATION' && '🚗 Bengaluru Dashcam Simulation Engine'}
+                      {videoSourceMode === 'SIMULATION' && '🚗 Noida Dashcam Simulation Engine'}
                     </span>
                     <span className="text-[10px] text-slate-400 font-mono">
                       EDGE_AI: YOLOv11 + DepthNet Perception • Low Latency V2V Link
@@ -1294,7 +1294,7 @@ export default function ConnectedVehicleDashboard() {
               <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100">
                 <div>
                   <h3 className="font-bold text-slate-900 text-base">
-                    Bengaluru Community Road Hazards Map
+                    Noida - NCR Community Road Hazards Map
                   </h3>
                   <p className="text-xs text-slate-500">
                     Pins represent dashcam-reported potholes, accidents, and blockages with community verification status.
@@ -1358,7 +1358,7 @@ export default function ConnectedVehicleDashboard() {
 
                 {/* Map Overlay Badge */}
                 <div className="relative z-10 flex items-center justify-between pt-4 border-t border-slate-800/80 text-[11px] text-slate-400">
-                  <span>📍 City Center: Bengaluru (12.9716° N, 77.5946° E)</span>
+                  <span>📍 City Center: Noida (28.5449° N, 77.3331° E)</span>
                   <span className="text-indigo-400 font-bold">Showing {filteredHazards.length} Community Hazards</span>
                 </div>
               </div>

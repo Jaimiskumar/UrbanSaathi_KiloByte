@@ -185,10 +185,10 @@ export default function ParkingManagement() {
   const zoneNum = activeZoneName?.replace(/\D/g, '') || '1';
 
   const activities = useMemo(() => [
-    { id: 1, text: `Vehicle KA-01-AB-${4800 + Number(zoneNum)} parked at ${activeZoneName}, Slot A03`, time: 'Just now', color: 'bg-[#10B981]' },
+    { id: 1, text: `Vehicle UP-16-AB-${4800 + Number(zoneNum)} parked at ${activeZoneName}, Slot A03`, time: 'Just now', color: 'bg-[#10B981]' },
     { id: 2, text: `Unauthorized parking detected at ${activeZoneName}, Slot B08`, time: '2 mins ago', color: 'bg-[#EF4444]' },
-    { id: 3, text: `Vehicle KA-05-PQ-${9000 + Number(zoneNum)} exited ${activeZoneName}`, time: '5 mins ago', color: 'bg-[#F59E0B]' },
-    { id: 4, text: `Booking confirmed for KA-53-CZ-${1100 + Number(zoneNum)}`, time: '12 mins ago', color: 'bg-[#10B981]' },
+    { id: 3, text: `Vehicle UP-16-PQ-${9000 + Number(zoneNum)} exited ${activeZoneName}`, time: '5 mins ago', color: 'bg-[#F59E0B]' },
+    { id: 4, text: `Booking confirmed for UP-16-CZ-${1100 + Number(zoneNum)}`, time: '12 mins ago', color: 'bg-[#10B981]' },
   ], [activeZoneName, zoneNum]);
 
   const violations = useMemo(() => {

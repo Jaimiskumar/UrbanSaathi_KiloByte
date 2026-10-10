@@ -21,7 +21,9 @@ import {
   Megaphone,
   Sparkles,
   Shield,
-  Map as MapIcon
+  Map as MapIcon,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 
 import TrafficAmbientBackground from '../components/common/TrafficAmbientBackground';
@@ -30,6 +32,14 @@ export default function CitizenDashboard({ user, onLogout }) {
   const location = useLocation();
   const [activeTab, setActiveTab] = useState('smart-city');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    return localStorage.getItem('citizen_sidebar_collapsed') === 'true';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('citizen_sidebar_collapsed', isCollapsed);
+    document.documentElement.style.setProperty('--sidebar-width', isCollapsed ? '5rem' : '16rem');
+  }, [isCollapsed]);
 
   useEffect(() => {
     const path = location.pathname.split('/').pop();
@@ -60,20 +70,22 @@ export default function CitizenDashboard({ user, onLogout }) {
         />
       )}
 
-      {/* Sidebar - Liquid Frosted Glass */}
-      <aside className={`fixed lg:static inset-y-0 left-0 z-50 w-64 bg-white/80 backdrop-blur-2xl border-r border-slate-200/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] transform transition-transform duration-300 ease-in-out flex flex-col ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}>
-        <div className="p-4 border-b border-slate-200/60 flex items-center justify-between h-16 bg-white/50">
+      {/* Sidebar - Liquid Frosted Glass with Collapsible Bottom Feature */}
+      <aside className={`fixed lg:static inset-y-0 left-0 z-50 bg-white/85 backdrop-blur-2xl border-r border-slate-200/80 shadow-[0_8px_30px_rgb(0,0,0,0.04)] transform transition-all duration-300 ease-in-out flex flex-col flex-shrink-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'} ${isCollapsed ? 'lg:w-20' : 'lg:w-64'} w-64`}>
+        <div className={`p-4 border-b border-slate-200/60 flex items-center ${isCollapsed ? 'lg:justify-center' : 'justify-between'} h-16 bg-white/50`}>
           <div className="flex items-center space-x-3">
-            <div className="w-9 h-9 bg-gradient-to-br from-emerald-500 via-teal-600 to-blue-600 rounded-xl flex items-center justify-center shadow-md shadow-emerald-500/20 ring-1 ring-white/60">
+            <div className="w-9 h-9 bg-gradient-to-br from-emerald-500 via-teal-600 to-blue-600 rounded-xl flex items-center justify-center shadow-md shadow-emerald-500/20 ring-1 ring-white/60 flex-shrink-0">
               <Sparkles className="w-5 h-5 text-white" />
             </div>
-            <div>
-              <h1 className="text-base font-display font-extrabold text-slate-900 tracking-tight flex items-center gap-1.5">
-                UrbanSaathi
-                <span className="text-[10px] font-black uppercase tracking-wider text-emerald-600 bg-emerald-50 border border-emerald-200/60 px-1.5 py-0.5 rounded-md">Citizen</span>
-              </h1>
-              <p className="text-[10px] font-semibold text-slate-400 tracking-wide uppercase">Bengaluru Smart City Portal</p>
-            </div>
+            {!isCollapsed && (
+              <div className="overflow-hidden">
+                <h1 className="text-base font-display font-extrabold text-slate-900 tracking-tight flex items-center gap-1.5 whitespace-nowrap">
+                  UrbanSaathi
+                  <span className="text-[10px] font-black uppercase tracking-wider text-emerald-600 bg-emerald-50 border border-emerald-200/60 px-1.5 py-0.5 rounded-md">Citizen</span>
+                </h1>
+                <p className="text-[10px] font-semibold text-slate-400 tracking-wide uppercase truncate">Noida - NCR Smart City Portal</p>
+              </div>
+            )}
           </div>
           <button onClick={() => setSidebarOpen(false)} className="lg:hidden p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors">
             <X className="w-5 h-5" />
@@ -88,20 +100,42 @@ export default function CitizenDashboard({ user, onLogout }) {
                 key={tab.id}
                 to={tab.path}
                 onClick={() => setSidebarOpen(false)}
-                className={`flex items-center px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 group relative ${
+                title={isCollapsed ? tab.label : undefined}
+                className={`flex items-center ${isCollapsed ? 'lg:justify-center px-2 py-3' : 'px-3.5 py-2.5'} rounded-xl text-xs font-semibold transition-all duration-200 group relative ${
                   isActive 
                     ? 'bg-blue-600 text-white shadow-md shadow-blue-600/25 ring-1 ring-blue-500/50' 
                     : 'text-slate-600 hover:bg-white/90 hover:text-slate-900 hover:shadow-sm'
                 }`}
               >
                 {isActive && (
-                  <span className="absolute left-1 w-1 h-5 bg-white rounded-full shadow-sm" />
+                  <span className={`absolute left-1 ${isCollapsed ? 'lg:w-1 lg:h-6' : 'w-1 h-5'} bg-white rounded-full shadow-sm`} />
                 )}
-                <tab.icon className={`w-4 h-4 mr-2.5 transition-transform duration-200 ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-blue-600 group-hover:scale-110'}`} />
-                <span className="truncate">{tab.label}</span>
+                <tab.icon className={`w-4 h-4 ${isCollapsed ? 'lg:mr-0' : 'mr-2.5'} transition-transform duration-200 flex-shrink-0 ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-blue-600 group-hover:scale-110'}`} />
+                <span className={`truncate ${isCollapsed ? 'lg:hidden' : 'block'}`}>{tab.label}</span>
               </Link>
             );
           })}
+        </div>
+
+        {/* Bottom Sidebar Collapse / Expand Toggle */}
+        <div className="p-3 border-t border-slate-200/60 bg-white/60">
+          <button
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className={`w-full hidden lg:flex items-center ${isCollapsed ? 'justify-center p-2.5' : 'justify-between px-3 py-2.5'} rounded-xl text-xs font-bold text-slate-500 hover:text-slate-900 hover:bg-slate-100/90 transition-all group`}
+            title={isCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
+          >
+            {isCollapsed ? (
+              <ChevronRight className="w-5 h-5 text-slate-500 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-transform" />
+            ) : (
+              <>
+                <span className="flex items-center gap-2 text-slate-600 group-hover:text-slate-900">
+                  <ChevronLeft className="w-4 h-4 text-slate-400 group-hover:text-blue-600 transition-transform group-hover:-translate-x-0.5" />
+                  <span>Collapse Sidebar</span>
+                </span>
+                <span className="text-[10px] font-mono text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">◀</span>
+              </>
+            )}
+          </button>
         </div>
       </aside>
 
@@ -161,7 +195,7 @@ export default function CitizenDashboard({ user, onLogout }) {
 
         {/* Main Content Area */}
         <main className="flex-1 overflow-y-auto p-3 sm:p-6 lg:p-8 relative">
-          <div className="animate-fade-in max-w-7xl mx-auto pb-20 lg:pb-0">
+          <div className="animate-fade-in max-w-7xl mx-auto pb-32">
             <Routes>
               <Route path="/" element={<SmartCityShield />} />
               <Route path="/smart-city" element={<SmartCityShield />} />

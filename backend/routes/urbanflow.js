@@ -98,7 +98,7 @@ router.get('/agents/status', async (req, res) => {
       { id: 'infrastructure', name: 'Infrastructure Agent', type: 'Perception / Work Orders', status: isUfOnline ? 'ONLINE' : 'DEGRADED', port: 8001, model_version: 'infra-v1' },
       { id: 'noise', name: 'Noise / Acoustic Agent', type: 'Perception / Environmental', status: isUfOnline ? 'ONLINE' : 'DEGRADED', port: 8001, model_version: 'noise-v1' },
       { id: 'v2x', name: 'Emergency V2X Agent', type: 'Perception / Priority Wave', status: isUfOnline ? 'ONLINE' : 'DEGRADED', port: 8001, model_version: 'em-v1' },
-      { id: 'hotspot_engine', name: 'Bengaluru Hotspot Engine', type: 'Geospatial Clustering / Risk Scoring', status: isUfOnline ? 'ONLINE' : 'DEGRADED', port: 8001, model_version: 'hotspot-v1' },
+      { id: 'hotspot_engine', name: 'Noida - NCR Hotspot Engine', type: 'Geospatial Clustering / Risk Scoring', status: isUfOnline ? 'ONLINE' : 'DEGRADED', port: 8001, model_version: 'hotspot-v1' },
       { id: 'prediction', name: 'Spillover & Time Prediction Agent', type: 'Predictive Modeling (5m-60m)', status: isUfOnline ? 'ONLINE' : 'DEGRADED', port: 8001, model_version: 'pred-v1' },
       { id: 'intervention', name: 'Intervention Agent', type: 'Action Formulation & Secondary Crash Mitigation', status: isUfOnline ? 'ONLINE' : 'DEGRADED', port: 8001, model_version: 'intervene-v1' },
       { id: 'policy', name: 'Policy & Safety Compliance Agent', type: 'Guardrail & Safety Constraints', status: isUfOnline ? 'ONLINE' : 'DEGRADED', port: 8001, model_version: 'policy-v1' },
@@ -127,10 +127,10 @@ router.post('/echallan-agent/demo', async (req, res) => {
   try {
     const eventBus = await getEventBus();
     const payload = req.body || {};
-    const vehicleNumber = payload.vehicleNumber || 'KA01AB1234';
+    const vehicleNumber = payload.vehicleNumber || 'UP16AB1234';
     const { workflow, event } = await eventBus.publishAndWait({
       eventType: payload.eventType || 'OVERSPEEDING',
-      location: { lat: 12.9172, lng: 77.6228, name: payload.location || 'Silk Board Junction, Bengaluru' },
+      location: { lat: 28.5678, lng: 77.3211, name: payload.location || 'Sector 18 Atta Market, Noida' },
       detection: {
         speed: Number(payload.speed || 82),
         speedLimit: Number(payload.speedLimit || 60),
@@ -176,9 +176,9 @@ router.post('/accident-agent/demo', async (req, res) => {
     const { workflow, event } = await eventBus.publishAndWait({
       eventType: payload.eventType || 'ACCIDENT_DETECTED',
       location: {
-        lat: Number(payload.latitude || 12.9172),
-        lng: Number(payload.longitude || 77.6228),
-        name: payload.location || 'Silk Board Junction, Bengaluru'
+        lat: Number(payload.latitude || 28.5678),
+        lng: Number(payload.longitude || 77.3211),
+        name: payload.location || 'Sector 18 Atta Market, Noida'
       },
       detection: {
         severity: payload.severity || 'CRITICAL',
@@ -282,9 +282,9 @@ router.post('/verification-agent/demo', async (req, res) => {
     const { workflow, event } = await eventBus.publishAndWait({
       eventType: 'ACCIDENT_DETECTED',
       vehicleId: payload.vehicleId || 'AMB-112',
-      destination: payload.destination || 'City General Hospital',
+      destination: payload.destination || 'Jaypee Hospital Sector 128, Noida',
       route: payload.route || ['SIG001', 'SIG002', 'SIG003'],
-      location: { lat: 12.9172, lng: 77.6228, name: payload.location || 'Silk Board Junction, Bengaluru' },
+      location: { lat: 28.5678, lng: 77.3211, name: payload.location || 'Sector 18 Atta Market, Noida' },
       detection: {
         severity: 'CRITICAL',
         roadBlocked: true,
@@ -382,7 +382,7 @@ router.post('/v2v/simulate', async (req, res) => {
   const orchestratorResult = await multiAgentOrchestrator.orchestrateEvent({
     event_type: req.body.event_type || 'accident',
     vehicle_id: req.body.vehicle_id || 'VEH-021',
-    zone: req.body.zone || 'Silk Board Junction',
+    zone: req.body.zone || 'Sector 18 Atta Market, Noida',
     source: 'SIMULATED V2V TELEMETRY'
   }, io);
 
@@ -509,7 +509,7 @@ router.post('/orchestrate/approve', async (req, res) => {
   try {
     const { 
       incident_id = `INC-${Date.now()}`, 
-      zone = 'Silk Board Junction', 
+      zone = 'Sector 18 Atta Market, Noida', 
       intervention_name = 'V2V Warning + Dynamic Rerouting + Pedestrian Extension', 
       event_type = 'accident',
       vehicle_id = 'VEH-021',

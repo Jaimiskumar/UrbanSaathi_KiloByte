@@ -63,7 +63,7 @@ const MLDetectionUpload = () => {
   const videoRef = useRef(null);
   const processedVideoRef = useRef(null);
   const fileInputRef = useRef(null);
-  const cameraId = 'BANGALORE-SILKBOARD-CAM-01';
+  const cameraId = 'NOIDA-SEC18-CAM-01';
   const speedLimit = 60;
   const modelStatus = result?.model;
   const [agentWorkflows, setAgentWorkflows] = useState([]);
@@ -214,13 +214,13 @@ const MLDetectionUpload = () => {
     const dataUrl = sampleCanvas.toDataURL('image/jpeg', 0.95);
     setPreview(dataUrl);
     setFileType('image');
-    setSelectedFile({ name: 'Bengaluru_Silk_Board_Junction_Live.jpg', size: 340000 });
+    setSelectedFile({ name: 'Noida_Sector18_Expressway_Live.jpg', size: 340000 });
     setVideoResultUrl(null);
     setResult(null);
-    toast.success('📸 Loaded High-Res Bangalore Traffic Corridor Feed');
+    toast.success('📸 Loaded High-Res Noida Expressway Traffic Corridor Feed');
   };
 
-  const loadSampleBangaloreVideo = (videoPath = '/videos/video_2.mp4', label = 'Bangalore Silk Board Corridor') => {
+  const loadSampleBangaloreVideo = (videoPath = '/videos/video_2.mp4', label = 'Noida Sector 18 Corridor') => {
     setPreview(videoPath);
     setFileType('video');
     setSelectedFile({ name: label + '.mp4', size: 1570000 });
@@ -465,7 +465,7 @@ const MLDetectionUpload = () => {
           // Send as multipart/form-data to efficiently upload without base64 JSON payload blowout
           const formData = new FormData();
           formData.append('video', selectedFile);
-          formData.append('location', 'Silk Board Junction, Bengaluru');
+          formData.append('location', 'Sector 18 Atta Market, Noida');
           formData.append('speedLimit', speedLimit);
           formData.append('signalStatus', 'green');
           formData.append('enableSegmentation', String(enableSegmentation));
@@ -482,7 +482,7 @@ const MLDetectionUpload = () => {
           const payload = {
             videoUrl: preview?.startsWith('data:') ? undefined : preview,
             videoBase64: preview?.startsWith('data:') ? preview : undefined,
-            location: 'Silk Board Junction, Bengaluru',
+            location: 'Sector 18 Atta Market, Noida',
             speedLimit,
             signalStatus: 'green',
             enableSegmentation,
@@ -514,7 +514,7 @@ const MLDetectionUpload = () => {
         const payload = {
           cameraId,
           frameUrl: preview,
-          location: 'Silk Board Junction, Bengaluru',
+          location: 'Sector 18 Atta Market, Noida',
           speedLimit,
           signalStatus: 'green',
           fileType: 'image'
@@ -762,7 +762,7 @@ const MLDetectionUpload = () => {
                     Choose Traffic Video / Frame
                   </button>
                   <button
-                    onClick={() => loadSampleBangaloreVideo('/videos/video_2.mp4', 'Sample Bangalore Silk Board')}
+                    onClick={() => loadSampleBangaloreVideo('/videos/video_2.mp4', 'Sample Noida Sector 18 Expressway')}
                     className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-slate-700 rounded-xl text-xs font-bold transition-all"
                   >
                     Load Sample Video
@@ -819,7 +819,7 @@ const MLDetectionUpload = () => {
               </button>
 
               <button
-                onClick={() => loadSampleBangaloreVideo('/videos/video_2.mp4', 'Bangalore Silk Board CCTV')}
+                onClick={() => loadSampleBangaloreVideo('/videos/video_2.mp4', 'Noida Sector 18 CCTV')}
                 className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-cyan-500/10 to-blue-500/10 hover:bg-cyan-500/20 text-cyan-800 border border-cyan-300 rounded-2xl text-xs font-bold transition-all"
               >
                 <Sparkles className="w-3.5 h-3.5 text-cyan-600" />
@@ -1195,9 +1195,9 @@ const MLDetectionUpload = () => {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {(result ? (result.echallans_generated?.challans || []) : [
-                { challan_number: 'CH-RSH-984210', vehicle_number: 'KA 01 AB 1234', owner_name: 'Rajesh Kumar', vehicle_model: 'Honda City (White)', title: 'Rash / Reckless Driving at 88 km/h', legal_section: 'Section 184 MVA (Dangerous Driving)', fine_amount: 1500, status: 'ISSUED', location: 'Silk Board Junction, Bengaluru' },
-                { challan_number: 'CH-HLM-849201', vehicle_number: 'KA 05 MN 9876', owner_name: 'Priya Sharma', vehicle_model: 'TVS Jupiter (Black)', title: 'No Helmet on Two-Wheeler Rider', legal_section: 'Section 129 MVA', fine_amount: 500, status: 'ISSUED', location: 'Silk Board Junction, Bengaluru' },
-                { challan_number: 'CH-SIG-110294', vehicle_number: 'KA 03 HA 4567', owner_name: 'Mohammed Arif', vehicle_model: 'Bajaj RE Auto', title: 'Red Light Jumping / Stop Line Violation', legal_section: 'Section 119/177 MVA', fine_amount: 1000, status: 'ISSUED', location: 'Silk Board Junction, Bengaluru' }
+                { challan_number: 'CH-RSH-984210', vehicle_number: 'UP 16 AB 1234', owner_name: 'Rajesh Kumar', vehicle_model: 'Honda City (White)', title: 'Rash / Reckless Driving at 88 km/h', legal_section: 'Section 184 MVA (Dangerous Driving)', fine_amount: 1500, status: 'ISSUED', location: 'Sector 18 Atta Market, Noida' },
+                { challan_number: 'CH-HLM-849201', vehicle_number: 'UP 16 MN 9876', owner_name: 'Priya Sharma', vehicle_model: 'TVS Jupiter (Black)', title: 'No Helmet on Two-Wheeler Rider', legal_section: 'Section 129 MVA', fine_amount: 500, status: 'ISSUED', location: 'Sector 18 Atta Market, Noida' },
+                { challan_number: 'CH-SIG-110294', vehicle_number: 'UP 16 HA 4567', owner_name: 'Mohammed Arif', vehicle_model: 'Bajaj RE Auto', title: 'Red Light Jumping / Stop Line Violation', legal_section: 'Section 119/177 MVA', fine_amount: 1000, status: 'ISSUED', location: 'Sector 18 Atta Market, Noida' }
               ]).map((c, i) => (
                 <tr key={i} className="hover:bg-slate-50/80 transition-all">
                   <td className="p-3 font-bold text-blue-600">{c.challan_number}</td>

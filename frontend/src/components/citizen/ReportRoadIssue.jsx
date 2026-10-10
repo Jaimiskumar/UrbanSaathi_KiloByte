@@ -252,7 +252,7 @@ export default function ReportRoadIssue() {
                         type="text"
                         value={locationName}
                         onChange={(e) => setLocationName(e.target.value)}
-                        placeholder="e.g. Near Silk Board / Smart Horizon College, Bengaluru"
+                        placeholder="e.g. Near Sector 18 / Amity University Gate 2, Noida"
                         className="w-full bg-gray-50 border-2 border-gray-100 rounded-2xl py-4 pl-12 pr-4 font-bold text-[#0F172A] outline-none focus:border-blue-600 focus:bg-white focus:shadow-lg transition-all"
                         required
                       />

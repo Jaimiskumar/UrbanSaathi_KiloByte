@@ -53,52 +53,52 @@ function normalizeLocation(location) {
 
 const CITIZEN_DIRECTORY = [
   {
-    plate: "KA01AB1234",
+    plate: "UP16AB1234",
     name: "Rajesh Kumar",
     phone: "+91 98450 12345",
     email: "rajesh.kumar@gmail.com",
     model: "Honda City (White, 4-Wheeler)",
-    address: "42, 14th Main, HSR Layout Sector 2, Bengaluru"
+    address: "42, Sector 15A, Noida, UP"
   },
   {
-    plate: "KA05MN9876",
+    plate: "UP16MN9876",
     name: "Priya Sharma",
     phone: "+91 98801 98765",
     email: "priya.sharma@yahoo.com",
     model: "TVS Jupiter (Matte Black, 2-Wheeler)",
-    address: "108, 80ft Road, Koramangala 4th Block, Bengaluru"
+    address: "108, Sector 18 Atta Market, Noida, UP"
   },
   {
-    plate: "KA03HA4567",
+    plate: "UP16HA4567",
     name: "Mohammed Arif",
     phone: "+91 97412 45678",
     email: "arif.m@outlook.com",
     model: "Bajaj Compact RE Auto (Yellow-Green, 3-Wheeler)",
-    address: "29, Indiranagar 100ft Road, Bengaluru"
+    address: "29, Sector 62 IT Park, Noida, UP"
   },
   {
-    plate: "KA04DE7890",
+    plate: "UP16DE7890",
     name: "Ananya Deshmukh",
     phone: "+91 99003 78901",
     email: "ananya.d@gmail.com",
     model: "Hyundai Creta SX (Silver, 4-Wheeler)",
-    address: "15, Outer Ring Road, Bellandur, Bengaluru"
+    address: "15, Noida Expressway, Sector 128, Noida, UP"
   },
   {
-    plate: "KA02XY3456",
+    plate: "UP16XY3456",
     name: "Suresh Gowda",
     phone: "+91 96114 34567",
     email: "suresh.gowda@gmail.com",
     model: "Royal Enfield Classic 350 (Stealth Black, 2-Wheeler)",
-    address: "77, Malleshwaram 8th Cross, Bengaluru"
+    address: "77, Sector 50, Noida, UP"
   },
   {
-    plate: "MH12CD5678",
+    plate: "UP16CD5678",
     name: "Vikram Rathore",
     phone: "+91 95355 56789",
     email: "vikram.logistics@rediffmail.com",
     model: "Tata Prima 3530 Commercial Truck (Blue)",
-    address: "Industrial Suburb, Peenya 2nd Stage, Bengaluru"
+    address: "Industrial Suburb, Sector 80 Phase 2, Noida, UP"
   },
   {
     plate: "DL3CAB9999",
@@ -106,7 +106,7 @@ const CITIZEN_DIRECTORY = [
     phone: "+91 98100 99999",
     email: "amitabh.verma@corp.in",
     model: "Mahindra XUV700 AX7 (Midnight Black, 4-Wheeler)",
-    address: "Flat 402, Prestige Palms, Whitefield, Bengaluru"
+    address: "Flat 402, Sector 137, Noida, UP"
   }
 ];
 
@@ -142,13 +142,13 @@ async function findVehicleOwner(vehicleNumber) {
         name: user.name,
         phone: user.phone,
         email: user.email,
-        address: user.address || 'Bengaluru Urban',
+        address: user.address || 'Noida Urban',
         model: user.vehicles?.[0]?.model || 'Private Vehicle',
         userId: user._id
       };
     }
 
-    // Lookup in Bengaluru Municipal Registry
+    // Lookup in Noida Municipal Registry
     const matched = CITIZEN_DIRECTORY.find(c => c.plate.includes(cleanPlate) || cleanPlate.includes(c.plate));
     if (matched) return matched;
     
@@ -182,7 +182,7 @@ export async function createChallanFromViolation(violation, violationModel = 'Tr
     // Step 2: Generate challan number
     const challanNumber = violation.challanNumber || violation.challan_number || generateChallanNumber();
     const violationType = mapViolationType(violation.violationType || violation.type || violation.helmetStatus, violation);
-    const location = normalizeLocation(violation.location || violation.signalLocation || violation.area || 'Silk Board Junction, Bengaluru');
+    const location = normalizeLocation(violation.location || violation.signalLocation || violation.area || 'Sector 18 Atta Market, Noida');
     const evidenceImage = violation.evidence_photo || violation.imageUrl || violation.image_url || violation.snapshot;
 
     const legalSectionMap = {

@@ -278,11 +278,11 @@ export default function BangaloreTrafficMap() {
     });
 
     socket.on('green_corridor_activated', (data) => {
-      toast.success(`🚑 Bengaluru Green Corridor Active: ${data.vehicleId || 'AMB-BLR-07'} to ${data.destination || 'Hospital'}!`, { duration: 6000 });
+      toast.success(`🚑 Noida - NCR Green Corridor Active: ${data.vehicleId || 'AMB-UP-07'} to ${data.destination || 'Hospital'}!`, { duration: 6000 });
       setRecentLiveEvents(prev => [{
         id: Date.now(),
         type: 'GREEN_CORRIDOR',
-        text: `Green Wave Active for ${data.vehicleId || 'AMB-BLR-07'} (${data.destination || 'Hospital'})`,
+        text: `Green Wave Active for ${data.vehicleId || 'AMB-UP-07'} (${data.destination || 'Hospital'})`,
         time: new Date().toLocaleTimeString()
       }, ...prev].slice(0, 10));
       fetchBangaloreData();
@@ -342,14 +342,14 @@ export default function BangaloreTrafficMap() {
   const triggerBangaloreGreenCorridor = async () => {
     try {
       const payload = {
-        vehicleId: 'AMB-BLR-99',
-        destination: 'Smart Horizon College Campus Hub',
+        vehicleId: 'AMB-UP-99',
+        destination: 'Amity University Gate 2 Chowk',
         startIntersection: 'SIG001',
         endIntersection: 'SIG002',
-        hospitalName: 'Bengaluru Smart City Trauma Center'
+        hospitalName: 'Jaypee Hospital / Kailash Hospital, Noida'
       };
       const res = await axios.post('/api/bangalore/green-corridor', payload);
-      toast.success(res.data?.message || '🚑 Bengaluru Green Wave Signal Corridor Deployed across Hosur Road Corridor!', { duration: 6000 });
+      toast.success(res.data?.message || '🚑 Noida Green Wave Signal Corridor Deployed across Noida Expressway Corridor!', { duration: 6000 });
       fetchBangaloreData();
     } catch (e) {
       console.error('Green Corridor error:', e);
@@ -791,7 +791,7 @@ export default function BangaloreTrafficMap() {
                 }} 
                 allowFullScreen="" 
                 loading="lazy"
-                title="Bengaluru High-Definition Traffic Intelligence Map"
+                title="Noida - NCR High-Definition Traffic Intelligence Map"
                 className="w-full h-full transition-all duration-700"
                 onLoad={() => setMapFrameLoaded(true)}
               ></iframe>
@@ -826,7 +826,7 @@ export default function BangaloreTrafficMap() {
                     <div className="flex items-center justify-between">
                       <div className="rounded-xl border border-slate-200 bg-white/95 px-3 py-2 shadow-sm">
                         <p className="text-[10px] font-black uppercase tracking-wider text-blue-700">Traffic canvas</p>
-                        <p className="text-xs font-bold text-slate-800">{selectedZone?.name || 'Bengaluru network'}</p>
+                        <p className="text-xs font-bold text-slate-800">{selectedZone?.name || 'Noida - NCR network'}</p>
                       </div>
                       <span className="rounded-full bg-white/95 px-3 py-2 text-[10px] font-black text-slate-500 shadow-sm">LIVE TELEMETRY</span>
                     </div>
@@ -835,7 +835,7 @@ export default function BangaloreTrafficMap() {
                       <div className="rounded-2xl border border-white bg-white/95 p-4 shadow-sm">
                         <MapPin className="mb-3 h-4 w-4 text-blue-600" />
                         <p className="text-[10px] font-bold uppercase text-slate-400">Selected zone</p>
-                        <p className="mt-1 text-sm font-black text-slate-900">{selectedZone?.name || 'Bengaluru'}</p>
+                        <p className="mt-1 text-sm font-black text-slate-900">{selectedZone?.name || 'Noida - NCR'}</p>
                       </div>
                       <div className="rounded-2xl border border-white bg-white/95 p-4 shadow-sm">
                         <Gauge className="mb-3 h-4 w-4 text-rose-500" />
@@ -1056,7 +1056,7 @@ export default function BangaloreTrafficMap() {
                   </div>
                   <div>
                     <h3 className="text-base font-black text-slate-900">
-                      Bengaluru Critical Hotspots
+                      Noida - NCR Critical Hotspots
                     </h3>
                     <p className="text-xs text-slate-500 font-medium">Ranked by severity & traffic delay impact</p>
                   </div>
@@ -1372,7 +1372,7 @@ export default function BangaloreTrafficMap() {
                     {selectedZone.zone_id}
                   </span>
                   <h3 className="text-lg font-black text-slate-900 leading-tight">{selectedZone.name}</h3>
-                  <p className="text-xs text-slate-500">{selectedZone.road || 'Bengaluru Arterial Grid'}</p>
+                  <p className="text-xs text-slate-500">{selectedZone.road || 'Noida Arterial Grid'}</p>
                 </div>
                 <button
                   onClick={() => focusOnZone(selectedZone)}

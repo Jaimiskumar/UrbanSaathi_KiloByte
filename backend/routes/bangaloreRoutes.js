@@ -18,7 +18,7 @@ let liveBangaloreZones = JSON.parse(JSON.stringify(BANGALORE_ZONES));
  */
 router.get('/zones', (req, res) => {
   res.json({
-    city: 'Bengaluru',
+    city: 'Noida - NCR',
     total_zones: liveBangaloreZones.length,
     timestamp: new Date().toISOString(),
     zones: liveBangaloreZones
@@ -35,7 +35,7 @@ router.get('/hotspots', (req, res) => {
     .sort((a, b) => (a.average_speed - b.average_speed));
 
   res.json({
-    city: 'Bengaluru',
+    city: 'Noida - NCR',
     count: hotspots.length,
     timestamp: new Date().toISOString(),
     hotspots: hotspots.map(h => ({
@@ -66,7 +66,7 @@ router.get('/hotspots', (req, res) => {
  */
 router.get('/corridors', (req, res) => {
   res.json({
-    city: 'Bengaluru',
+    city: 'Noida - NCR',
     corridors: BANGALORE_CORRIDORS
   });
 });
@@ -116,10 +116,10 @@ router.post('/zones/:id/update', (req, res) => {
  * Activates an emergency green wave corridor on Bangalore roads
  */
 router.post(['/green-corridor', '/emergency-corridor'], async (req, res) => {
-  const vehicle_id = req.body.vehicleId || req.body.vehicle_id || 'AMB-BLR-99';
-  const start_zone = req.body.startIntersection || req.body.start_zone || 'BLR-SILK-01';
-  const destination = req.body.destination || req.body.hospitalName || 'Smart Horizon College Campus Hub / Manipal Hospital';
-  const route = req.body.route || ['Hosur Road', 'Silk Board', 'Koramangala 80ft', 'Smart Horizon Campus'];
+  const vehicle_id = req.body.vehicleId || req.body.vehicle_id || 'AMB-UP16-99';
+  const start_zone = req.body.startIntersection || req.body.start_zone || 'NOIDA-AMITY-01';
+  const destination = req.body.destination || req.body.hospitalName || 'Jaypee Hospital Sector 128 / Amity Campus Hub';
+  const route = req.body.route || ['Sector 125 Service Lane', 'Noida-Greater Noida Expressway', 'Mahamaya Flyover', 'Sector 18 Atta Market'];
 
   // Mark corridor active on relevant zones
   liveBangaloreZones = liveBangaloreZones.map(z => {
@@ -147,7 +147,7 @@ router.post(['/green-corridor', '/emergency-corridor'], async (req, res) => {
   if (io) {
     io.emit('green_corridor_activated', {
       vehicleId: vehicle_id,
-      city: 'Bengaluru',
+      city: 'Noida - NCR',
       priority: 'CRITICAL',
       destination,
       route,
@@ -164,7 +164,7 @@ router.post(['/green-corridor', '/emergency-corridor'], async (req, res) => {
 
   res.json({
     success: true,
-    message: `Bengaluru Green Wave Active for ${vehicle_id} along route: ${route.join(' → ')} to ${destination}`,
+    message: `Noida Green Wave Active for ${vehicle_id} along route: ${route.join(' → ')} to ${destination}`,
     route,
     target_eta_minutes: 4.5
   });
@@ -177,24 +177,24 @@ router.post(['/green-corridor', '/emergency-corridor'], async (req, res) => {
 router.post('/incident', async (req, res) => {
   try {
     const { 
-      zone_id = 'BLR-SILK-01', 
+      zone_id = 'NOIDA-AMITY-01', 
       type = 'road_blockage', 
       severity = 'HIGH', 
-      title = 'Silk Board Junction Blockage' 
+      title = 'Amity University Gate 2 Blockage' 
     } = req.body;
 
     const zone = liveBangaloreZones.find(z => z.zone_id === zone_id) || liveBangaloreZones[0];
 
     const incidentPayload = {
-      event_id: `EVT-BLR-${Date.now()}`,
-      incident_id: `INC-BLR-${Date.now()}`,
+      event_id: `EVT-NOI-${Date.now()}`,
+      incident_id: `INC-NOI-${Date.now()}`,
       zone: zone.name,
       location: { lat: zone.latitude, lon: zone.longitude, address: `${zone.name}, ${zone.road}` },
       event_type: type,
       vehicle_count: zone.current_vehicle_density,
       average_speed: zone.average_speed,
       severity: severity,
-      source: 'cctv_samved_bangalore'
+      source: 'cctv_samved_noida'
     };
 
     const io = req.app.get('io');

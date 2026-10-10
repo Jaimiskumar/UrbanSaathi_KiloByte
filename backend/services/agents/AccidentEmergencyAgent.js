@@ -25,11 +25,11 @@ export class AccidentEmergencyAgent extends BaseAgent {
       needsAmbulance: true,
       needsPolice: true,
       needsTrafficDiversion: context.roadBlocked,
-      responseChannels: ['AMBULANCE_112', 'BENGALURU_TRAFFIC_POLICE'],
+      responseChannels: ['AMBULANCE_112', 'NOIDA_TRAFFIC_POLICE'],
       dispatchId: `EMR-${Date.now()}`,
       location: context.location,
       issue: 'ACCIDENT',
-      authorityId: 'BENGALURU_TRAFFIC_POLICE',
+      authorityId: 'NOIDA_TRAFFIC_POLICE',
       department: 'Traffic Police and Emergency Response',
       status: 'EMERGENCY_ESCALATED'
     };

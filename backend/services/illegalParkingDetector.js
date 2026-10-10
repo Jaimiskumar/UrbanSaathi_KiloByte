@@ -95,29 +95,26 @@ class IllegalParkingDetector {
     return this.generateIndianLicensePlate();
   }
 
-  // Generate realistic Indian license plate
+  // Generate realistic UP-16 Noida license plate
   generateIndianLicensePlate() {
-    const states = ['MH', 'DL', 'KA', 'TN', 'UP', 'GJ', 'RJ', 'HR'];
-    const state = states[Math.floor(Math.random() * states.length)];
-    const district = String(Math.floor(Math.random() * 50) + 1).padStart(2, '0');
     const series = String.fromCharCode(65 + Math.floor(Math.random() * 26)) + 
                    String.fromCharCode(65 + Math.floor(Math.random() * 26));
-    const number = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
+    const number = String(Math.floor(Math.random() * 9000) + 1000);
     
-    return `${state}-${district}-${series}-${number}`;
+    return `UP-16-${series}-${number}`;
   }
 
   // Extract location from detection
   extractLocation(detection) {
     const locations = [
-      'MG Road Junction',
-      'Brigade Road',
-      'Commercial Street',
-      'Indiranagar 100 Feet Road',
-      'Koramangala 5th Block',
-      'Whitefield Main Road',
-      'Electronic City',
-      'Jayanagar 4th Block'
+      'Sector 18 Atta Market',
+      'Amity University Sector 125 Gate',
+      'Advant Navis Tech Park (Sec 142)',
+      'Botanical Garden Metro Hub',
+      'Mahamaya Flyover Corridor',
+      'Sector 62 Model Town IT Park',
+      'Okhla Bird Sanctuary Metro Hub',
+      'Pari Chowk Central Gateway'
     ];
     
     return locations[Math.floor(Math.random() * locations.length)];
@@ -217,19 +214,19 @@ class IllegalParkingDetector {
   // Get nearest authority
   getNearestAuthority(location) {
     const authorities = {
-      'MG Road Junction': { name: 'MG Road Traffic Police', contact: '+91-80-2222-3333', distance: '0.5 km' },
-      'Brigade Road': { name: 'Brigade Road Police Station', contact: '+91-80-2222-4444', distance: '0.3 km' },
-      'Commercial Street': { name: 'Commercial Street Police', contact: '+91-80-2222-5555', distance: '0.4 km' },
-      'Indiranagar 100 Feet Road': { name: 'Indiranagar Traffic Police', contact: '+91-80-2222-6666', distance: '0.6 km' },
-      'Koramangala 5th Block': { name: 'Koramangala Police Station', contact: '+91-80-2222-7777', distance: '0.7 km' },
-      'Whitefield Main Road': { name: 'Whitefield Traffic Police', contact: '+91-80-2222-8888', distance: '1.2 km' },
-      'Electronic City': { name: 'Electronic City Police', contact: '+91-80-2222-9999', distance: '1.5 km' },
-      'Jayanagar 4th Block': { name: 'Jayanagar Police Station', contact: '+91-80-2222-1111', distance: '0.8 km' }
+      'Sector 18 Atta Market': { name: 'Sector 20 Police Station, Noida', contact: '+91-120-2522222', distance: '0.4 km' },
+      'Amity University Sector 125 Gate': { name: 'Sector 126 Police Station, Noida', contact: '+91-120-2444444', distance: '0.3 km' },
+      'Advant Navis Tech Park (Sec 142)': { name: 'Sector 142 Police Station, Noida', contact: '+91-120-2499999', distance: '0.5 km' },
+      'Botanical Garden Metro Hub': { name: 'Sector 39 Police Station, Noida', contact: '+91-120-2577777', distance: '0.6 km' },
+      'Mahamaya Flyover Corridor': { name: 'Sector 39 Police Station, Noida', contact: '+91-120-2577777', distance: '0.8 km' },
+      'Sector 62 Model Town IT Park': { name: 'Sector 58 Police Station, Noida', contact: '+91-120-2588888', distance: '0.6 km' },
+      'Okhla Bird Sanctuary Metro Hub': { name: 'Sector 126 Police Station, Noida', contact: '+91-120-2444444', distance: '0.7 km' },
+      'Pari Chowk Central Gateway': { name: 'Kasna Police Station, Greater Noida', contact: '+91-120-2340000', distance: '0.9 km' }
     };
     
     return authorities[location] || { 
-      name: 'City Traffic Control', 
-      contact: '+91-80-2222-0000', 
+      name: 'Noida Traffic Police Control Room', 
+      contact: '+91-120-2422222', 
       distance: '1.0 km' 
     };
   }
@@ -260,8 +257,8 @@ class IllegalParkingDetector {
       alertSent: false,
       finePaid: false,
       coordinates: {
-        lat: 12.9716 + (Math.random() - 0.5) * 0.1,
-        lng: 77.5946 + (Math.random() - 0.5) * 0.1
+        lat: 28.5449 + (Math.random() - 0.5) * 0.05,
+        lng: 77.3331 + (Math.random() - 0.5) * 0.05
       }
     };
   }

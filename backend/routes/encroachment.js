@@ -6,11 +6,11 @@ import { io } from '../server.js';
 const router = express.Router();
 
 const CAMERA_LOCATIONS = [
-  { cameraId: 'CAM001', location: 'MG Road', zone: 'footpath' },
-  { cameraId: 'CAM002', location: 'Brigade Road', zone: 'road-lane' },
-  { cameraId: 'CAM003', location: 'Commercial Street', zone: 'no-parking' },
-  { cameraId: 'CAM004', location: 'Indiranagar', zone: 'restricted-area' },
-  { cameraId: 'CAM005', location: 'Koramangala', zone: 'footpath' }
+  { cameraId: 'CAM001', location: 'Sector 18 Atta Market', zone: 'footpath' },
+  { cameraId: 'CAM002', location: 'Amity University Sector 125', zone: 'road-lane' },
+  { cameraId: 'CAM003', location: 'Advant Navis Tech Hub', zone: 'no-parking' },
+  { cameraId: 'CAM004', location: 'Botanical Garden Metro', zone: 'restricted-area' },
+  { cameraId: 'CAM005', location: 'Mahamaya Flyover Corridor', zone: 'footpath' }
 ];
 
 const OBJECT_TYPES = ['vendor', 'cart', 'vehicle', 'obstacle', 'hawker'];
@@ -31,11 +31,11 @@ const SEVERITY_BY_ZONE = {
 };
 
 const BASE_COORDS = {
-  'MG Road': { lat: 12.9716, lng: 77.5946 },
-  'Brigade Road': { lat: 12.9698, lng: 77.6072 },
-  'Commercial Street': { lat: 12.9833, lng: 77.6089 },
-  Indiranagar: { lat: 12.9784, lng: 77.6408 },
-  Koramangala: { lat: 12.9352, lng: 77.6245 }
+  'Sector 18 Atta Market': { lat: 28.5678, lng: 77.3211 },
+  'Amity University Sector 125': { lat: 28.5449, lng: 77.3331 },
+  'Advant Navis Tech Hub': { lat: 28.5032, lng: 77.4116 },
+  'Botanical Garden Metro': { lat: 28.5644, lng: 77.3342 },
+  'Mahamaya Flyover Corridor': { lat: 28.5528, lng: 77.3235 }
 };
 
 function randomFrom(arr) {
@@ -44,12 +44,9 @@ function randomFrom(arr) {
 
 function generateLicensePlate() {
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-  const numbers = '0123456789';
-  return `${letters[Math.floor(Math.random() * 26)]}${letters[Math.floor(Math.random() * 26)]}-${
-    numbers[Math.floor(Math.random() * 10)]}${numbers[Math.floor(Math.random() * 10)]}-${
-    letters[Math.floor(Math.random() * 26)]}${letters[Math.floor(Math.random() * 26)]}-${
-    numbers[Math.floor(Math.random() * 10)]}${numbers[Math.floor(Math.random() * 10)]}${
-    numbers[Math.floor(Math.random() * 10)]}${numbers[Math.floor(Math.random() * 10)]}`;
+  const series = `${letters[Math.floor(Math.random() * 26)]}${letters[Math.floor(Math.random() * 26)]}`;
+  const number = String(Math.floor(1000 + Math.random() * 9000));
+  return `UP-16-${series}-${number}`;
 }
 
 function generateCoordinates(location) {

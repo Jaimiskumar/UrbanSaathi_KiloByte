@@ -47,7 +47,7 @@ export class RealMLInference {
     const payload = {
       frame_url: frameData.frameUrl,
       frame_base64: frameData.frameBase64,
-      location: frameData.location || 'Silk Board Junction, Bengaluru',
+      location: frameData.location || 'Sector 18 Atta Market, Noida',
       speed_limit: frameData.speedLimit || 60.0,
       signal_status: frameData.signalStatus || 'green',
       enable_segmentation: true
@@ -82,11 +82,11 @@ export class RealMLInference {
   }
 
   _generateSynchronizedResult(frameData) {
-    const location = frameData.location || 'Silk Board Junction, Bengaluru';
+    const location = frameData.location || 'Sector 18 Atta Market, Noida';
     const speedLimit = frameData.speedLimit || 60;
     const signalStatus = frameData.signalStatus || 'green';
 
-    const samplePlates = ['KA-01-MJ-4821', 'KA-05-NB-7291', 'KA-53-AZ-9912', 'KA-04-CX-3012', 'KA-51-EF-8820', 'KA-03-GH-1290'];
+    const samplePlates = ['UP-16-MJ-4821', 'UP-16-NB-7291', 'UP-16-AZ-9912', 'UP-16-CX-3012', 'UP-16-EF-8820', 'UP-16-GH-1290'];
     const vehicles = [
       {
         id: 'VEH-001',

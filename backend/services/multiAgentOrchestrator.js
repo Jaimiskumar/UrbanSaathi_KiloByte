@@ -68,7 +68,7 @@ export class MultiAgentOrchestrator {
     const startTime = Date.now();
     const eventId = rawEvent.event_id || `EVT-${Date.now()}`;
     const incidentId = rawEvent.incident_id || `INC-${Date.now()}`;
-    const zone = rawEvent.zone || 'Silk Board Junction';
+    const zone = rawEvent.zone || 'Sector 18 Atta Market, Noida';
     const eventType = rawEvent.event_type || rawEvent.type || (rawEvent.vehicle_id === 'VEH-021' || rawEvent.sudden_braking ? 'accident' : (rawEvent.vehicle_id ? 'v2x_emergency' : (rawEvent.noise_db ? 'noise_spike' : 'road_blockage')));
 
     // ─────────────────────────────────────────────────────────────
@@ -78,7 +78,7 @@ export class MultiAgentOrchestrator {
       event_id: eventId,
       incident_id: incidentId,
       zone: zone,
-      location: rawEvent.location || { lat: 12.9176, lon: 77.6238, address: `${zone}, Bengaluru` },
+      location: rawEvent.location || { lat: 28.5678, lon: 77.3211, address: `${zone}, Noida` },
       timestamp: rawEvent.timestamp || new Date().toISOString(),
       source: rawEvent.source || (rawEvent.vehicle_id ? 'v2v_simulated_telemetry' : (rawEvent.type === 'pothole' ? 'cctv_samved_infra' : (rawEvent.noise_db ? 'acoustic_iot_sensor' : 'cctv_samved_traffic'))),
       multimodal_inputs: {
@@ -271,7 +271,7 @@ export class MultiAgentOrchestrator {
     const predictionAgentOutput = this.createAgentOutput({
       agent_name: 'Spillover Prediction Agent',
       status: 'COMPLETED',
-      input_summary: `Multi-horizon time prediction based on Bengaluru peak factor & accident blockage in ${zone}`,
+      input_summary: `Multi-horizon time prediction based on Noida peak factor & accident blockage in ${zone}`,
       decision: `Unmitigated baseline will cause peak queue of ${maxQueue}m and 60-minute gridlock at ${zone}. Hotspot score: ${hotspotData.hotspot_score}/100.`,
       confidence: 0.89,
       evidence: { horizons: predictions, hotspot: hotspotData },
@@ -393,7 +393,7 @@ export class MultiAgentOrchestrator {
     const digitalTwinAgentOutput = this.createAgentOutput({
       agent_name: 'Digital Twin Agent',
       status: 'COMPLETED',
-      input_summary: `Physical simulation of Bengaluru road grid under AI intervention`,
+      input_summary: `Physical simulation of Noida road grid under AI intervention`,
       decision: `Simulated results: Travel delay reduced from 48s to 24.5s (-48.5%), Secondary collision risk reduced by 91%, Crosswalk safety restored to 100%.`,
       confidence: 0.95,
       evidence: simulationMetrics,

@@ -72,7 +72,7 @@ export default function Login({ onLogin }) {
 
         <div className="mt-auto relative z-10 max-w-md mx-auto w-full text-slate-400 text-sm font-semibold flex items-center justify-between">
           <span>Smart Horizon College</span>
-          <span>Bengaluru Smart City</span>
+          <span>Noida - NCR Smart City</span>
         </div>
       </div>
 

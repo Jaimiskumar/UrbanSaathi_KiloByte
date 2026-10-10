@@ -691,64 +691,64 @@ def run_speed_tracking_detector(image: np.ndarray) -> List[Dict[str, Any]]:
 
 VEHICLE_REGISTRY = [
     {
-        "plate": "KA01AB1234",
-        "formatted_plate": "KA 01 AB 1234",
+        "plate": "UP16AB1234",
+        "formatted_plate": "UP 16 AB 1234",
         "owner_name": "Rajesh Kumar",
         "owner_phone": "+91 98450 12345",
         "owner_email": "rajesh.kumar@gmail.com",
         "vehicle_model": "Honda City (White, 4-Wheeler)",
         "vehicle_class": "4-wheeler",
-        "address": "42, 14th Main, HSR Layout Sector 2, Bengaluru"
+        "address": "42, Sector 15A, Noida, UP"
     },
     {
-        "plate": "KA05MN9876",
-        "formatted_plate": "KA 05 MN 9876",
+        "plate": "UP16MN9876",
+        "formatted_plate": "UP 16 MN 9876",
         "owner_name": "Priya Sharma",
         "owner_phone": "+91 98801 98765",
         "owner_email": "priya.sharma@yahoo.com",
         "vehicle_model": "TVS Jupiter (Matte Black, 2-Wheeler)",
         "vehicle_class": "2-wheeler",
-        "address": "108, 80ft Road, Koramangala 4th Block, Bengaluru"
+        "address": "108, Sector 18 Atta Market, Noida, UP"
     },
     {
-        "plate": "KA03HA4567",
-        "formatted_plate": "KA 03 HA 4567",
+        "plate": "UP16HA4567",
+        "formatted_plate": "UP 16 HA 4567",
         "owner_name": "Mohammed Arif",
         "owner_phone": "+91 97412 45678",
         "owner_email": "arif.m@outlook.com",
         "vehicle_model": "Bajaj Compact RE Auto (Yellow-Green, 3-Wheeler)",
         "vehicle_class": "3-wheeler",
-        "address": "29, Indiranagar 100ft Road, Bengaluru"
+        "address": "29, Sector 62 IT Park, Noida, UP"
     },
     {
-        "plate": "KA04DE7890",
-        "formatted_plate": "KA 04 DE 7890",
+        "plate": "UP16DE7890",
+        "formatted_plate": "UP 16 DE 7890",
         "owner_name": "Ananya Deshmukh",
         "owner_phone": "+91 99003 78901",
         "owner_email": "ananya.d@gmail.com",
         "vehicle_model": "Hyundai Creta SX (Silver, 4-Wheeler)",
         "vehicle_class": "4-wheeler",
-        "address": "15, Outer Ring Road, Bellandur, Bengaluru"
+        "address": "15, Noida Expressway, Sector 128, Noida, UP"
     },
     {
-        "plate": "KA02XY3456",
-        "formatted_plate": "KA 02 XY 3456",
+        "plate": "UP16XY3456",
+        "formatted_plate": "UP 16 XY 3456",
         "owner_name": "Suresh Gowda",
         "owner_phone": "+91 96114 34567",
         "owner_email": "suresh.gowda@gmail.com",
         "vehicle_model": "Royal Enfield Classic 350 (Stealth Black, 2-Wheeler)",
         "vehicle_class": "2-wheeler",
-        "address": "77, Malleshwaram 8th Cross, Bengaluru"
+        "address": "77, Sector 50, Noida, UP"
     },
     {
-        "plate": "MH12CD5678",
-        "formatted_plate": "MH 12 CD 5678",
+        "plate": "UP16CD5678",
+        "formatted_plate": "UP 16 CD 5678",
         "owner_name": "Vikram Rathore",
         "owner_phone": "+91 95355 56789",
         "owner_email": "vikram.logistics@rediffmail.com",
         "vehicle_model": "Tata Prima 3530 Commercial Truck (Blue)",
         "vehicle_class": "truck",
-        "address": "Industrial Suburb, Peenya 2nd Stage, Bengaluru"
+        "address": "Industrial Suburb, Sector 80 Phase 2, Noida, UP"
     },
     {
         "plate": "DL3CAB9999",
@@ -758,17 +758,17 @@ VEHICLE_REGISTRY = [
         "owner_email": "amitabh.verma@corp.in",
         "vehicle_model": "Mahindra XUV700 AX7 (Midnight Black, 4-Wheeler)",
         "vehicle_class": "4-wheeler",
-        "address": "Flat 402, Prestige Palms, Whitefield, Bengaluru"
+        "address": "Flat 402, Sector 137, Noida, UP"
     },
     {
-        "plate": "UP64W4388",
-        "formatted_plate": "UP 64 W 4388",
+        "plate": "UP16W4388",
+        "formatted_plate": "UP 16 W 4388",
         "owner_name": "Rajesh Kumar",
         "owner_phone": "+91 97539 40922",
         "owner_email": "rajesh.kumar@gmail.com",
         "vehicle_model": "Hero HF Deluxe / Splendor (Red/Black, 2-Wheeler)",
         "vehicle_class": "2-wheeler",
-        "address": "Shakti Nagar, Sonbhadra, UP"
+        "address": "Sector 125, Amity Road, Noida, UP"
     },
     {
         "plate": "22BH6517A",
@@ -778,7 +778,7 @@ VEHICLE_REGISTRY = [
         "owner_email": "rohan.d@bharat.in",
         "vehicle_model": "Hyundai Verna (Polar White, 4-Wheeler)",
         "vehicle_class": "4-wheeler",
-        "address": "Defence Colony, Indiranagar, Bengaluru"
+        "address": "Defence Colony, Sector 44, Noida, UP"
     }
 ]
 
@@ -1073,7 +1073,7 @@ class VideoAnalysisRequest(BaseModel):
     video_base64: Optional[str] = None
     frame_url: Optional[str] = None
     frame_base64: Optional[str] = None
-    location: str = "Silk Board Junction, Bengaluru"
+    location: str = "Sector 18 Atta Market, Noida"
     speed_limit: float = 60.0
     signal_status: str = "green"
     enable_segmentation: bool = True
@@ -2011,7 +2011,7 @@ class VideoProcessRequest(BaseModel):
     video_base64: Optional[str] = None
     video_url: Optional[str] = None
     video_filename: Optional[str] = None
-    location: str = "Silk Board Junction, Bengaluru"
+    location: str = "Sector 18 Atta Market, Noida"
     speed_limit: float = 60.0
     signal_status: str = "green"
     enable_segmentation: bool = True
@@ -2438,6 +2438,8 @@ async def process_full_video_endpoint(request: VideoProcessRequest, background_t
         temp_h264_out = t_h264.name
 
         ffmpeg_candidates = [
+            os.path.join(os.path.dirname(__file__), 'backend', 'node_modules', 'ffmpeg-static', 'ffmpeg'),
+            os.path.join(os.getcwd(), 'backend', 'node_modules', 'ffmpeg-static', 'ffmpeg'),
             os.path.join(os.path.dirname(__file__), 'backend', 'node_modules', 'ffmpeg-static', 'ffmpeg.exe'),
             os.path.join(os.getcwd(), 'backend', 'node_modules', 'ffmpeg-static', 'ffmpeg.exe'),
             shutil.which('ffmpeg')

@@ -37,25 +37,22 @@ class EncroachmentDetector {
 
   generateLicensePlate() {
     const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-    const numbers = '0123456789';
-    return `${letters[Math.floor(Math.random() * 26)]}${letters[Math.floor(Math.random() * 26)]}-${
-      numbers[Math.floor(Math.random() * 10)]}${numbers[Math.floor(Math.random() * 10)]}-${
-      letters[Math.floor(Math.random() * 26)]}${letters[Math.floor(Math.random() * 26)]}-${
-      numbers[Math.floor(Math.random() * 10)]}${numbers[Math.floor(Math.random() * 10)]}${
-      numbers[Math.floor(Math.random() * 10)]}${numbers[Math.floor(Math.random() * 10)]}`;
+    const series = `${letters[Math.floor(Math.random() * 26)]}${letters[Math.floor(Math.random() * 26)]}`;
+    const number = String(Math.floor(1000 + Math.random() * 9000));
+    return `UP-16-${series}-${number}`;
   }
 
   generateCoordinates(location) {
     // Simulate coordinates based on location
     const baseCoords = {
-      'MG Road': { lat: 12.9716, lng: 77.5946 },
-      'Brigade Road': { lat: 12.9698, lng: 77.6072 },
-      'Commercial Street': { lat: 12.9833, lng: 77.6089 },
-      'Indiranagar': { lat: 12.9784, lng: 77.6408 },
-      'Koramangala': { lat: 12.9352, lng: 77.6245 }
+      'Sector 18 Atta Market': { lat: 28.5678, lng: 77.3211 },
+      'Amity University Sector 125': { lat: 28.5449, lng: 77.3331 },
+      'Advant Navis Tech Hub': { lat: 28.5032, lng: 77.4116 },
+      'Botanical Garden Metro': { lat: 28.5644, lng: 77.3342 },
+      'Mahamaya Flyover Corridor': { lat: 28.5528, lng: 77.3235 }
     };
 
-    const base = baseCoords[location] || { lat: 12.9716, lng: 77.5946 };
+    const base = baseCoords[location] || { lat: 28.5678, lng: 77.3211 };
     return {
       lat: base.lat + (Math.random() - 0.5) * 0.01,
       lng: base.lng + (Math.random() - 0.5) * 0.01

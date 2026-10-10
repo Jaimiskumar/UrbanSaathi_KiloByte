@@ -84,7 +84,7 @@ export default function ReportViolation() {
         </div>
         <div>
           <h2 className="text-3xl font-extrabold text-[#0F172A] tracking-tight">Report a Violation</h2>
-          <p className="text-gray-500 font-medium mt-1">Help keep Bengaluru & Smart Horizon College safe by reporting illegal parking or unauthorized hawker encroachments.</p>
+          <p className="text-gray-500 font-medium mt-1">Help keep Noida & Amity University safe by reporting illegal parking or unauthorized hawker encroachments.</p>
         </div>
       </div>
 

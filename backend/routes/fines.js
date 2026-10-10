@@ -109,15 +109,90 @@ router.post('/issue', authMiddleware, requirePermission('fine:issue'), async (re
   }
 });
 
+// Bulk Settlement Endpoint - Pay All Violations
+router.post('/pay-all', async (req, res) => {
+  try {
+    const finesRes = await Fine.updateMany(
+      { status: { $ne: 'paid' } },
+      { $set: { status: 'paid', paidAt: new Date() } }
+    );
+
+    const challansRes = await Challan.updateMany(
+      { status: { $ne: 'paid' } },
+      { $set: { status: 'paid', paymentStatus: 'completed', paymentDate: new Date() } }
+    );
+
+    // Broadcast real-time payment updates to both Admin and Citizen portals
+    io.emit('fine-updated', { fineId: 'ALL', status: 'paid', timestamp: new Date() });
+    io.emit('challan_paid', { challanId: 'ALL', status: 'paid', timestamp: new Date() });
+    io.emit('admin_challan_updated', {
+      type: 'bulk_settlement',
+      status: 'paid',
+      message: '💰 All outstanding traffic violation fines settled successfully.'
+    });
+
+    res.json({
+      success: true,
+      message: 'All outstanding violations successfully settled',
+      status: 'paid',
+      settledFines: finesRes.modifiedCount,
+      settledChallans: challansRes.modifiedCount
+    });
+  } catch (error) {
+    console.error('Bulk payment error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // Settlement / Payment Endpoint for Citizens and Admins
 router.post('/:id/pay', async (req, res) => {
   try {
     const id = req.params.id;
-    let fine = await Fine.findById(id);
+
+    // Handle bulk payment identifiers if routed here
+    if (id === 'pay-all' || id === 'MULTIPLE' || id === 'all') {
+      const finesRes = await Fine.updateMany(
+        { status: { $ne: 'paid' } },
+        { $set: { status: 'paid', paidAt: new Date() } }
+      );
+
+      const challansRes = await Challan.updateMany(
+        { status: { $ne: 'paid' } },
+        { $set: { status: 'paid', paymentStatus: 'completed', paymentDate: new Date() } }
+      );
+
+      io.emit('fine-updated', { fineId: 'ALL', status: 'paid', timestamp: new Date() });
+      io.emit('challan_paid', { challanId: 'ALL', status: 'paid', timestamp: new Date() });
+      io.emit('admin_challan_updated', {
+        type: 'bulk_settlement',
+        status: 'paid',
+        message: '💰 All outstanding traffic violation fines settled successfully.'
+      });
+
+      return res.json({
+        success: true,
+        message: 'All outstanding violations successfully settled',
+        status: 'paid',
+        settledFines: finesRes.modifiedCount,
+        settledChallans: challansRes.modifiedCount
+      });
+    }
+
+    let fine = null;
     let challan = null;
 
+    if (id.match(/^[0-9a-fA-F]{24}$/)) {
+      fine = await Fine.findById(id);
+      if (!fine) {
+        challan = await Challan.findById(id);
+      }
+    }
+
     if (!fine) {
-      challan = await Challan.findOne({ $or: [{ _id: id.match(/^[0-9a-fA-F]{24}$/) ? id : null }, { challanNumber: id }] });
+      fine = await Fine.findOne({ fineId: id });
+    }
+    if (!fine && !challan) {
+      challan = await Challan.findOne({ challanNumber: id });
     }
 
     if (!fine && !challan) {

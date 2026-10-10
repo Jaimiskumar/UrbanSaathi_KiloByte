@@ -69,8 +69,8 @@ export class EncroachmentAgent extends BaseAgent {
         violation: decision.violation,
         reason: decision.reason,
         authority: decision.violation.type === 'ILLEGAL_PARKING'
-          ? 'Bengaluru Traffic Police'
-          : 'BBMP Encroachment & Civic'
+          ? 'Noida Traffic Police'
+          : 'Noida Authority Encroachment & Civic'
       };
     }
     return { status: decision.action === 'REVIEW' ? 'REVIEW_REQUIRED' : 'REJECTED', reason: decision.reason };

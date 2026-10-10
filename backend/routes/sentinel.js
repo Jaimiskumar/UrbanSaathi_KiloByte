@@ -23,7 +23,7 @@ router.post('/demo/reset', authMiddleware, async (req, res) => {
   res.json({ demo: true, reset: true });
 });
 router.get('/demo/status', authMiddleware, async (req, res) => res.json({
-  cameras: await Camera.countDocuments({ cameraId: /^CAM-GJ-/ }),
+  cameras: await Camera.countDocuments({ cameraId: /^CAM-UP-/ }),
   detections: await VehicleDetection.countDocuments({ source: 'DEMO' }),
   events: await SentinelEvent.countDocuments({ source: 'DEMO' }),
   alerts: await SentinelAlert.countDocuments({ plateNumber: { $exists: true } })

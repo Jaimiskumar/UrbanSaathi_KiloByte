@@ -10,23 +10,23 @@ const MIN_ACTIVE_EMERGENCIES = 3;
 
 const EMERGENCY_TYPES = ['ambulance', 'fire_truck', 'police', 'disaster_response'];
 const ZONE_DESTINATIONS = [
-  { name: 'Silk Board Central Junction', lat: 12.9176, lng: 77.6238 },
-  { name: 'Smart Horizon College Campus Hub', lat: 12.9279, lng: 77.6271 },
-  { name: 'Koramangala 5th Block Junction', lat: 12.9352, lng: 77.6245 },
-  { name: 'Madiwala Police Station Crosswalk', lat: 12.9226, lng: 77.6174 },
-  { name: 'Electronic City Tollgate Corridor', lat: 12.8452, lng: 77.6602 },
-  { name: 'Indiranagar 100ft Road Signal', lat: 12.9784, lng: 77.6408 },
-  { name: 'KR Puram Hanging Bridge Junction', lat: 13.0006, lng: 77.6834 },
-  { name: 'Hebbal Flyover Expressway Junction', lat: 13.0358, lng: 77.5970 }
+  { name: 'Amity University Gate 2 Chowk', lat: 28.5449, lng: 77.3331 },
+  { name: 'Mahamaya Flyover Expressway Junction', lat: 28.5528, lng: 77.3235 },
+  { name: 'Sector 18 Atta Market Central Signal', lat: 28.5678, lng: 77.3211 },
+  { name: 'Botanical Garden Metro Interchange', lat: 28.5644, lng: 77.3342 },
+  { name: 'Advant Navis Sector 142 Plaza', lat: 28.5032, lng: 77.4116 },
+  { name: 'Kalindi Kunj Border Signal', lat: 28.5458, lng: 77.3115 },
+  { name: 'Okhla Bird Sanctuary Corridor', lat: 28.5444, lng: 77.3189 },
+  { name: 'Sector 62 IT Park Crossing', lat: 28.6271, lng: 77.3653 }
 ];
 const ZONE_NAME_SET = new Set(ZONE_DESTINATIONS.map((zone) => zone.name));
 const SIGNAL_TO_ZONE = {
-  SIG001: 'Silk Board Central Junction',
-  SIG002: 'Smart Horizon College Campus Hub',
-  SIG003: 'Koramangala 5th Block Junction',
-  SIG004: 'Madiwala Police Station Crosswalk',
-  SIG005: 'Electronic City Tollgate Corridor',
-  SIG006: 'Indiranagar 100ft Road Signal'
+  SIG001: 'Amity University Gate 2 Chowk',
+  SIG002: 'Mahamaya Flyover Expressway Junction',
+  SIG003: 'Sector 18 Atta Market Central Signal',
+  SIG004: 'Botanical Garden Metro Interchange',
+  SIG005: 'Advant Navis Sector 142 Plaza',
+  SIG006: 'Kalindi Kunj Border Signal'
 };
 
 function randomFrom(items) {

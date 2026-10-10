@@ -94,7 +94,7 @@ export default function SmartCityShield() {
   // ── 3. Citizen Report State ──
   const [reportForm, setReportForm] = useState({
     category: 'hawkers_encroachment', // 'hawkers_encroachment' | 'illegal_parking' | 'excessive_honking' | 'pothole' | 'accident'
-    location: 'Silk Board Junction, Bengaluru',
+    location: 'Sector 18 Atta Market, Noida',
     description: '',
     severity: 'high'
   });
@@ -489,7 +489,7 @@ export default function SmartCityShield() {
                   value={reportForm.location}
                   onChange={e => setReportForm(p => ({ ...p, location: e.target.value }))}
                   className="w-full mt-1.5 p-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold text-slate-800"
-                  placeholder="e.g. Silk Board J2 Crosswalk, Bengaluru"
+                  placeholder="e.g. Sector 18 Central Crosswalk, Noida"
                 />
               </div>
             </div>

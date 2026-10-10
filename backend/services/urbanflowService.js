@@ -97,7 +97,7 @@ export class UrbanFlowService {
       const payload = {
         incident_id: eventData.incident_id || `ACC-${Date.now()}`,
         vehicle_id: eventData.vehicle_id || 'VEH-021',
-        zone: eventData.zone || 'Silk Board Junction',
+        zone: eventData.zone || 'Sector 18 Atta Market, Noida',
         vehicle_speed_kmh: Number(eventData.vehicle_speed_kmh || eventData.average_speed || 52.0),
         deceleration_mps2: Number(eventData.deceleration_mps2 || (eventData.event_type === 'accident' ? 10.5 : 2.5)),
         jerk_mps3: Number(eventData.jerk_mps3 || (eventData.event_type === 'accident' ? 42.0 : 3.0)),
@@ -148,7 +148,7 @@ export class UrbanFlowService {
 
       const payload = {
         pedestrian_id: eventData.pedestrian_id || 'PED-014',
-        zone: eventData.zone || 'Silk Board Junction',
+        zone: eventData.zone || 'Sector 18 Atta Market, Noida',
         pedestrian_count: Number(eventData.pedestrian_count || 6),
         distance_to_curb_m: Number(eventData.distance_to_curb_m || 1.2),
         is_crossing: Boolean(eventData.is_crossing !== undefined ? eventData.is_crossing : true),
@@ -300,7 +300,7 @@ export class UrbanFlowService {
       const normalizedPayload = {
         incident_id: eventData.incident_id || `INC-${Date.now()}`,
         event_id: eventData.event_id || `EVT-${Date.now()}`,
-        zone: eventData.zone || 'Silk Board Junction',
+        zone: eventData.zone || 'Sector 18 Atta Market, Noida',
         event_type: eventData.event_type || 'road_blockage',
         vehicle_count: Number(eventData.vehicle_count || 145),
         average_speed: Number(eventData.average_speed || 18),

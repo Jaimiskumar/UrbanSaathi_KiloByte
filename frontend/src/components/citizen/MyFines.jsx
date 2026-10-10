@@ -81,26 +81,37 @@ export default function MyFines() {
     setIsProcessing(true);
     // Simulate payment transaction with municipal node
     setTimeout(async () => {
+      const isBulk = selectedFine?._id === 'MULTIPLE' || selectedFine?.fineId === 'MULTIPLE';
       try {
         const token = localStorage.getItem('token');
-        const fineId = selectedFine._id || selectedFine.fineId;
+        const endpoint = isBulk ? '/api/fines/pay-all' : `/api/fines/${selectedFine._id || selectedFine.fineId}/pay`;
         
-        await axios.post(`/api/fines/${fineId}/pay`, {}, {
+        await axios.post(endpoint, {}, {
           headers: token ? { Authorization: `Bearer ${token}` } : {}
         });
+
+        if (isBulk) {
+          setFines(prev => prev.map(f => ({ ...f, status: 'paid', paymentStatus: 'completed' })));
+        } else {
+          setFines(prev => prev.map(f => (f._id === selectedFine._id || f.fineId === selectedFine.fineId) ? { ...f, status: 'paid', paymentStatus: 'completed' } : f));
+        }
 
         setPaymentStep(3); // Show Success UI
         setIsProcessing(false);
         fetchFines();
-        toast.success('Municipal Settlement Complete! E-Challan Marked as PAID.');
+        toast.success(isBulk ? 'All Violations Settled Successfully! Grid Cleared.' : 'Municipal Settlement Complete! E-Challan Marked as PAID.');
       } catch (error) {
         console.warn('Payment endpoint fallback:', error);
-        setFines(prev => prev.map(f => f._id === selectedFine._id || f.fineId === selectedFine.fineId ? { ...f, status: 'paid' } : f));
+        if (isBulk) {
+          setFines(prev => prev.map(f => ({ ...f, status: 'paid', paymentStatus: 'completed' })));
+        } else {
+          setFines(prev => prev.map(f => (f._id === selectedFine._id || f.fineId === selectedFine.fineId) ? { ...f, status: 'paid', paymentStatus: 'completed' } : f));
+        }
         setPaymentStep(3);
         setIsProcessing(false);
-        toast.success('Municipal Settlement Recorded');
+        toast.success(isBulk ? 'All Violations Settled' : 'Municipal Settlement Recorded');
       }
-    }, 2000);
+    }, 1500);
   };
 
   const totalOutstanding = fines
@@ -152,7 +163,7 @@ export default function MyFines() {
                 Pay All Violations
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
              </button>
-              <p className="text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">Verified by Bengaluru Smart City Enforcement</p>
+              <p className="text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">Verified by Noida - NCR Smart City Enforcement</p>
           </div>
         </div>
 
@@ -195,7 +206,7 @@ export default function MyFines() {
                     <div className="grid grid-cols-2 gap-4 mb-6">
                        <div className="flex items-center gap-2">
                           <MapPin className="w-4 h-4 text-slate-400 shrink-0" />
-                          <span className="text-xs font-bold text-slate-600 truncate">{fine.location?.name || fine.violationLocation || 'Silk Board Junction, Bengaluru'}</span>
+                          <span className="text-xs font-bold text-slate-600 truncate">{fine.location?.name || fine.violationLocation || 'Sector 18 Atta Market, Noida'}</span>
                        </div>
                        <div className="flex items-center gap-2 justify-end">
                           <Clock className="w-4 h-4 text-slate-400 shrink-0" />
@@ -324,7 +335,7 @@ export default function MyFines() {
                   <div className="p-8 -mt-6 bg-white rounded-t-3xl relative z-20">
                      <div className="flex items-center gap-3 mb-8 bg-blue-50/50 p-4 rounded-2xl border border-blue-100">
                         <Info className="w-5 h-5 text-blue-600 shrink-0" />
-                        <p className="text-[10px] font-bold text-slate-500 leading-tight italic">Secure settlement via Bengaluru Smart Horizon Grid Node #BLR-{Math.floor(Math.random()*9000)+1000}</p>
+                        <p className="text-[10px] font-bold text-slate-500 leading-tight italic">Secure settlement via Noida - NCR Smart City Grid Node #UP16-{Math.floor(Math.random()*9000)+1000}</p>
                      </div>
 
                      <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Secure Payment Options</h5>
@@ -367,7 +378,11 @@ export default function MyFines() {
                      
                      <h4 className="text-2xl font-black text-[#0F172A] mb-3">{isProcessing ? 'Verifying with Bank...' : 'Confirm Transaction'}</h4>
                      <p className="text-sm font-bold text-slate-400 mb-10 max-w-[280px] leading-relaxed">
-                        {isProcessing ? 'Please do not navigate away or refresh the page while we authenticate your settlement.' : `You are about to settle violation ID ${selectedFine?.fineId} for ₹${selectedFine?.amount}.`}
+                        {isProcessing 
+                          ? 'Please do not navigate away or refresh the page while we authenticate your settlement.' 
+                          : selectedFine?.fineId === 'MULTIPLE' 
+                            ? `You are about to settle ALL outstanding violations for ₹${selectedFine?.amount?.toLocaleString('en-IN')}.` 
+                            : `You are about to settle violation ID ${selectedFine?.fineId} for ₹${selectedFine?.amount}.`}
                      </p>
 
                      {!isProcessing && (
@@ -376,7 +391,7 @@ export default function MyFines() {
                               onClick={handleMockPayment}
                               className="w-full py-6 bg-[#1A73E8] text-white rounded-[1.8rem] font-black text-sm uppercase tracking-widest shadow-2xl shadow-blue-200 active:scale-95 transition-all"
                            >
-                              Settle Violation Now
+                              {selectedFine?.fineId === 'MULTIPLE' ? 'Settle All Violations Now' : 'Settle Violation Now'}
                            </button>
                            <button 
                               onClick={() => setPaymentStep(1)}
@@ -396,7 +411,11 @@ export default function MyFines() {
                         <CheckCircle2 className="w-12 h-12 text-emerald-500" />
                      </div>
                      <h4 className="text-3xl font-black text-[#0F172A] mb-3">Settlement Successful</h4>
-                     <p className="text-sm font-bold text-slate-400 mb-10 leading-relaxed">Your violation record has been cleared from the <span className="text-[#0F172A]">Bengaluru Smart Horizon Enforcement Grid</span>. A digital receipt has been sent to your registered email.</p>
+                     <p className="text-sm font-bold text-slate-400 mb-10 leading-relaxed">
+                        {selectedFine?.fineId === 'MULTIPLE' 
+                          ? 'All outstanding violation records have been cleared from the Noida - NCR Smart City Enforcement Grid. Digital receipts have been sent to your registered email.' 
+                          : <>Your violation record has been cleared from the <span className="text-[#0F172A]">Noida - NCR Smart City Enforcement Grid</span>. A digital receipt has been sent to your registered email.</>}
+                     </p>
                      
                      <div className="bg-slate-50 w-full p-5 rounded-2xl mb-10 flex items-center justify-between border border-slate-100">
                         <div className="text-left">

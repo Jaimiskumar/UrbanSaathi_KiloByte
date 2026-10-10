@@ -68,37 +68,37 @@ export default function ParkingBooking({ user }) {
     }
   };
 
-  const bengaluruHubs = [
-    { name: 'Smart Horizon College Campus Hub', price: 50 },
-    { name: 'Silk Board Multi-Level Plaza', price: 60 },
-    { name: 'Koramangala 5th Block Parking', price: 70 },
-    { name: 'Electronic City Toll Plaza', price: 40 },
-    { name: 'Indiranagar 100ft Road Hub', price: 80 },
-    { name: 'Madiwala Metro Station Parking', price: 40 },
-    { name: 'Whitefield ITPL Tech Hub', price: 50 },
-    { name: 'Hebbal Flyover Transit Hub', price: 50 }
+  const noidaHubs = [
+    { name: 'Amity University Sector 125 Campus Parking', price: 30 },
+    { name: 'Mahamaya Flyover Transit Parking Hub', price: 40 },
+    { name: 'Sector 18 Atta Market Multi-Level Plaza', price: 50 },
+    { name: 'Botanical Garden Metro Park & Ride', price: 30 },
+    { name: 'Advant Navis Tech Hub Parking (Sec 142)', price: 40 },
+    { name: 'Okhla Bird Sanctuary Metro Parking', price: 30 },
+    { name: 'Sector 62 IT Park Commercial Lot', price: 35 },
+    { name: 'Pari Chowk Greater Noida Complex', price: 30 }
   ];
 
-  const allowedBengaluruHubNames = new Set(bengaluruHubs.map(h => h.name));
+  const allowedHubNames = new Set(noidaHubs.map(h => h.name));
 
   const zonesMap = spots.reduce((acc, spot) => {
     const zoneKey = spot.zone || spot.zoneId;
-    if (zoneKey && allowedBengaluruHubNames.has(zoneKey)) {
-      if (!acc[zoneKey]) acc[zoneKey] = { id: zoneKey, name: zoneKey, pricePerHour: spot.pricePerHour || 50, spots: [] };
+    if (zoneKey && (allowedHubNames.has(zoneKey) || true)) {
+      if (!acc[zoneKey]) acc[zoneKey] = { id: zoneKey, name: zoneKey, pricePerHour: spot.pricePerHour || 40, spots: [] };
       acc[zoneKey].spots.push(spot);
     }
     return acc;
   }, {});
 
-  bengaluruHubs.forEach(hub => {
+  noidaHubs.forEach(hub => {
     if (!zonesMap[hub.name]) {
       zonesMap[hub.name] = { id: hub.name, name: hub.name, pricePerHour: hub.price, spots: [] };
     }
   });
 
-  // Set initial zone to first Bengaluru Hub if none selected
+  // Set initial zone to first Noida Hub if none selected
   if (!selectedZone) {
-     setSelectedZone('Smart Horizon College Campus Hub');
+     setSelectedZone('Amity University Sector 125 Campus Parking');
   }
 
   const zonesList = Object.values(zonesMap).sort((a,b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
@@ -370,7 +370,7 @@ export default function ParkingBooking({ user }) {
             }`}
          >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-            BENGALURU EV (SMART HORIZON)
+            NOIDA EV (SMART HORIZON)
          </button>
       </div>
 
@@ -645,37 +645,75 @@ export default function ParkingBooking({ user }) {
          
       </div>
 
-      {/* Action Bar at bottom */}
-      {selectedSpot && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-[0_-10px_30px_rgba(0,0,0,0.06)] p-4 flex justify-between items-center z-50 animate-slide-up flex-wrap sm:flex-nowrap gap-4">
-          <div className="flex flex-col w-full sm:w-auto pl-2 sm:pl-8 text-center sm:text-left">
-             <span className="text-sm font-bold text-gray-500">
-               {duration} Hr{duration > 1 ? 's' : ''} • Slot {selectedSpot.displayNum}
-             </span>
-            <div className="flex items-baseline justify-center sm:justify-start gap-1 mt-0.5">
-               <span className="text-2xl font-black text-[#0F172A]">₹{currentBookingSummary?.totalAmount.toFixed(0)}</span>
-               <span className="text-xs font-semibold text-gray-400">total cost</span>
-            </div>
-            {currentBookingSummary?.isShadow && (
-              <div className="mt-1 text-[11px] text-amber-600 font-bold uppercase tracking-[0.2em]">
-                Shadow premium included (+{Math.round(currentBookingSummary.premiumBreakdown.shadowPremium * 100)}%)
+      {/* Action Bar at bottom - positioned accurately relative to sidebar */}
+      {selectedSpot && (() => {
+        const totalCost = Number(
+          currentBookingSummary?.totalAmount != null && !isNaN(currentBookingSummary.totalAmount)
+            ? currentBookingSummary.totalAmount
+            : ((selectedSpot?.pricePerHour || activeZone?.pricePerHour || 15) * (duration || 1))
+        );
+        const ratePerHour = Number(selectedSpot?.pricePerHour || activeZone?.pricePerHour || 15);
+
+        return (
+          <div className="fixed bottom-0 right-0 left-0 lg:left-[var(--sidebar-width,16rem)] bg-white/95 backdrop-blur-2xl border-t border-slate-200/90 shadow-[0_-12px_36px_rgba(0,0,0,0.12)] px-4 sm:px-8 py-3.5 flex justify-between items-center z-40 animate-slide-up flex-wrap sm:flex-nowrap gap-4 transition-all duration-300">
+            <div className="flex items-center gap-4 sm:gap-6 flex-wrap sm:flex-nowrap">
+              {/* Slot Badge */}
+              <div className="flex flex-col">
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-1 rounded-xl bg-slate-900 text-white font-mono font-black text-xs uppercase tracking-wider shadow-sm">
+                    Slot {selectedSpot.displayNum || selectedSpot.spotId}
+                  </span>
+                  {selectedSpot.isShadowParking && (
+                    <span className="px-2 py-0.5 rounded-lg bg-amber-50 text-amber-700 text-[10px] font-black uppercase tracking-wider border border-amber-200">
+                      Shadow (+{Math.round((selectedSpot.shadowPremium || 0.25) * 100)}%)
+                    </span>
+                  )}
+                  {selectedSpot.isEV && (
+                    <span className="px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-700 text-[10px] font-black uppercase tracking-wider border border-emerald-200 flex items-center gap-1">
+                      ⚡ EV
+                    </span>
+                  )}
+                </div>
+                <span className="text-[11px] font-bold text-slate-400 mt-1">
+                  {duration} Hr{duration > 1 ? 's' : ''} reservation • ₹{ratePerHour}/hr base
+                </span>
               </div>
-            )}
-          </div>
-          <button 
-            onClick={handleBook}
-            disabled={loading}
-            className="w-full sm:w-auto bg-[#10B981] text-white px-8 py-3.5 rounded-xl font-bold text-sm tracking-wide hover:bg-green-600 transition-transform active:scale-95 shadow-lg hover:shadow-xl sm:mr-8 min-w-[160px] text-center"
-          >
-            {loading ? (
-               <span className="flex items-center justify-center gap-2">
+
+              {/* Total Price Display */}
+              <div className="h-8 w-px bg-slate-200 hidden sm:block" />
+
+              <div className="flex flex-col">
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total Payable</span>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-3xl font-black text-emerald-600 tracking-tight font-display">
+                    ₹{totalCost.toFixed(0)}
+                  </span>
+                  <span className="text-[11px] font-bold text-slate-400">incl. all taxes</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Pay & Book CTA */}
+            <button 
+              onClick={handleBook}
+              disabled={loading}
+              className="w-full sm:w-auto bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white px-8 py-3.5 rounded-2xl font-black text-sm tracking-wide shadow-lg shadow-emerald-500/25 hover:shadow-xl hover:shadow-emerald-500/30 transition-all transform active:scale-95 min-w-[190px] text-center flex items-center justify-center gap-2"
+            >
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
                   <svg className="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                   Processing...
-               </span>
-            ) : `Pay & Book${selectedSpot?.isShadowParking ? ' Shadow' : ''}`}
-          </button>
-        </div>
-      )}
+                </span>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" /></svg>
+                  Pay & Book{selectedSpot?.isShadowParking ? ' Shadow' : ''}
+                </>
+              )}
+            </button>
+          </div>
+        );
+      })()}
 
       {paymentContext?.show && (
          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-0">

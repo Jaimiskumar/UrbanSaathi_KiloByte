@@ -92,8 +92,8 @@ export function createAgentGraph(agents) {
             return [{
               complaintId: `TRAFFIC-${state.event.eventId}`,
               issue: 'TRAFFIC_CONTROL',
-              authorityId: 'BENGALURU_TRAFFIC_POLICE',
-              department: 'Bengaluru Traffic Police',
+              authorityId: 'NOIDA_TRAFFIC_POLICE',
+              department: 'Noida Traffic Police',
               priority: state.priority,
               slaHours: 4,
               status: 'OPEN'

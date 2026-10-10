@@ -175,7 +175,7 @@ export default function PoliceLoginGate({ onAuthenticated, onCancel }) {
 
       {/* ── FOOTER DISCLOSURE ── */}
       <div className="text-center text-[10px] text-gray-400 font-mono">
-        Bengaluru Traffic Police Enforcement System • Secure Access
+        Noida Traffic Police Enforcement System • Secure Access
       </div>
 
     </div>
