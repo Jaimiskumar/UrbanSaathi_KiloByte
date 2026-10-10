@@ -79,6 +79,14 @@ const MLDetectionUpload = () => {
       fetchViolationsAndStats();
     });
 
+    socket.on('complaint_ticket_created', (data) => {
+      toast(`🎫 ${data.priority} priority ticket: ${data.issueType} at ${data.locationName}`, { icon: '!' });
+    });
+
+    socket.on('traffic_advisory_created', (data) => {
+      toast(`🚦 ${data.congestionLevel} congestion advisory created for ${data.route}`, { icon: '!' });
+    });
+
     return () => socket.disconnect();
   }, []);
 

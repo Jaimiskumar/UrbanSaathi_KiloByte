@@ -216,10 +216,12 @@ const BengaluruUltimateGoogleMap = ({ zones }) => {
 
 export default function TrafficMap() {
   const [zones, setZones] = useState([]);
+   const [advisories, setAdvisories] = useState([]);
 
   useEffect(() => {
     const fetchData = async () => {
       try { const { data } = await axios.get('/api/traffic/zones'); setZones(data); } catch (e) {}
+      try { const { data } = await axios.get('/api/traffic/advisories'); setAdvisories(data); } catch (e) {}
     };
     fetchData(); 
   }, []);
@@ -234,6 +236,18 @@ export default function TrafficMap() {
           <h1 className="text-3xl md:text-6xl font-black text-slate-900 tracking-tighter leading-tight">City <span className="text-blue-600">Navigator</span></h1>
           <p className="text-sm md:text-lg font-bold text-gray-400 max-w-2xl leading-relaxed">Integrated Google Maps infrastructure for Smart Horizon College & Bengaluru Smart City.</p>
        </div>
+
+       {advisories.length > 0 && (
+          <div className="px-4 md:px-10 space-y-3">
+             {advisories.map((advisory) => (
+                <div key={advisory._id} className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-amber-950 shadow-sm">
+                   <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-amber-700"><Zap className="w-4 h-4" /> Route advisory: {advisory.congestionLevel}</div>
+                   <p className="mt-1 text-sm font-semibold">{advisory.reason}</p>
+                   <p className="mt-1 text-sm font-black">Recommended: {advisory.alternatePath}</p>
+                </div>
+             ))}
+          </div>
+       )}
 
        <BengaluruUltimateGoogleMap zones={zones} />
 

@@ -21,16 +21,19 @@ export default function RoadNews() {
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
+   const [advisories, setAdvisories] = useState([]);
 
   useEffect(() => {
-    fetchIssues();
+   fetchIssues();
+   fetchAdvisories();
     
     // Connect to local socket
-    const socket = io('http://localhost:5001');
+   const socket = io();
     
     // Listen for new items or status changes in real-time
     socket.on('new-road-issue', (data) => {
        fetchIssues();
+      fetchAdvisories();
        if (data.status === 'Verification') {
          toast.success(`S.I.T.A. has automatically flagged a new ${data.type} for verification at ${data.location}!`);
        } else {
@@ -43,6 +46,11 @@ export default function RoadNews() {
        toast(`Update: Incident at ${data.location} is now ${data.newStatus}`, {
          icon: 'ℹ️'
        });
+    });
+
+    socket.on('traffic_advisory_created', (data) => {
+       setAdvisories((prev) => [data, ...prev.filter((item) => item._id !== data._id)]);
+       toast(`Traffic advisory: ${data.reason}`, { icon: '!' });
     });
 
     return () => {
@@ -61,6 +69,15 @@ export default function RoadNews() {
       setLoading(false);
     }
   };
+
+   const fetchAdvisories = async () => {
+      try {
+         const { data } = await axios.get('/api/traffic/advisories');
+         setAdvisories(data);
+      } catch (err) {
+         console.warn('Traffic advisory feed unavailable:', err.message);
+      }
+   };
 
   const filteredIssues = issues.filter(issue => {
     const matchesFilter = activeFilter === 'All' || issue.issueType === activeFilter;
@@ -146,6 +163,20 @@ export default function RoadNews() {
             </button>
          ))}
       </div>
+
+         {advisories.length > 0 && (
+            <div className="mb-8 space-y-3">
+               {advisories.map((advisory) => (
+                  <div key={advisory._id} className="bg-amber-50 border border-amber-200 rounded-2xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-3">
+                     <div>
+                        <p className="text-xs font-black uppercase tracking-widest text-amber-700">{advisory.congestionLevel} congestion on {advisory.route}</p>
+                        <p className="text-sm font-semibold text-amber-900 mt-1">{advisory.reason}</p>
+                     </div>
+                     <p className="text-sm font-black text-amber-800">Alternate: {advisory.alternatePath}</p>
+                  </div>
+               ))}
+            </div>
+         )}
 
       {loading ? (
          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">

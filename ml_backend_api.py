@@ -5,6 +5,7 @@ Accident Detection, Congestion Indexing, Violation Classification, and Auto E-Ch
 """
 
 import os
+VEHICLE_INFERENCE_SIZE = int(os.getenv("URBANSAATHI_VEHICLE_IMAGE_SIZE", "768"))
 import ssl
 os.environ['PYTORCH_ENABLE_MPS_FALLBACK'] = '1'
 os.environ['HF_HUB_DISABLE_SYMLINKS_WARNING'] = '1'
@@ -298,7 +299,7 @@ def run_vehicle_detector(image: np.ndarray) -> List[Dict[str, Any]]:
     detections = []
     try:
         if models.vehicle_detector_backend == "ultralytics":
-            results = models.vehicle_detector.predict(image, conf=0.30, imgsz=992, verbose=False)
+            results = models.vehicle_detector.predict(image, conf=0.30, imgsz=VEHICLE_INFERENCE_SIZE, verbose=False)
             for result in results:
                 names = result.names or getattr(models.vehicle_detector, "names", {})
                 masks = getattr(result, "masks", None)
@@ -357,7 +358,7 @@ def classify_real_frame(image: np.ndarray, model_name: str) -> Optional[Dict[str
     resized = cv2.resize(cv2.cvtColor(image, cv2.COLOR_BGR2RGB), (224, 224)).astype(np.float32) / 255.0
     tensor = torch.from_numpy(resized).permute(2, 0, 1)
     tensor = (tensor - torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)) / torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
-    with torch.no_grad():
+    with torch.inference_mode():
         probabilities = torch.softmax(model(tensor.unsqueeze(0)), dim=1)[0]
     index = int(torch.argmax(probabilities))
     return {'label': labels[index], 'confidence': round(float(probabilities[index]), 4), 'model': model_name}
@@ -1039,8 +1040,11 @@ async def process_comprehensive_traffic_video(request: VideoAnalysisRequest):
         }
         real_frame_predictions = {
             model_name: prediction
-            for model_name in ('accident_classifier', 'vehicle_classifier')
-            if (prediction := classify_real_frame(image, model_name)) is not None
+            for model_name, prediction in (
+                ('accident_classifier', accident_prediction),
+                ('vehicle_classifier', classify_real_frame(image, 'vehicle_classifier'))
+            )
+            if prediction is not None
         }
 
         # Road & Lane Segmentation Masks
