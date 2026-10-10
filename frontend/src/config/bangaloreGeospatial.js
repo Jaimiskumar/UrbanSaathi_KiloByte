@@ -1,13 +1,16 @@
 /**
- * Frontend Bangalore Geospatial Intelligence Configuration
- * Provides Bangalore geographic bounds, landmark coordinates, visual categories, and color palettes.
+ * Frontend Noida & NCR Geospatial Intelligence Configuration
+ * Centered on Amity University (Sector 125, Noida, Uttar Pradesh) and Noida-Greater Noida Expressway.
  */
 
 export const BANGALORE_CENTER = {
-  lat: 12.9716,
-  lng: 77.5946,
-  zoom: 12
+  lat: 28.5449,
+  lng: 77.3331,
+  zoom: 13
 };
+
+// Also export alias for clean readability
+export const NOIDA_CENTER = BANGALORE_CENTER;
 
 export const CONGESTION_CATEGORIES = {
   GREEN: {
@@ -16,8 +19,8 @@ export const CONGESTION_CATEGORIES = {
     bgClass: 'bg-emerald-500',
     textClass: 'text-emerald-700',
     borderClass: 'border-emerald-300',
-    minSpeed: 35,
-    description: 'Free flow conditions (> 35 km/h)'
+    minSpeed: 45,
+    description: 'Free flow expressway conditions (> 45 km/h)'
   },
   YELLOW: {
     label: 'Moderate Traffic',
@@ -25,8 +28,8 @@ export const CONGESTION_CATEGORIES = {
     bgClass: 'bg-amber-500',
     textClass: 'text-amber-700',
     borderClass: 'border-amber-300',
-    minSpeed: 25,
-    description: 'Slowing traffic (25-35 km/h)'
+    minSpeed: 30,
+    description: 'Slowing traffic (30-45 km/h)'
   },
   ORANGE: {
     label: 'Heavy Congestion',
@@ -34,8 +37,8 @@ export const CONGESTION_CATEGORIES = {
     bgClass: 'bg-orange-500',
     textClass: 'text-orange-700',
     borderClass: 'border-orange-300',
-    minSpeed: 15,
-    description: 'Heavy volume backlog (15-25 km/h)'
+    minSpeed: 18,
+    description: 'Heavy volume backlog (18-30 km/h)'
   },
   RED: {
     label: 'Severe Congestion',
@@ -43,8 +46,8 @@ export const CONGESTION_CATEGORIES = {
     bgClass: 'bg-red-500',
     textClass: 'text-red-700',
     borderClass: 'border-red-300',
-    minSpeed: 8,
-    description: 'Severe bottleneck & queueing (8-15 km/h)'
+    minSpeed: 10,
+    description: 'Severe bottleneck & queueing (10-18 km/h)'
   },
   DARK_RED: {
     label: 'Critical Gridlock Hotspot',
@@ -53,25 +56,27 @@ export const CONGESTION_CATEGORIES = {
     textClass: 'text-rose-900',
     borderClass: 'border-rose-800',
     minSpeed: 0,
-    description: 'Critical gridlock (< 8 km/h) / Multi-Incident block'
+    description: 'Critical gridlock (< 10 km/h) / Multi-Incident block'
   }
 };
 
 export const BANGALORE_LANDMARKS = [
-  { id: 'BLR-SILK-01', name: 'Silk Board Junction', lat: 12.9176, lng: 77.6238, defaultLevel: 'DARK_RED' },
-  { id: 'BLR-ECITY-02', name: 'Electronic City Toll', lat: 12.8452, lng: 77.6602, defaultLevel: 'ORANGE' },
-  { id: 'BLR-MARATH-03', name: 'Marathahalli Bridge', lat: 12.9591, lng: 77.6974, defaultLevel: 'RED' },
-  { id: 'BLR-KRPURAM-04', name: 'KR Puram / Tin Factory', lat: 13.0075, lng: 77.6959, defaultLevel: 'DARK_RED' },
-  { id: 'BLR-HEBBAL-05', name: 'Hebbal Flyover', lat: 13.0358, lng: 77.5970, defaultLevel: 'RED' },
-  { id: 'BLR-BELLANDUR-06', name: 'Outer Ring Road - Bellandur', lat: 12.9304, lng: 77.6784, defaultLevel: 'DARK_RED' },
-  { id: 'BLR-WHITEFIELD-07', name: 'Whitefield / Hope Farm', lat: 12.9698, lng: 77.7499, defaultLevel: 'YELLOW' },
-  { id: 'BLR-INDIRA-08', name: 'Indiranagar 100ft Road', lat: 12.9784, lng: 77.6408, defaultLevel: 'YELLOW' },
-  { id: 'BLR-KORAM-09', name: 'Koramangala Sony World', lat: 12.9352, lng: 77.6245, defaultLevel: 'ORANGE' },
-  { id: 'BLR-HSR-10', name: 'HSR Layout 27th Main', lat: 12.9121, lng: 77.6446, defaultLevel: 'GREEN' },
-  { id: 'BLR-YESHW-11', name: 'Yeshwanthpur Goraguntepalya', lat: 13.0234, lng: 77.5503, defaultLevel: 'RED' },
-  { id: 'BLR-MAJESTIC-12', name: 'Majestic Kempegowda Hub', lat: 12.9767, lng: 77.5713, defaultLevel: 'DARK_RED' },
-  { id: 'BLR-AIRPORT-13', name: 'Hebbal - Airport Tollway', lat: 13.0850, lng: 77.6200, defaultLevel: 'GREEN' },
-  { id: 'BLR-MGROAD-14', name: 'MG Road / Trinity Circle', lat: 12.9756, lng: 77.6066, defaultLevel: 'ORANGE' },
-  { id: 'BLR-SARJAPUR-15', name: 'Sarjapur Road / Wipro Gate', lat: 12.9100, lng: 77.6850, defaultLevel: 'RED' },
-  { id: 'BLR-HORIZON-16', name: 'Smart Horizon College Campus Hub', lat: 12.9279, lng: 77.6271, defaultLevel: 'GREEN' }
+  { id: 'NOIDA-AMITY-01', name: 'Amity University Sector 125 Gate', lat: 28.5449, lng: 77.3331, defaultLevel: 'DARK_RED' },
+  { id: 'NOIDA-MAHAMAYA-02', name: 'Mahamaya Flyover Junction', lat: 28.5528, lng: 77.3235, defaultLevel: 'RED' },
+  { id: 'NOIDA-KALINDI-03', name: 'Kalindi Kunj - Delhi Border', lat: 28.5458, lng: 77.3115, defaultLevel: 'DARK_RED' },
+  { id: 'NOIDA-BIRD-04', name: 'Okhla Bird Sanctuary Metro Hub', lat: 28.5444, lng: 77.3189, defaultLevel: 'YELLOW' },
+  { id: 'NOIDA-SEC126-05', name: 'Sector 126 Tech Zone (HCL Gate)', lat: 28.5385, lng: 77.3421, defaultLevel: 'GREEN' },
+  { id: 'NOIDA-BOTANICAL-06', name: 'Botanical Garden Metro Interchange', lat: 28.5644, lng: 77.3342, defaultLevel: 'ORANGE' },
+  { id: 'NOIDA-SEC18-07', name: 'Sector 18 Atta Market / DLF Mall', lat: 28.5678, lng: 77.3211, defaultLevel: 'DARK_RED' },
+  { id: 'NOIDA-ADVANT-08', name: 'Advant Navis Business Park (Sec 142)', lat: 28.5032, lng: 77.4116, defaultLevel: 'YELLOW' },
+  { id: 'NOIDA-FILM-09', name: 'Film City / Sector 16A Hub', lat: 28.5662, lng: 77.3118, defaultLevel: 'YELLOW' },
+  { id: 'NOIDA-SEC62-10', name: 'Sector 62 Model Town Chowk', lat: 28.6271, lng: 77.3653, defaultLevel: 'RED' },
+  { id: 'NOIDA-DND-11', name: 'DND Flyway Tollway (Delhi-Noida)', lat: 28.5752, lng: 77.2942, defaultLevel: 'ORANGE' },
+  { id: 'NOIDA-SEC128-12', name: 'Sector 128 Jaypee Wish Town', lat: 28.5192, lng: 77.3718, defaultLevel: 'GREEN' },
+  { id: 'NOIDA-PARICHOWK-13', name: 'Pari Chowk, Greater Noida Gateway', lat: 28.4674, lng: 77.5141, defaultLevel: 'ORANGE' },
+  { id: 'NOIDA-SEC76-14', name: 'Sector 76 Metro / Spectrum Hub', lat: 28.5724, lng: 77.3855, defaultLevel: 'GREEN' },
+  { id: 'NOIDA-SEC93-15', name: 'Sector 93 Grand Omaxe Junction', lat: 28.5147, lng: 77.3812, defaultLevel: 'YELLOW' },
+  { id: 'NOIDA-AUTHORITY-16', name: 'Noida Authority Complex (Sec 6)', lat: 28.5992, lng: 77.3184, defaultLevel: 'GREEN' }
 ];
+
+export const NOIDA_LANDMARKS = BANGALORE_LANDMARKS;

@@ -217,7 +217,7 @@ export default function AdminMobileApp({ onSwitchToCitizen }) {
   const runPotholeDemo = async () => {
     setIsDemoRunning(true);
     setDemoProgress(20);
-    setDemoStage('Dashcam detecting pothole on Hosur Road...');
+    setDemoStage('Dashcam detecting pothole on Noida Expressway...');
     try {
       await new Promise(r => setTimeout(r, 600));
       setDemoProgress(60);
@@ -225,11 +225,11 @@ export default function AdminMobileApp({ onSwitchToCitizen }) {
 
       await new Promise(r => setTimeout(r, 600));
       setDemoProgress(90);
-      setDemoStage('V2V alert sent & BBMP Work Order generated...');
+      setDemoStage('V2V alert sent & Noida Authority Work Order generated...');
 
       await axios.post('/api/urbanflow/connected-vehicle/demo/pothole');
       setDemoProgress(100);
-      setDemoStage('Success! Dispatched to BBMP Maintenance Unit.');
+      setDemoStage('Success! Dispatched to Noida Authority Maintenance Unit.');
       fetchCommunityData();
       toast.success('Pothole Demo Executed!');
     } catch (e) {
@@ -588,7 +588,7 @@ export default function AdminMobileApp({ onSwitchToCitizen }) {
                   connectedSubTab === 'workorders' ? 'bg-white text-indigo-700 shadow-xs font-black' : 'text-slate-600'
                 }`}
               >
-                BBMP Orders ({workOrders.length})
+                Noida Orders ({workOrders.length})
               </button>
             </div>
 
@@ -623,7 +623,7 @@ export default function AdminMobileApp({ onSwitchToCitizen }) {
             {/* Map */}
             {connectedSubTab === 'map' && (
               <div className="bg-white p-3 rounded-2xl border border-slate-200 space-y-2">
-                <span className="text-xs font-black text-slate-900">Bengaluru Community Road Hazards</span>
+                <span className="text-xs font-black text-slate-900">Noida - NCR Community Road Hazards</span>
                 <div className="space-y-2">
                   {communityHazards.map(h => (
                     <div key={h.hazard_id} className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-1">
@@ -644,7 +644,7 @@ export default function AdminMobileApp({ onSwitchToCitizen }) {
             {/* Work Orders */}
             {connectedSubTab === 'workorders' && (
               <div className="bg-white p-3 rounded-2xl border border-slate-200 space-y-2">
-                <span className="text-xs font-black text-slate-900">Dispatched BBMP Work Orders</span>
+                <span className="text-xs font-black text-slate-900">Dispatched Noida Authority Work Orders</span>
                 <div className="space-y-2">
                   {workOrders.map(wo => (
                     <div key={wo.work_order_id} className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-1">

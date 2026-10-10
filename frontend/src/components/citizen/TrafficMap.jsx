@@ -29,18 +29,18 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 
-const BengaluruUltimateGoogleMap = ({ zones }) => {
+const NoidaUltimateGoogleMap = ({ zones }) => {
   const [searchQuery, setSearchQuery] = useState('');
   
   const getMapUrl = () => {
     const base = "https://maps.google.com/maps";
-    const q = searchQuery ? `${searchQuery} Bengaluru Karnataka` : "Smart Horizon College Bengaluru Karnataka India";
+    const q = searchQuery ? `${searchQuery} Noida Uttar Pradesh` : "Amity University Sector 125 Noida Uttar Pradesh India";
     return `${base}?q=${encodeURIComponent(q)}&t=m&z=14&output=embed&iwloc=near`;
   };
 
   const handleDirections = () => {
-    const destination = searchQuery || "Smart Horizon College Bengaluru";
-    const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination + " Bengaluru")}`;
+    const destination = searchQuery || "Amity University Sector 125 Noida";
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination + " Uttar Pradesh")}`;
     window.open(url, '_blank');
   };
 
@@ -93,10 +93,10 @@ const BengaluruUltimateGoogleMap = ({ zones }) => {
             <Menu className="w-5 h-5 text-gray-400 mr-2 md:mr-4 cursor-pointer hidden md:block" />
             <input 
                 type="text" 
-                placeholder="Search Bengaluru & Smart Horizon Campus..." 
+                placeholder="Search Noida & Amity University Campus..." 
                 value={searchQuery}
                 onFocus={(e) => e.target.placeholder = ""}
-                onBlur={(e) => e.target.placeholder = "Search Bengaluru & Smart Horizon Campus..."}
+                onBlur={(e) => e.target.placeholder = "Search Noida & Amity University Campus..."}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="bg-transparent border-none focus:outline-none flex-1 text-sm md:text-base font-bold text-gray-700" 
             />
@@ -148,7 +148,7 @@ const BengaluruUltimateGoogleMap = ({ zones }) => {
             style={{ border: 0, filter: 'contrast(1.05) saturate(1.1)' }}
             allowFullScreen=""
             loading="lazy"
-            title="Bengaluru Native Google Map"
+            title="Noida Native Google Map"
             className="w-full h-full"
             sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
          ></iframe>
@@ -158,7 +158,7 @@ const BengaluruUltimateGoogleMap = ({ zones }) => {
             <div className="w-3.5 h-3.5 bg-red-600 rounded-full animate-ping"></div>
             <div className="flex flex-col">
                <p className="text-[10px] font-black text-red-600 uppercase tracking-[0.3em]">Live Feed Active</p>
-               <h4 className="text-sm font-black text-slate-900 tracking-tight leading-none">Smart Horizon Bengaluru Grid Sync</h4>
+               <h4 className="text-sm font-black text-slate-900 tracking-tight leading-none">Amity Noida NCR Grid Sync</h4>
             </div>
          </div>
       </div>
@@ -187,7 +187,7 @@ const BengaluruUltimateGoogleMap = ({ zones }) => {
                     <span className="text-sm md:text-lg font-black text-slate-900 tracking-tighter">Verified Landmark</span>
                  </div>
                  <h2 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tighter mb-4 capitalize truncate max-w-xs md:max-w-none">
-                    {searchQuery} <span className="text-blue-600">Bengaluru</span>
+                    {searchQuery} <span className="text-blue-600">Noida</span>
                  </h2>
                  <div className="flex gap-3 md:gap-4 w-full md:w-auto">
                     <button 
@@ -231,10 +231,10 @@ export default function TrafficMap() {
        <div className="px-4 md:px-10 space-y-1">
           <div className="flex items-center gap-2 mb-1">
              <div className="w-3 h-3 bg-emerald-500 rounded-full shadow-[0_0_10px_#10b981]"></div>
-             <span className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.4em]">Smart Horizon Navigator OS</span>
+             <span className="text-[10px] font-black text-emerald-600 uppercase tracking-[0.4em]">Amity Noida Navigator OS</span>
           </div>
           <h1 className="text-3xl md:text-6xl font-black text-slate-900 tracking-tighter leading-tight">City <span className="text-blue-600">Navigator</span></h1>
-          <p className="text-sm md:text-lg font-bold text-gray-400 max-w-2xl leading-relaxed">Integrated Google Maps infrastructure for Smart Horizon College & Bengaluru Smart City.</p>
+          <p className="text-sm md:text-lg font-bold text-gray-400 max-w-2xl leading-relaxed">Integrated Google Maps infrastructure for Amity University & Noida Smart City (UP).</p>
        </div>
 
        {advisories.length > 0 && (
@@ -249,7 +249,7 @@ export default function TrafficMap() {
           </div>
        )}
 
-       <BengaluruUltimateGoogleMap zones={zones} />
+       <NoidaUltimateGoogleMap zones={zones} />
 
        <style jsx="true">{`
           .no-scrollbar::-webkit-scrollbar { display: none; }

@@ -48,18 +48,18 @@ export class CommunityCloudService {
   }
 
   initSeedData() {
-    // 1. Initial Simulated Connected Vehicles
+    // 1. Initial Simulated Connected Vehicles (Noida - Greater Noida Expressway Corridor)
     const initialVehicles = [
       {
         id: 'ANON-VH-412',
         type: 'SEDAN',
         driver_alias: 'Anonymous Driver #412',
-        lat: 12.9178,
-        lng: 77.6239,
+        lat: 28.5449,
+        lng: 77.3331,
         speed: 48.0,
-        heading: 175.0, // Southbound on Hosur Road
-        road: 'Hosur Road / Silk Board Corridor',
-        zone: 'Silk Board Junction',
+        heading: 175.0, // Southbound on Noida Expressway
+        road: 'Noida-Greater Noida Expressway (Amity Sector 125 Corridor)',
+        zone: 'Amity University Sector 125 Junction',
         comm_mode: 'DSRC + C-V2V',
         dashcam_active: true,
         v2v_link: 'CONNECTED',
@@ -69,12 +69,12 @@ export class CommunityCloudService {
         id: 'ANON-VH-885',
         type: 'SUV',
         driver_alias: 'Anonymous Driver #885',
-        lat: 12.9210,
-        lng: 77.6235,
+        lat: 28.5528,
+        lng: 77.3235,
         speed: 45.0,
-        heading: 176.0, // 350m behind on Hosur Road
-        road: 'Hosur Road / Silk Board Corridor',
-        zone: 'Silk Board Junction',
+        heading: 176.0,
+        road: 'Noida-Greater Noida Expressway (Mahamaya Flyover Incline)',
+        zone: 'Mahamaya Flyover Junction',
         comm_mode: 'DSRC + C-V2V',
         dashcam_active: true,
         v2v_link: 'CONNECTED',
@@ -84,12 +84,12 @@ export class CommunityCloudService {
         id: 'ANON-VH-109',
         type: 'HATCHBACK',
         driver_alias: 'Anonymous Driver #109',
-        lat: 12.9245,
-        lng: 77.6230,
+        lat: 28.5458,
+        lng: 77.3115,
         speed: 52.0,
-        heading: 174.0, // 750m behind on Hosur Road
-        road: 'Hosur Road / Silk Board Corridor',
-        zone: 'Silk Board Junction',
+        heading: 174.0,
+        road: 'Kalindi Kunj - Okhla Bird Sanctuary Link Road',
+        zone: 'Kalindi Kunj - Delhi Border',
         comm_mode: 'DSRC + C-V2V',
         dashcam_active: true,
         v2v_link: 'CONNECTED',
@@ -99,12 +99,12 @@ export class CommunityCloudService {
         id: 'ANON-VH-923',
         type: 'ELECTRIC_CAB',
         driver_alias: 'Anonymous Driver #923',
-        lat: 12.9569,
-        lng: 77.7011,
+        lat: 28.5644,
+        lng: 77.3342,
         speed: 38.0,
-        heading: 90.0, // Eastbound on ORR
-        road: 'Outer Ring Road Marathahalli',
-        zone: 'Marathahalli Bridge',
+        heading: 90.0,
+        road: 'Captain Gaur Vij Marg (Botanical Garden Metro Approach)',
+        zone: 'Botanical Garden Metro Interchange',
         comm_mode: 'C-V2V_CELLULAR',
         dashcam_active: true,
         v2v_link: 'CONNECTED',
@@ -114,12 +114,12 @@ export class CommunityCloudService {
         id: 'ANON-VH-305',
         type: 'TRUCK',
         driver_alias: 'Anonymous Driver #305',
-        lat: 13.0358,
-        lng: 77.5970,
+        lat: 28.5032,
+        lng: 77.4116,
         speed: 32.0,
-        heading: 0.0, // Northbound on Airport Road
-        road: 'Hebbal Flyover Expressway',
-        zone: 'Hebbal Flyover',
+        heading: 0.0,
+        road: 'Sector 142 Expressway Commercial Axis',
+        zone: 'Advant Navis Sector 142 Plaza',
         comm_mode: 'DSRC',
         dashcam_active: true,
         v2v_link: 'CONNECTED',
@@ -128,13 +128,13 @@ export class CommunityCloudService {
       {
         id: 'EMERG-AMB-07',
         type: 'AMBULANCE',
-        driver_alias: 'City EMS Rapid Unit 07',
-        lat: 12.9120,
-        lng: 77.6220,
+        driver_alias: 'UP 112 Rapid Medical Unit 07',
+        lat: 28.5440,
+        lng: 77.3320,
         speed: 64.0,
         heading: 180.0,
-        road: 'Hosur Road Green Corridor',
-        zone: 'Silk Board Junction',
+        road: 'Noida Expressway Green Corridor',
+        zone: 'Amity University Sector 125 Junction',
         comm_mode: 'EMERGENCY_V2X',
         dashcam_active: true,
         v2v_link: 'PRIORITY_ACTIVE',
@@ -150,11 +150,11 @@ export class CommunityCloudService {
         hazard_id: 'HAZ-POT-001',
         category: 'POTHOLE',
         title: 'Severe Deep Pothole (12cm)',
-        road: 'Hosur Road (Near Silk Board Flyover Ramp)',
-        zone_id: 'BLR-SILK-01',
-        zone_name: 'Silk Board Junction',
-        lat: 12.9176,
-        lng: 77.6238,
+        road: 'Noida-Greater Noida Expressway (Amity Gate 2 Service Lane)',
+        zone_id: 'NOIDA-AMITY-01',
+        zone_name: 'Amity University Sector 125 Junction',
+        lat: 28.5449,
+        lng: 77.3331,
         severity: 'HIGH',
         confidence: 0.96,
         depth_cm: 12.0,
@@ -165,9 +165,9 @@ export class CommunityCloudService {
         verifications: ['ANON-VH-412', 'ANON-VH-885', 'ANON-VH-109'],
         verification_count: 3,
         status: 'COMMUNITY_VERIFIED',
-        work_order_id: 'WO-BBMP-88219',
+        work_order_id: 'WO-NOIDA-88219',
         work_order_status: 'DISPATCHED',
-        crew_assigned: 'BBMP South Zone Pothole Quick-Fix Unit #4',
+        crew_assigned: 'Noida Authority Road Maintenance Unit #3',
         v2v_warning_text: '⚠️ Pothole 400m Ahead – Reduce Speed to 30 km/h',
         reported_at: new Date(Date.now() - 3600000).toISOString(),
         verified_at: new Date(Date.now() - 3300000).toISOString()
@@ -176,11 +176,11 @@ export class CommunityCloudService {
         hazard_id: 'HAZ-BLK-002',
         category: 'ROAD_BLOCKAGE',
         title: 'Construction Debris / Fallen Barricade',
-        road: 'Outer Ring Road (Bellandur EcoSpace Service Lane)',
-        zone_id: 'BLR-BELLAN-06',
-        zone_name: 'Bellandur EcoSpace',
-        lat: 12.9260,
-        lng: 77.6762,
+        road: 'Mahamaya Flyover Loop Entry (Expressway Feeder Lane)',
+        zone_id: 'NOIDA-MAHAMAYA-02',
+        zone_name: 'Mahamaya Flyover Junction',
+        lat: 28.5528,
+        lng: 77.3235,
         severity: 'MEDIUM',
         confidence: 0.91,
         depth_cm: 0,
@@ -191,9 +191,9 @@ export class CommunityCloudService {
         verifications: ['ANON-VH-923', 'ANON-VH-221'],
         verification_count: 2,
         status: 'COMMUNITY_VERIFIED',
-        work_order_id: 'WO-BBMP-88220',
+        work_order_id: 'WO-NOIDA-88220',
         work_order_status: 'SCHEDULED',
-        crew_assigned: 'BBMP East Zone Road Clearance Crew #2',
+        crew_assigned: 'Noida Authority Expressway Emergency Clearance Crew #2',
         v2v_warning_text: '⚠️ Road Obstruction Ahead – Move to Right Lane',
         reported_at: new Date(Date.now() - 7200000).toISOString(),
         verified_at: new Date(Date.now() - 6900000).toISOString()
@@ -201,12 +201,12 @@ export class CommunityCloudService {
       {
         hazard_id: 'HAZ-PED-003',
         category: 'PEDESTRIAN_HAZARD',
-        title: 'Unsignalized Crosswalk Hazard / High Footfall',
-        road: 'Old Madras Road (KR Puram Hanging Bridge Underpass)',
-        zone_id: 'BLR-KRPUR-03',
-        zone_name: 'KR Puram Hanging Bridge',
-        lat: 12.9982,
-        lng: 77.6926,
+        title: 'Unsignalized Crosswalk Hazard / High Student Footfall',
+        road: 'Amity University Gate 1 Outer Radial (Sector 125)',
+        zone_id: 'NOIDA-AMITY-01',
+        zone_name: 'Amity University Campus Gate',
+        lat: 28.5440,
+        lng: 77.3325,
         severity: 'HIGH',
         confidence: 0.94,
         depth_cm: 0,
@@ -243,7 +243,7 @@ export class CommunityCloudService {
           crew: h.crew_assigned,
           estimated_repair_time: '24 Hours',
           issued_at: h.verified_at,
-          dispatched_by: 'UrbanFlow Infrastructure Agent'
+          dispatched_by: 'Noida Authority Infrastructure Agent'
         });
       }
     });
@@ -253,7 +253,7 @@ export class CommunityCloudService {
       stage: 'INIT',
       badge: 'CLOUD ONLINE',
       title: 'Community Road Safety Cloud Engine Initialized',
-      detail: 'Connected to 6 simulated OBUs and synchronized with Bengaluru Geospatial Grid.',
+      detail: 'Connected to 6 simulated OBUs and synchronized with Noida - NCR Geospatial Grid.',
       timestamp: new Date().toISOString()
     });
   }
@@ -377,13 +377,13 @@ export class CommunityCloudService {
   reportHazard(reportData, io = null) {
     const vehicleId = reportData.vehicle_id || reportData.reported_by || 'ANON-VH-412';
     const category = (reportData.category || reportData.type || 'POTHOLE').toUpperCase();
-    const lat = Number(reportData.latitude || reportData.lat || 12.9176);
-    const lng = Number(reportData.longitude || reportData.lng || 77.6238);
+    const lat = Number(reportData.latitude || reportData.lat || 28.5449);
+    const lng = Number(reportData.longitude || reportData.lng || 77.3331);
     const depthCm = Number(reportData.pothole_depth_cm || reportData.depth_cm || 10.5);
     const widthCm = Number(reportData.pothole_width_cm || reportData.width_cm || 55.0);
     const confidence = Number(reportData.confidence || reportData.dashcam_detection_confidence || 0.94);
-    const road = reportData.road_name || reportData.road || 'Hosur Road Corridor';
-    const zoneName = reportData.zone_name || reportData.zone || 'Silk Board Junction';
+    const road = reportData.road_name || reportData.road || 'Noida-Greater Noida Expressway';
+    const zoneName = reportData.zone_name || reportData.zone || 'Amity University Sector 125 Junction';
 
     // 1. Check for Geospatial Clustering (within 80 meters)
     let existingMatch = null;
@@ -658,7 +658,7 @@ export class CommunityCloudService {
       stage: 'DEMO_START',
       badge: 'POTHOLE DEMO',
       title: 'Starting 1-Click Connected Vehicle Road Safety Demo',
-      detail: 'Simulating front dashcam detection, cloud publishing, community verification & BBMP work order.',
+      detail: 'Simulating front dashcam detection, cloud publishing, community verification & Noida Authority work order.',
       timestamp: new Date().toISOString()
     });
 
@@ -672,11 +672,11 @@ export class CommunityCloudService {
       vehicle_id: 'ANON-VH-412',
       category: 'POTHOLE',
       title: 'High-Impact Surface Pothole (11.5cm Depth)',
-      road_name: 'Hosur Road / Outer Ring Road Junction',
-      zone_name: 'Silk Board Junction',
-      zone_id: 'BLR-SILK-01',
-      latitude: 12.9176,
-      longitude: 77.6238,
+      road_name: 'Noida-Greater Noida Expressway (Near Amity Gate 2)',
+      zone_name: 'Amity University Sector 125',
+      zone_id: 'UP-NOIDA-AMITY',
+      latitude: 28.5458,
+      longitude: 77.3325,
       pothole_depth_cm: 11.5,
       pothole_width_cm: 58.0,
       confidence: 0.97,
@@ -710,9 +710,9 @@ export class CommunityCloudService {
     const verifyPayload = {
       vehicle_id: 'ANON-VH-885',
       category: 'POTHOLE',
-      road_name: 'Hosur Road / Outer Ring Road Junction',
-      latitude: 12.9177, // Near identical coords
-      longitude: 77.6237,
+      road_name: 'Noida-Greater Noida Expressway (Near Amity Gate 2)',
+      latitude: 28.5459, // Near identical coords
+      longitude: 77.3326,
       pothole_depth_cm: 11.2,
       confidence: 0.95,
       severity: 'HIGH'
@@ -736,7 +736,7 @@ export class CommunityCloudService {
           distance_m: 420,
           severity: 'HIGH',
           speed_advisory_kmh: 30.0,
-          warning_text: '⚠️ Pothole 400m Ahead on Hosur Road – Reduce Speed to 30 km/h',
+          warning_text: '⚠️ Pothole 400m Ahead on Noida Expressway – Reduce Speed to 30 km/h',
           status: 'COMMUNITY_VERIFIED',
           verification_count: 2
         },
@@ -758,7 +758,7 @@ export class CommunityCloudService {
       stage: 'URBANFLOW_DECISION',
       badge: 'STEP 5: AI DECISION',
       title: 'UrbanFlow Infrastructure Work Order & Speed Advisory Active',
-      detail: `BBMP Work Order ${activeWO?.work_order_id || 'WO-BBMP-88219'} generated. Speed advisory (30 km/h) active on Corridor.`,
+      detail: `Noida Authority Work Order ${activeWO?.work_order_id || 'WO-NOIDA-88219'} generated. Speed advisory (30 km/h) active on Amity Corridor.`,
       hazard_id: verifyRes.hazard.hazard_id,
       work_order_id: activeWO?.work_order_id
     });
@@ -805,11 +805,11 @@ export class CommunityCloudService {
       vehicle_id: 'VEH-021',
       category: 'ACCIDENT',
       title: 'Critical Lead Vehicle Collision / Crash Stop',
-      road_name: 'Silk Board Flyover (Hosur Express Line)',
-      zone_name: 'Silk Board Junction',
-      zone_id: 'BLR-SILK-01',
-      latitude: 12.9176,
-      longitude: 77.6238,
+      road_name: 'Mahamaya Flyover (Expressway Entry)',
+      zone_name: 'Mahamaya Flyover Junction',
+      zone_id: 'UP-NOIDA-MAHAMAYA',
+      latitude: 28.5532,
+      longitude: 77.3245,
       confidence: 0.99,
       severity: 'CRITICAL',
       deceleration_mps2: 10.8,
@@ -828,7 +828,7 @@ export class CommunityCloudService {
           approaching_vehicles_alerted: 4,
           collision_probability: 0.94,
           safe_following_distance_m: 85,
-          divert_recommendation: 'Divert via Koramangala 100ft Inner Ring Road',
+          divert_recommendation: 'Divert via Kalindi Kunj Border / Sector 18 Arterial',
           v2v_warning_text: '🚨 Accident Ahead – High Secondary Collision Risk - Prepare to Divert'
         },
         timestamp: new Date().toISOString()
@@ -843,7 +843,7 @@ export class CommunityCloudService {
       {
         event_type: 'accident',
         vehicle_id: 'VEH-021',
-        zone: 'Silk Board Junction',
+        zone: 'Mahamaya Flyover Junction',
         source: 'CONNECTED VEHICLE V2V TELEMETRY'
       },
       io

@@ -4,18 +4,18 @@ import { io } from 'socket.io-client';
 import { Activity, AlertTriangle, Car, MapPin, Play, ShieldCheck } from 'lucide-react';
 
 const formatTime = (value) => value ? new Date(value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '-';
-const gujaratCameras = [
-  ['S.G. Highway - Thaltej', 'Ahmedabad'], ['Ashram Road - Income Tax Circle', 'Ahmedabad'], ['C.G. Road - Navrangpura', 'Ahmedabad'], ['Airport Road - Hansol', 'Ahmedabad'], ['Ring Road - Odhav Circle', 'Ahmedabad'],
-  ['Infocity Circle', 'Gandhinagar'], ['Akshardham Road', 'Gandhinagar'], ['Sargasan Cross Road', 'Gandhinagar'], ['Alkapuri', 'Vadodara'], ['Sama Savli Road', 'Vadodara'],
-  ['Makarpura Junction', 'Vadodara'], ['Athwa Gate', 'Surat'], ['Udhna Darwaja', 'Surat'], ['Varachha Road', 'Surat'], ['Dumas Road', 'Surat'],
-  ['Kalawad Road', 'Rajkot'], ['Gondal Chowk', 'Rajkot'], ['Dhebar Road', 'Rajkot'], ['Ghogha Circle', 'Bhavnagar'], ['Bedi Road', 'Jamnagar'],
-  ['Majevadi Gate', 'Junagadh'], ['Talav Gate', 'Junagadh'], ['Chotila Highway', 'Chotila'], ['Vallabh Vidyanagar Road', 'Anand'], ['College Road', 'Nadiad'],
-  ['Modhera Cross Road', 'Mehsana'], ['Radhanpur Cross Road', 'Patan'], ['Zadeshwar Chowkdi', 'Bharuch'], ['GIDC Char Rasta', 'Vapi'], ['Tagore Road', 'Gandhidham']
-].map(([location, city], index) => ({ id: `CAM-GJ-${String(index + 1).padStart(3, '0')}`, location, city }));
+const noidaCameras = [
+  ['Amity University Gate 1', 'Noida'], ['Amity University Gate 2', 'Noida'], ['Mahamaya Flyover', 'Noida'], ['Kalindi Kunj Border', 'Noida'], ['Okhla Bird Sanctuary', 'Noida'],
+  ['Botanical Garden Interchange', 'Noida'], ['Sector 18 Atta Market', 'Noida'], ['Sector 16 Metro Station', 'Noida'], ['DND Flyway Toll Plaza', 'Noida'], ['Sector 126 Tech Zone', 'Noida'],
+  ['Sector 128 Jaypee Hospital', 'Noida'], ['Sector 132 School Chowk', 'Noida'], ['Sector 137 Metro Node', 'Noida'], ['Sector 142 Advant Navis', 'Noida'], ['Sector 144 IT Hub', 'Noida'],
+  ['Sector 148 Metro Depot', 'Noida'], ['Pari Chowk Central Roundabout', 'Greater Noida'], ['Alpha 1 Commercial Belt', 'Greater Noida'], ['Knowledge Park II', 'Greater Noida'], ['Knowledge Park III', 'Greater Noida'],
+  ['Sector 62 Model Town Chowk', 'Noida'], ['Sector 63 Electronic City', 'Noida'], ['Sector 59 Industrial Cross', 'Noida'], ['Sector 52 Aqua Interchange', 'Noida'], ['Noida City Centre', 'Noida'],
+  ['Sector 76 Residential Corridor', 'Noida'], ['Sector 104 Hazipur Street', 'Noida'], ['Sector 110 Gejha Crossing', 'Noida'], ['Mayur Vihar Border Ramp', 'Delhi-UP Border'], ['Akshardham Merge', 'Delhi-UP Border']
+].map(([location, city], index) => ({ id: `CAM-UP-${String(index + 1).padStart(3, '0')}`, location, city }));
 
 export default function SentinelCommandCenter() {
   const [result, setResult] = useState(null);
-  const [plateNumber, setPlateNumber] = useState('GJ01AB1234');
+  const [plateNumber, setPlateNumber] = useState('UP16AB1234');
   const [cameraFilter, setCameraFilter] = useState('');
   const [running, setRunning] = useState(false);
   const [error, setError] = useState('');
@@ -75,16 +75,16 @@ export default function SentinelCommandCenter() {
 
       <div className="rounded-xl border border-slate-800 bg-slate-950 p-4 shadow-sm">
         <div className="flex flex-col gap-3 border-b border-slate-800 pb-4 sm:flex-row sm:items-center sm:justify-between">
-          <div><p className="text-xs font-bold uppercase tracking-widest text-cyan-400">Gujarat live camera grid</p><p className="mt-1 text-sm text-slate-400">30 registered feeds · IDs are used for detection, evidence, and route tracking</p></div>
-          <input value={cameraFilter} onChange={(event) => setCameraFilter(event.target.value)} placeholder="Filter camera or place" className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white outline-none placeholder:text-slate-500 focus:border-cyan-500" aria-label="Filter Gujarat cameras" />
+          <div><p className="text-xs font-bold uppercase tracking-widest text-cyan-400">Noida - NCR live camera grid</p><p className="mt-1 text-sm text-slate-400">30 registered feeds · IDs are used for detection, evidence, and route tracking</p></div>
+          <input value={cameraFilter} onChange={(event) => setCameraFilter(event.target.value)} placeholder="Filter camera or place" className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white outline-none placeholder:text-slate-500 focus:border-cyan-500" aria-label="Filter Noida cameras" />
         </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-          {gujaratCameras.filter((camera) => `${camera.id} ${camera.location} ${camera.city}`.toLowerCase().includes(cameraFilter.toLowerCase())).map((camera) => (
+          {noidaCameras.filter((camera) => `${camera.id} ${camera.location} ${camera.city}`.toLowerCase().includes(cameraFilter.toLowerCase())).map((camera) => (
             <div key={camera.id} className="rounded-lg border border-slate-800 bg-slate-900 p-3 transition hover:border-cyan-500">
               <div className="flex items-center gap-2 text-xs font-bold text-emerald-400"><span className="h-2 w-2 rounded-full bg-emerald-400" />LIVE</div>
               <p className="mt-5 text-center font-mono text-sm font-black text-white">{camera.id}</p>
               <p className="mt-1 text-center text-xs text-slate-400">{camera.location}</p>
-              <p className="mt-1 text-center text-[10px] font-bold uppercase tracking-widest text-cyan-400">{camera.city}, Gujarat</p>
+              <p className="mt-1 text-center text-[10px] font-bold uppercase tracking-widest text-cyan-400">{camera.city}, Uttar Pradesh</p>
             </div>
           ))}
         </div>

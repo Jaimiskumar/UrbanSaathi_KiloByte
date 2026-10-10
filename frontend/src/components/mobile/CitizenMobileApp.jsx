@@ -106,23 +106,23 @@ export default function CitizenMobileApp({ onSwitchToAdmin }) {
   const fileInputRef = useRef(null);
 
   const [trackedTickets, setTrackedTickets] = useState([
-    { id: 'CIT-BLR-8492', category: 'DANGEROUS POTHOLE', status: 'Community Verified • BBMP Dispatched', time: '5m ago', location: 'Hosur Road' },
-    { id: 'CIT-BLR-8310', category: 'HAWKERS ON CROSSWALK', status: 'Notice Issued', time: '1h ago', location: 'Madiwala J2' }
+    { id: 'CIT-UP-8492', category: 'DANGEROUS POTHOLE', status: 'Community Verified • Noida Authority Dispatched', time: '5m ago', location: 'Noida Expressway Near Amity Gate 2' },
+    { id: 'CIT-UP-8310', category: 'HAWKERS ON CROSSWALK', status: 'Notice Issued', time: '1h ago', location: 'Mahamaya Flyover Crosswalk' }
   ]);
 
   // ── 5. AI Multi-Agent & Hotspots State ──
   const [agentsOnline, setAgentsOnline] = useState(14);
   const [bengaluruHotspots, setBengaluruHotspots] = useState([
-    { name: 'Silk Board Central', risk: 'CRITICAL', delay: '+18m', speed: '14 km/h', color: 'red' },
-    { name: 'Madiwala Crosswalk', risk: 'HIGH', delay: '+12m', speed: '22 km/h', color: 'amber' },
-    { name: 'KR Puram Bridge', risk: 'HIGH', delay: '+15m', speed: '18 km/h', color: 'amber' },
-    { name: 'Electronic City Toll', risk: 'MODERATE', delay: '+4m', speed: '48 km/h', color: 'emerald' },
-    { name: 'Hebbal Flyover', risk: 'LOW', delay: '+2m', speed: '55 km/h', color: 'emerald' }
+    { name: 'Amity Gate 2 Chowk', risk: 'CRITICAL', delay: '+18m', speed: '14 km/h', color: 'red' },
+    { name: 'Mahamaya Flyover', risk: 'HIGH', delay: '+12m', speed: '22 km/h', color: 'amber' },
+    { name: 'Kalindi Kunj Border', risk: 'HIGH', delay: '+15m', speed: '18 km/h', color: 'amber' },
+    { name: 'Advant Navis Sec 142', risk: 'MODERATE', delay: '+4m', speed: '48 km/h', color: 'emerald' },
+    { name: 'DND Flyway Toll Plaza', risk: 'LOW', delay: '+2m', speed: '55 km/h', color: 'emerald' }
   ]);
 
   // ── 6. My Fines State ──
   const [myFines, setMyFines] = useState([
-    { id: 'CHN-2026-94821', vehicle: 'KA-01-MJ-4821', violation: 'Over-Speeding (68km/h)', amount: 1000, status: 'UNPAID' }
+    { id: 'CHN-2026-94821', vehicle: 'UP-16-AB-4821', violation: 'Over-Speeding (68km/h)', amount: 1000, status: 'UNPAID' }
   ]);
 
   // Canvas ref for Mobile Dashcam HUD
@@ -194,7 +194,7 @@ export default function CitizenMobileApp({ onSwitchToAdmin }) {
     });
     socket.on('urbanflow-workorder-dispatched', (wo) => {
       fetchCommunityData();
-      toast(`BBMP Work Order Dispatched: ${wo.crew}`, { icon: '🛠️' });
+      toast(`Noida Authority Work Order Dispatched: ${wo.crew}`, { icon: '🛠️' });
     });
     socket.on('v2v_proximity_warning', (data) => {
       if (data.warning) {
@@ -357,11 +357,11 @@ export default function CitizenMobileApp({ onSwitchToAdmin }) {
 
       await new Promise(r => setTimeout(r, 600));
       setDemoProgress(85);
-      setDemoStage('V2V broadcast sent to same-route vehicles & BBMP Work Order created...');
+      setDemoStage('V2V broadcast sent to same-route vehicles & Noida Authority Work Order created...');
 
       const res = await axios.post('/api/urbanflow/connected-vehicle/demo/pothole');
       setDemoProgress(100);
-      setDemoStage('Demo completed! Work order dispatched to BBMP Quick-Fix Unit #4.');
+      setDemoStage('Demo completed! Work order dispatched to Noida Authority Quick-Fix Unit #4.');
       fetchCommunityData();
       toast.success('Pothole Demo Successfully Executed!');
     } catch (e) {
@@ -608,7 +608,7 @@ export default function CitizenMobileApp({ onSwitchToAdmin }) {
                   connectedSubTab === 'workorders' ? 'bg-white text-indigo-700 shadow-xs font-black' : 'text-slate-600'
                 }`}
               >
-                BBMP Orders ({workOrders.length})
+                Noida Orders ({workOrders.length})
               </button>
               <button
                 onClick={() => setConnectedSubTab('pipeline')}
@@ -646,7 +646,7 @@ export default function CitizenMobileApp({ onSwitchToAdmin }) {
                   {/* Bottom AI Overlay Bar */}
                   <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between text-[9px] font-mono text-white">
                     <span className="bg-black/60 px-1.5 py-0.5 rounded">
-                      GPS: 12.9261° N, 77.6763° E
+                      GPS: 28.5449° N, 77.3331° E
                     </span>
                     <button
                       onClick={() => setIsAiScanActive(!isAiScanActive)}
@@ -726,13 +726,13 @@ export default function CitizenMobileApp({ onSwitchToAdmin }) {
               </div>
             )}
 
-            {/* SUB-TAB 3: BBMP WORK ORDERS */}
+            {/* SUB-TAB 3: NOIDA AUTHORITY WORK ORDERS */}
             {connectedSubTab === 'workorders' && (
               <div className="space-y-2.5">
                 <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-xs space-y-2">
                   <span className="text-xs font-black text-slate-900 flex items-center gap-1.5">
                     <Wrench className="w-3.5 h-3.5 text-indigo-600" />
-                    Automated BBMP Maintenance Work Orders
+                    Automated Noida Authority Maintenance Work Orders
                   </span>
                   
                   <div className="space-y-2">
@@ -788,7 +788,7 @@ export default function CitizenMobileApp({ onSwitchToAdmin }) {
                 <Camera className="w-4 h-4 text-purple-600" />
                 Live Camera & GPS Incident Reporter
               </h2>
-              <p className="text-xs text-slate-500">Instant AI verification and automated BBMP work order dispatch</p>
+              <p className="text-xs text-slate-500">Instant AI verification and automated Noida Authority work order dispatch</p>
             </div>
 
             <form onSubmit={handleSendReport} className="bg-white rounded-3xl p-4 border border-slate-200 shadow-sm space-y-3 text-xs">

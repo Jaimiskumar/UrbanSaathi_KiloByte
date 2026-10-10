@@ -22,106 +22,106 @@ import {
 
 const statuses = ['Reported', 'Assigned', 'Verification', 'In Progress', 'Resolved', 'Verified Resolved', 'Issue Still Present', 'Rejected'];
 
-// Verified Bengaluru municipal corridors directory for GIS & contractor mapping
+// Verified Noida municipal corridors directory for GIS & contractor mapping
 const BENGALURU_ROAD_DIRECTORY = [
   {
     matcher: (name = '', coords) =>
-      /silk\s*board/i.test(name) ||
-      (coords && Math.abs(coords.lat - 12.9176) < 0.015 && Math.abs(coords.lng - 77.6238) < 0.015),
+      /amity|sector\s*125|noida\s*expressway/i.test(name) ||
+      (coords && Math.abs(coords.lat - 28.5449) < 0.015 && Math.abs(coords.lng - 77.3331) < 0.015),
     kgisRoad: {
-      id: 'KGIS-ORR-BLR-001',
-      roadClass: 'Primary Arterial (High Volume)',
-      ward: 'Ward 174 (HSR Layout)',
-      roadType: 'Outer Ring Road Expressway',
+      id: 'UPGIS-EXPY-NOIDA-001',
+      roadClass: 'Primary Arterial Expressway',
+      ward: 'Sector 125 Division (Noida Authority)',
+      roadType: 'Noida-Greater Noida Expressway',
       roadSurface: 'Heavy-Duty Bituminous'
     },
     verifiedRoadHistory: {
-      bbmpSegmentId: 'BBMP-ORR-174-04',
-      streetName: 'Outer Ring Road (Silk Board Central Junction)',
-      ward: 'Ward 174 (HSR Layout)',
-      zone: 'South Bengaluru',
+      bbmpSegmentId: 'NOIDA-EXPY-125-02',
+      streetName: 'Noida Expressway (Amity University Gate 2 Chowk)',
+      ward: 'Sector 125 Division',
+      zone: 'Noida Central Zone',
       contractor: {
-        name: 'V.L. Muniraju & Infra Projects Ltd.',
-        registrationNo: 'BBMP-CLASS-1-A',
-        phone: '+91 98450 12345'
+        name: 'Noida Infrastructure & Highway Authority Ltd.',
+        registrationNo: 'NOIDA-CLASS-1-A',
+        phone: '+91 98110 12345'
       },
       workHistory: {
-        workName: 'Corridor Bituminous Overlay & Pothole Rectification',
+        workName: 'Expressway Bituminous Overlay & Pothole Rectification',
         workYear: 2024,
-        workOrderNo: 'BBMP/2024/WO-0492'
+        workOrderNo: 'NOIDA/2024/WO-0492'
       }
     },
     aiPrediction: {
-      predictedContractor: 'V.L. Muniraju & Infra Projects Ltd.',
-      confidence: 0.92
+      predictedContractor: 'Noida Infrastructure & Highway Authority Ltd.',
+      confidence: 0.94
     },
-    recommendation: 'Immediate dispatch of zonal rapid asphalt patch unit to Silk Board junction.'
+    recommendation: 'Immediate dispatch of zonal rapid asphalt patch unit to Amity University corridor.'
   },
   {
     matcher: (name = '', coords) =>
-      /smart\s*horizon|horizon\s*college/i.test(name) ||
-      (coords && Math.abs(coords.lat - 12.9279) < 0.015 && Math.abs(coords.lng - 77.6271) < 0.015),
+      /mahamaya/i.test(name) ||
+      (coords && Math.abs(coords.lat - 28.5532) < 0.015 && Math.abs(coords.lng - 77.3245) < 0.015),
     kgisRoad: {
-      id: 'KGIS-BMR-BLR-002',
-      roadClass: 'Secondary Arterial Road',
-      ward: 'Ward 150 (Bellandur)',
-      roadType: 'Tech Corridor Link Road',
+      id: 'UPGIS-MHM-NOIDA-002',
+      roadClass: 'Major Flyover Interchange',
+      ward: 'Sector 44 / Mahamaya Division',
+      roadType: 'Elevated Flyover Ramp',
       roadSurface: 'Reinforced Concrete'
     },
     verifiedRoadHistory: {
-      bbmpSegmentId: 'BBMP-MHD-150-12',
-      streetName: 'Horizon Campus - Bellandur Tech Corridor Link',
-      ward: 'Ward 150 (Bellandur)',
-      zone: 'Mahadevapura Zone',
+      bbmpSegmentId: 'NOIDA-MHM-044-12',
+      streetName: 'Mahamaya Flyover (Expressway Entry Ramp)',
+      ward: 'Mahamaya Division',
+      zone: 'Noida North Zone',
       contractor: {
-        name: 'K.R.D.L (Karnataka Rural Infrastructure Dev)',
-        registrationNo: 'KRD-ENG-44',
-        phone: '+91 94480 54321'
+        name: 'U.P. State Bridge Corporation Ltd.',
+        registrationNo: 'UPSBC-ENG-88',
+        phone: '+91 94120 54321'
       },
       workHistory: {
-        workName: 'Micro-surfacing & SWD Culvert Drainage Re-engineering',
+        workName: 'Expansion Joint Sealant & Deck Maintenance',
         workYear: 2024,
-        workOrderNo: 'BBMP/2024/WO-0814'
+        workOrderNo: 'NOIDA/2024/WO-0814'
       }
     },
     aiPrediction: {
-      predictedContractor: 'K.R.D.L (Karnataka Rural Infrastructure Dev)',
-      confidence: 0.86
+      predictedContractor: 'U.P. State Bridge Corporation Ltd.',
+      confidence: 0.91
     },
-    recommendation: 'Inspect storm water drain clearance and activate mobile dewatering pump.'
+    recommendation: 'Inspect flyover ramp expansion joints and dispatch patch unit.'
   },
   {
     matcher: (name = '', coords) =>
-      /koramangala/i.test(name) ||
-      (coords && Math.abs(coords.lat - 12.9352) < 0.015 && Math.abs(coords.lng - 77.6245) < 0.015),
+      /sector\s*18|atta|dlf/i.test(name) ||
+      (coords && Math.abs(coords.lat - 28.5708) < 0.015 && Math.abs(coords.lng - 77.3219) < 0.015),
     kgisRoad: {
-      id: 'KGIS-KRM-BLR-005',
+      id: 'UPGIS-S18-NOIDA-005',
       roadClass: 'Commercial Arterial Road',
-      ward: 'Ward 151 (Koramangala)',
+      ward: 'Sector 18 Commercial Hub',
       roadType: 'Commercial Boulevard',
       roadSurface: 'Dense Bituminous'
     },
     verifiedRoadHistory: {
-      bbmpSegmentId: 'BBMP-KRM-151-08',
-      streetName: '80 Feet Road (Koramangala 5th Block)',
-      ward: 'Ward 151 (Koramangala)',
-      zone: 'South Bengaluru',
+      bbmpSegmentId: 'NOIDA-S18-018-08',
+      streetName: 'Atta Market Road (Sector 18 DLF Mall)',
+      ward: 'Sector 18 Division',
+      zone: 'Noida Commercial Zone',
       contractor: {
-        name: 'Sri Lakshmi Infra Projects Ltd.',
-        registrationNo: 'BBMP-CLASS-1-SLI',
-        phone: '+91 98451 98765'
+        name: 'NCR Urban Infra Projects Ltd.',
+        registrationNo: 'NOIDA-CLASS-1-SLI',
+        phone: '+91 98111 98765'
       },
       workHistory: {
-        workName: 'White-topping & Trench Surface Reinstatement',
+        workName: 'Multi-Level Plaza Approach Reinstatement',
         workYear: 2023,
-        workOrderNo: 'BBMP/2023/WO-1102'
+        workOrderNo: 'NOIDA/2023/WO-1102'
       }
     },
     aiPrediction: {
-      predictedContractor: 'Sri Lakshmi Infra Projects Ltd.',
-      confidence: 0.94
+      predictedContractor: 'NCR Urban Infra Projects Ltd.',
+      confidence: 0.95
     },
-    recommendation: 'Clear temporary construction roadblock and restore dual-lane traffic flow.'
+    recommendation: 'Clear pedestrian bottleneck and restore dual-lane traffic flow.'
   }
 ];
 
@@ -292,7 +292,7 @@ export default function RoadIntelligence() {
             Road Intelligence
           </h1>
           <p className="text-sm font-medium text-slate-500 mt-1">
-            Review citizen reports with verified KGIS telemetry, BBMP maintenance history, risk metrics, and contractor accountability.
+            Review citizen reports with verified GIS telemetry, Noida Authority maintenance history, risk metrics, and contractor accountability.
           </p>
         </div>
         <button 
@@ -473,7 +473,7 @@ export default function RoadIntelligence() {
                       <div className="flex items-center justify-between mb-2">
                         <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-indigo-700 bg-indigo-50 border border-indigo-200/60 px-2 py-0.5 rounded-md">
                           <FileText className="w-3 h-3" />
-                          BBMP History
+                          Noida History
                         </span>
                         <span className="text-[10px] font-bold text-slate-400">Segment ID</span>
                       </div>

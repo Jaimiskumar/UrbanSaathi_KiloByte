@@ -60,9 +60,9 @@ export default function V2VSafetyCenter() {
   ]);
 
   const [rsus, setRsus] = useState([
-    { id: 'RSU-J1', name: 'Silk Board Junction RSU', status: 'ONLINE', signal: 'GREEN_AMBER_CYCLE', vehicles: 6, mode: 'DSRC + C-V2V' },
-    { id: 'RSU-J2', name: 'Madiwala Crosswalk RSU', status: 'ONLINE', signal: 'PEDESTRIAN_EXTEND', vehicles: 8, mode: 'DSRC + C-V2V' },
-    { id: 'RSU-J3', name: 'Electronic City RSU', status: 'ONLINE', signal: 'GREEN_WAVE_PRIORITY', vehicles: 14, mode: 'C-V2V_CELLULAR' }
+    { id: 'RSU-J1', name: 'Amity University Sector 125 RSU', status: 'ONLINE', signal: 'GREEN_AMBER_CYCLE', vehicles: 6, mode: 'DSRC + C-V2V' },
+    { id: 'RSU-J2', name: 'Mahamaya Flyover RSU', status: 'ONLINE', signal: 'PEDESTRIAN_EXTEND', vehicles: 8, mode: 'DSRC + C-V2V' },
+    { id: 'RSU-J3', name: 'Botanical Garden Metro RSU', status: 'ONLINE', signal: 'GREEN_WAVE_PRIORITY', vehicles: 14, mode: 'C-V2V_CELLULAR' }
   ]);
 
   // Telemetry & Scenario Execution State
@@ -152,7 +152,7 @@ export default function V2VSafetyCenter() {
       const res = await axios.post('/api/urbanflow/v2v/simulate', {
         event_type: eventType,
         vehicle_id: selectedVehicle,
-        zone: 'Silk Board Junction',
+        zone: 'Amity University Sector 125',
         communication_mode: commMode
       });
 
@@ -182,13 +182,13 @@ export default function V2VSafetyCenter() {
     }
   };
 
-  // 4. JUDGE DEMO — Complete End-to-End Silk Board Scenario
+  // 4. JUDGE DEMO — Complete End-to-End Amity Noida Scenario
   const runJudgeDemo = async () => {
     setIsDemoRunning(true);
     setOperatorDecision(null);
     setExecutionDetails(null);
     setScenarioProgress(10);
-    setCurrentScenarioStage('Step 1: 5 Connected Vehicles Approaching Silk Board Junction...');
+    setCurrentScenarioStage('Step 1: 5 Connected Vehicles Approaching Amity University Gate 2...');
 
     try {
       await new Promise(r => setTimeout(r, 800));
@@ -204,8 +204,8 @@ export default function V2VSafetyCenter() {
       setCurrentScenarioStage('Step 4: Pedestrian Safety Agent detects 8 pedestrians at J2 crosswalk. Conflict Risk: HIGH.');
 
       const res = await axios.post('/api/urbanflow/orchestrate', {
-        incident_id: `JUDGE-BLR-${Date.now()}`,
-        zone: 'Silk Board Junction',
+        incident_id: `JUDGE-NOIDA-${Date.now()}`,
+        zone: 'Amity University Sector 125',
         event_type: 'accident',
         vehicle_id: 'VEH-021',
         vehicle_speed_kmh: 54.0,
@@ -236,7 +236,7 @@ export default function V2VSafetyCenter() {
     try {
       const res = await axios.post('/api/urbanflow/orchestrate/approve', {
         incident_id: orchestratedState.incident_id,
-        zone: orchestratedState.zone || 'Silk Board Junction',
+        zone: orchestratedState.zone || 'Amity University Sector 125',
         intervention_name: orchestratedState.selected_intervention?.name || 'V2V Warning + Dynamic Rerouting + Pedestrian Extension',
         event_type: 'accident',
         vehicle_id: 'VEH-021'
@@ -299,7 +299,7 @@ export default function V2VSafetyCenter() {
               V2V, Accident Detection & Pedestrian Safety Command Center
             </h1>
             <p className="text-slate-500 text-xs sm:text-sm font-medium mt-1">
-              Model-driven multi-agent collision prevention, secondary crash mitigation, and crosswalk safety for Bengaluru corridors.
+              Model-driven multi-agent collision prevention, secondary crash mitigation, and crosswalk safety for Noida - NCR corridors.
             </p>
           </div>
 
@@ -310,7 +310,7 @@ export default function V2VSafetyCenter() {
               className="flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white px-5 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider shadow-md shadow-emerald-600/20 transition-all transform hover:scale-105 active:scale-95 disabled:opacity-50"
             >
               <Play className={`w-4 h-4 ${isDemoRunning ? 'animate-spin' : ''}`} />
-              {isDemoRunning ? 'Running Demo...' : 'RUN JUDGE DEMO (SILK BOARD)'}
+              {isDemoRunning ? 'Running Demo...' : 'RUN JUDGE DEMO (AMITY NOIDA)'}
             </button>
 
             <a
@@ -337,21 +337,21 @@ export default function V2VSafetyCenter() {
           <div className="bg-white/90 backdrop-blur-md p-2.5 rounded-xl border border-slate-200/80 flex items-center gap-2 shadow-xs">
             <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
             <div>
-              <p className="text-[10px] text-slate-400 uppercase font-sans font-extrabold">RSU-J1 Silk Board</p>
+              <p className="text-[10px] text-slate-400 uppercase font-sans font-extrabold">RSU-J1 Amity Sec 125</p>
               <p className="text-emerald-700 font-bold">ONLINE (100%)</p>
             </div>
           </div>
           <div className="bg-white/90 backdrop-blur-md p-2.5 rounded-xl border border-slate-200/80 flex items-center gap-2 shadow-xs">
             <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
             <div>
-              <p className="text-[10px] text-slate-400 uppercase font-sans font-extrabold">RSU-J2 Madiwala</p>
+              <p className="text-[10px] text-slate-400 uppercase font-sans font-extrabold">RSU-J2 Mahamaya</p>
               <p className="text-emerald-700 font-bold">ONLINE (100%)</p>
             </div>
           </div>
           <div className="bg-white/90 backdrop-blur-md p-2.5 rounded-xl border border-slate-200/80 flex items-center gap-2 shadow-xs">
             <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
             <div>
-              <p className="text-[10px] text-slate-400 uppercase font-sans font-extrabold">RSU-J3 E-City</p>
+              <p className="text-[10px] text-slate-400 uppercase font-sans font-extrabold">RSU-J3 Botanical Gdn</p>
               <p className="text-emerald-700 font-bold">ONLINE (100%)</p>
             </div>
           </div>
@@ -408,7 +408,7 @@ export default function V2VSafetyCenter() {
           }`}
         >
           <MapPin className="w-4 h-4" />
-          Bengaluru Accident Hotspots
+          Noida - NCR Accident Hotspots
         </button>
         <button
           onClick={() => setActiveTab('trace')}
@@ -476,7 +476,7 @@ export default function V2VSafetyCenter() {
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-black text-gray-800 flex items-center gap-2">
-                    Connected Vehicle Fleet (Bengaluru Silk Board Corridor)
+                    Connected Vehicle Fleet (Noida Expressway - Amity Corridor)
                   </h3>
                   <p className="text-xs text-gray-500">Live V2V telemetry, deceleration rates, and risk indices</p>
                 </div>
@@ -598,7 +598,7 @@ export default function V2VSafetyCenter() {
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-black text-gray-800 flex items-center gap-2">
-                    Pedestrian Safety Agent (J2 Silk Board Crosswalk)
+                    Pedestrian Safety Agent (J2 Amity Crosswalk)
                   </h3>
                   <p className="text-xs text-gray-500">Real-time crosswalk conflict assessment via <code className="font-mono text-blue-600 font-bold">pedestrian_risk_model.joblib</code></p>
                 </div>
@@ -973,33 +973,33 @@ export default function V2VSafetyCenter() {
         </div>
       )}
 
-      {/* ── TAB 3: BENGALURU HOTSPOTS & TIME-OF-DAY PREDICTIONS ── */}
+      {/* ── TAB 3: NOIDA - NCR HOTSPOTS & TIME-OF-DAY PREDICTIONS ── */}
       {activeTab === 'hotspots' && (
         <div className="space-y-6">
           <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-200">
-            <h3 className="text-sm font-black text-gray-800">Bengaluru Hotspots Multi-Horizon Time Forecasts</h3>
+            <h3 className="text-sm font-black text-gray-800">Noida - NCR Hotspots Multi-Horizon Time Forecasts</h3>
             <p className="text-xs text-gray-500">Trained on diurnal traffic shifts (Morning 08-11, Afternoon 11-16, Evening 17-21, Night 21-06)</p>
             
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
               <div className="p-4 rounded-2xl bg-red-50 border border-red-200 space-y-2">
                 <div className="flex items-center justify-between text-xs font-bold text-red-800">
-                  <span>Silk Board Junction</span>
+                  <span>Amity University Sector 125</span>
                   <span className="bg-red-200 px-2 py-0.5 rounded text-[10px]">CRITICAL</span>
                 </div>
-                <p className="text-xs text-gray-600 font-mono">Speed: 13.5 km/h • Density: 88%</p>
+                <p className="text-xs text-gray-600 font-mono">Speed: 18.5 km/h • Density: 88%</p>
                 <div className="pt-2 border-t border-red-200/60 text-[11px] font-mono text-gray-700">
                   <p>15 min: <strong className="text-red-600">CRITICAL</strong></p>
-                  <p>30 min: <strong className="text-red-700">CRITICAL (1380m)</strong></p>
+                  <p>30 min: <strong className="text-red-700">CRITICAL (1180m)</strong></p>
                   <p>60 min: <strong className="text-red-800">CRITICAL</strong></p>
                 </div>
               </div>
 
               <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 space-y-2">
                 <div className="flex items-center justify-between text-xs font-bold text-amber-800">
-                  <span>KR Puram Hanging Bridge</span>
+                  <span>Mahamaya Flyover Junction</span>
                   <span className="bg-amber-200 px-2 py-0.5 rounded text-[10px]">HIGH</span>
                 </div>
-                <p className="text-xs text-gray-600 font-mono">Speed: 16.0 km/h • Density: 85%</p>
+                <p className="text-xs text-gray-600 font-mono">Speed: 21.0 km/h • Density: 84%</p>
                 <div className="pt-2 border-t border-amber-200/60 text-[11px] font-mono text-gray-700">
                   <p>15 min: <strong className="text-amber-600">HIGH</strong></p>
                   <p>30 min: <strong className="text-amber-700">HIGH (950m)</strong></p>
@@ -1009,10 +1009,10 @@ export default function V2VSafetyCenter() {
 
               <div className="p-4 rounded-2xl bg-blue-50 border border-blue-200 space-y-2">
                 <div className="flex items-center justify-between text-xs font-bold text-blue-800">
-                  <span>Electronic City Expressway</span>
+                  <span>Noida-Gr Noida Expy (Advant)</span>
                   <span className="bg-blue-200 px-2 py-0.5 rounded text-[10px]">MEDIUM</span>
                 </div>
-                <p className="text-xs text-gray-600 font-mono">Speed: 34.0 km/h • Density: 72%</p>
+                <p className="text-xs text-gray-600 font-mono">Speed: 45.0 km/h • Density: 70%</p>
                 <div className="pt-2 border-t border-blue-200/60 text-[11px] font-mono text-gray-700">
                   <p>15 min: <strong className="text-blue-600">MEDIUM</strong></p>
                   <p>30 min: <strong className="text-amber-600">HIGH (680m)</strong></p>
@@ -1022,10 +1022,10 @@ export default function V2VSafetyCenter() {
 
               <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 space-y-2">
                 <div className="flex items-center justify-between text-xs font-bold text-emerald-800">
-                  <span>Hebbal Flyover</span>
+                  <span>Kalindi Kunj Delhi-UP Border</span>
                   <span className="bg-emerald-200 px-2 py-0.5 rounded text-[10px]">FLOWING</span>
                 </div>
-                <p className="text-xs text-gray-600 font-mono">Speed: 24.5 km/h • Density: 79%</p>
+                <p className="text-xs text-gray-600 font-mono">Speed: 28.5 km/h • Density: 76%</p>
                 <div className="pt-2 border-t border-emerald-200/60 text-[11px] font-mono text-gray-700">
                   <p>15 min: <strong className="text-emerald-600">MEDIUM</strong></p>
                   <p>30 min: <strong className="text-blue-600">MEDIUM</strong></p>

@@ -666,7 +666,7 @@ export default function ConnectedVehicleDashboard() {
               Connected Vehicle Road Safety Hub
             </h1>
             <p className="text-sm text-slate-300 max-w-2xl">
-              Front dashcam AI hazard detection, shared Community Road Safety Cloud, real-time V2V proximity alerts, and automated BBMP infrastructure work order dispatch.
+              Front dashcam AI hazard detection, shared Community Road Safety Cloud, real-time V2V proximity alerts, and automated Noida Authority infrastructure work order dispatch.
             </p>
           </div>
 
@@ -777,7 +777,7 @@ export default function ConnectedVehicleDashboard() {
           }`}
         >
           <Wrench className="w-4 h-4" />
-          BBMP Work Orders ({workOrders.length})
+          Noida Authority Work Orders ({workOrders.length})
         </button>
         <button
           onClick={() => setActiveView('pipeline-feed')}
@@ -1417,7 +1417,7 @@ export default function ConnectedVehicleDashboard() {
         </div>
       )}
 
-      {/* VIEW 3: BBMP INFRASTRUCTURE WORK ORDERS */}
+      {/* VIEW 3: NOIDA AUTHORITY INFRASTRUCTURE WORK ORDERS */}
       {activeView === 'work-orders' && (
         <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
@@ -1425,7 +1425,7 @@ export default function ConnectedVehicleDashboard() {
               <div className="flex items-center gap-2">
                 <Wrench className="w-5 h-5 text-indigo-600" />
                 <h3 className="font-extrabold text-slate-900 text-lg">
-                  BBMP Infrastructure Maintenance Work Orders
+                  Noida Authority Infrastructure Maintenance Work Orders
                 </h3>
               </div>
               <p className="text-xs text-slate-500 mt-1">

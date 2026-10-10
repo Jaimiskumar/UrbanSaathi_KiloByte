@@ -51,7 +51,7 @@ import { BANGALORE_LANDMARKS, CONGESTION_CATEGORIES, BANGALORE_CENTER } from '..
 
 export default function BangaloreTrafficMap() {
   // Operational City Selector State
-  const [selectedCity, setSelectedCity] = useState('bengaluru');
+  const [selectedCity, setSelectedCity] = useState('noida');
   const [zones, setZones] = useState([]);
   const [hotspots, setHotspots] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -71,18 +71,18 @@ export default function BangaloreTrafficMap() {
   const [mapFrameTimedOut, setMapFrameTimedOut] = useState(false);
 
   // ── AI Dynamic Routing State ──
-  const [routeOrigin, setRouteOrigin] = useState('Silk Board Junction');
-  const [routeDestination, setRouteDestination] = useState('Electronic City Toll');
+  const [routeOrigin, setRouteOrigin] = useState('Amity University Gate 2 Chowk');
+  const [routeDestination, setRouteDestination] = useState('Advant Navis Business Park');
   const [selectedRouteType, setSelectedRouteType] = useState('ai_optimal'); // 'ai_optimal' | 'congested_primary' | 'alternate'
   const [isRoutingActive, setIsRoutingActive] = useState(false);
 
-  // Pre-configured Bangalore Corridors for Routing
+  // Pre-configured Noida Corridors for Routing
   const routePresets = [
-    { label: 'Silk Board ➡️ Electronic City', origin: 'Silk Board Junction', dest: 'Electronic City Toll' },
-    { label: 'Smart Horizon ➡️ Bellandur ORR', origin: 'Smart Horizon College Campus Hub', dest: 'Outer Ring Road - Bellandur' },
-    { label: 'Koramangala ➡️ KR Puram / Tin Factory', origin: 'Koramangala Sony World', dest: 'KR Puram / Tin Factory' },
-    { label: 'Majestic Hub ➡️ Whitefield ITPL', origin: 'Majestic Kempegowda Hub', dest: 'Whitefield / Hope Farm' },
-    { label: 'Hebbal Flyover ➡️ Silk Board Express', origin: 'Hebbal Flyover', dest: 'Silk Board Junction' }
+    { label: 'Amity Gate 2 ➡️ Advant Navis', origin: 'Amity University Gate 2 Chowk', dest: 'Advant Navis Business Park' },
+    { label: 'Mahamaya ➡️ Kalindi Kunj Border', origin: 'Mahamaya Flyover Junction', dest: 'Kalindi Kunj Delhi-UP Border' },
+    { label: 'Botanical Garden ➡️ Sector 18 DLF', origin: 'Botanical Garden Metro Hub', dest: 'Sector 18 Atta Market DLF' },
+    { label: 'DND Flyway ➡️ Amity University', origin: 'DND Flyway Toll Plaza', dest: 'Amity University Sector 125' },
+    { label: 'Pari Chowk ➡️ Mahamaya Flyover Express', origin: 'Pari Chowk Greater Noida', dest: 'Mahamaya Flyover Junction' }
   ];
 
   // AI Route Computation Metrics
@@ -136,55 +136,55 @@ export default function BangaloreTrafficMap() {
     {
       id: 'DET-INC-001',
       type: 'pothole',
-      title: 'Deep Hazardous Pothole (14cm depth)',
-      location: 'Silk Board Flyover South Ramp',
-      coords: { lat: 12.9176, lng: 77.6238 },
+      title: 'Deep Hazardous Pothole (12cm depth)',
+      location: 'Noida Expressway Near Amity Gate 2',
+      coords: { lat: 28.5458, lng: 77.3325 },
       confidence: 98.4,
       severity: 'CRITICAL',
       detectedAt: '3m ago',
-      workOrderId: 'BBMP-WO-9021',
+      workOrderId: 'NOIDA-WO-9021',
       workOrderStatus: 'DISPATCHED_TO_ASPHALT_CREW',
-      sensorSource: 'Connected Vehicle Dashcam #KA-01-MJ-4821',
-      mitigationAction: 'V2V Hazard Broadcast + Speed Advisory 25km/h'
+      sensorSource: 'Connected Vehicle Dashcam #UP-16-AB-4821',
+      mitigationAction: 'V2V Hazard Broadcast + Speed Advisory 30km/h'
     },
     {
       id: 'DET-INC-002',
       type: 'stalled_vehicle',
       title: 'Heavy Truck Stalled in Middle Lane',
-      location: 'KR Puram / Tin Factory Hanging Bridge',
-      coords: { lat: 13.0075, lng: 77.6959 },
+      location: 'Mahamaya Flyover Expressway Ramp',
+      coords: { lat: 28.5532, lng: 77.3245 },
       confidence: 96.8,
       severity: 'DARK_RED',
       detectedAt: '7m ago',
-      workOrderId: 'BTP-TOW-4412',
+      workOrderId: 'NOIDA-TOW-4412',
       workOrderStatus: 'EMERGENCY_TOW_EN_ROUTE',
-      sensorSource: 'CCTV AI Camera CAM-KR-04',
-      mitigationAction: 'Dynamic Lane Inversion + Divert via Hoodi Circle'
+      sensorSource: 'Noida Authority Smart CCTV #CAM-UP-002',
+      mitigationAction: 'Dynamic Lane Shift & Secondary Collision Warning'
     },
     {
       id: 'DET-INC-003',
       type: 'waterlogging',
-      title: 'Severe Waterlogging / Monsoonal Ponding',
-      location: 'Outer Ring Road - Bellandur EcoSpace',
-      coords: { lat: 12.9304, lng: 77.6784 },
+      title: 'Monsoon Waterlogging / Underpass Ponding',
+      location: 'Kalindi Kunj Delhi-UP Border Underpass',
+      coords: { lat: 28.5471, lng: 77.3129 },
       confidence: 99.1,
       severity: 'HIGH',
       detectedAt: '12m ago',
-      workOrderId: 'BWSSB-PUMP-8831',
+      workOrderId: 'NOIDA-PUMP-8831',
       workOrderStatus: 'PUMPING_CREW_ACTIVE',
       sensorSource: 'UrbanFlow Multi-Modal Flood Sensor FS-02',
-      mitigationAction: 'Activate Staggered Tech Park Exit Signal Waves'
+      mitigationAction: 'Activate Staggered Expressway Exit Signal Waves'
     },
     {
       id: 'DET-INC-004',
       type: 'crosswalk_conflict',
       title: 'Pedestrian Surge / Crosswalk Conflict',
-      location: 'Madiwala Metro Station Crosswalk',
-      coords: { lat: 12.9226, lng: 77.6174 },
+      location: 'Botanical Garden Metro Station Crosswalk',
+      coords: { lat: 28.5642, lng: 77.3344 },
       confidence: 95.7,
       severity: 'MEDIUM',
       detectedAt: '18m ago',
-      workOrderId: 'BTP-SIGNAL-1204',
+      workOrderId: 'NOIDA-SIGNAL-1204',
       workOrderStatus: 'AI_GREEN_PHASE_EXTENDED',
       sensorSource: 'SAMVED YOLO-v11 Pedestrian Vision Stream',
       mitigationAction: 'Pedestrian Shield Active (Walk phase +25s)'
@@ -217,8 +217,8 @@ export default function BangaloreTrafficMap() {
       if (zonesRes.data?.zones) {
         setZones(zonesRes.data.zones);
         if (!selectedZone) {
-          const defaultSilk = zonesRes.data.zones.find(z => z.zone_id === 'BLR-SILK-01') || zonesRes.data.zones[0];
-          setSelectedZone(defaultSilk);
+          const defaultAmity = zonesRes.data.zones.find(z => z.zone_id === 'UP-NOIDA-AMITY') || zonesRes.data.zones[0];
+          setSelectedZone(defaultAmity);
         }
       }
 
@@ -365,22 +365,22 @@ export default function BangaloreTrafficMap() {
 
   // Seamlessly Activate AI Dynamic Routing
   const handleOpenGoogleDirections = () => {
-    const origin = selectedZone?.name || routeOrigin || 'Silk Board Junction';
+    const origin = selectedZone?.name || routeOrigin || 'Amity University Gate 2 Chowk';
     let destination = routeDestination;
 
     // Smart corridor destination inference based on selected origin
-    if (origin.toLowerCase().includes('silk board')) {
-      destination = 'Electronic City Toll';
-    } else if (origin.toLowerCase().includes('smart horizon')) {
-      destination = 'Outer Ring Road - Bellandur';
-    } else if (origin.toLowerCase().includes('koramangala')) {
-      destination = 'KR Puram / Tin Factory';
-    } else if (origin.toLowerCase().includes('hebbal')) {
-      destination = 'Silk Board Junction';
-    } else if (origin.toLowerCase().includes('majestic')) {
-      destination = 'Whitefield / Hope Farm';
+    if (origin.toLowerCase().includes('amity')) {
+      destination = 'Advant Navis Business Park';
+    } else if (origin.toLowerCase().includes('mahamaya')) {
+      destination = 'Kalindi Kunj Delhi-UP Border';
+    } else if (origin.toLowerCase().includes('botanical')) {
+      destination = 'Sector 18 Atta Market DLF';
+    } else if (origin.toLowerCase().includes('dnd')) {
+      destination = 'Amity University Sector 125';
+    } else if (origin.toLowerCase().includes('pari chowk')) {
+      destination = 'Mahamaya Flyover Junction';
     } else if (!destination || destination === origin) {
-      destination = 'Smart Horizon College Campus Hub';
+      destination = 'Amity University Sector 125';
     }
 
     setRouteOrigin(origin);
@@ -396,9 +396,9 @@ export default function BangaloreTrafficMap() {
   };
 
   const handleOpenExternalGoogleMaps = () => {
-    const origin = routeOrigin || selectedZone?.name || 'Silk Board Junction';
-    const destination = routeDestination || 'Electronic City';
-    const url = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin + ' Bengaluru')}&destination=${encodeURIComponent(destination + ' Bengaluru')}`;
+    const origin = routeOrigin || selectedZone?.name || 'Amity University Gate 2 Chowk';
+    const destination = routeDestination || 'Advant Navis Sector 142';
+    const url = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin + ' Noida Uttar Pradesh')}&destination=${encodeURIComponent(destination + ' Noida Uttar Pradesh')}`;
     window.open(url, '_blank');
   };
 
@@ -410,17 +410,17 @@ export default function BangaloreTrafficMap() {
     
     // Route Directions Mode
     if (mapViewMode === 'routing') {
-      const origin = routeOrigin ? `${routeOrigin}, Bengaluru, Karnataka` : "Silk Board Junction, Bengaluru, Karnataka";
-      const destination = routeDestination ? `${routeDestination}, Bengaluru, Karnataka` : "Electronic City, Bengaluru, Karnataka";
+      const origin = routeOrigin ? `${routeOrigin}, Noida, Uttar Pradesh` : "Amity University Sector 125, Noida, Uttar Pradesh";
+      const destination = routeDestination ? `${routeDestination}, Noida, Uttar Pradesh` : "Advant Navis, Sector 142, Noida, Uttar Pradesh";
       return apiKey
         ? `${base}/directions?key=${encodeURIComponent(apiKey)}&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&travelmode=driving`
         : `${base}?saddr=${encodeURIComponent(origin)}&daddr=${encodeURIComponent(destination)}&t=m&output=embed`;
     }
 
     // Standard / Satellite / AI Mode
-    let target = selectedZone ? `${selectedZone.name}, Bengaluru, Karnataka` : "Silk Board Junction, Bengaluru, Karnataka";
+    let target = selectedZone ? `${selectedZone.name}, Noida, Uttar Pradesh` : "Amity University Sector 125, Noida, Uttar Pradesh";
     if (searchQuery.trim()) {
-      target = `${searchQuery.trim()}, Bengaluru, Karnataka`;
+      target = `${searchQuery.trim()}, Noida, Uttar Pradesh`;
     }
     if (apiKey) {
       const mapType = mapViewMode === 'satellite' ? '&maptype=satellite' : '';
@@ -444,13 +444,13 @@ export default function BangaloreTrafficMap() {
   });
 
   const keyCorridors = [
-    { id: 'BLR-SILK-01', name: 'Silk Board', fullName: 'Silk Board Junction', icon: '🚦', level: 'DARK_RED' },
-    { id: 'BLR-BELLANDUR-06', name: 'Bellandur ORR', fullName: 'Outer Ring Road - Bellandur', icon: '🌐', level: 'DARK_RED' },
-    { id: 'BLR-KRPURAM-04', name: 'KR Puram / Tin Factory', fullName: 'KR Puram / Tin Factory', icon: '🌉', level: 'DARK_RED' },
-    { id: 'BLR-HEBBAL-05', name: 'Hebbal Flyover', fullName: 'Hebbal Flyover', icon: '✈️', level: 'RED' },
-    { id: 'BLR-ECITY-02', name: 'Electronic City', fullName: 'Electronic City Toll', icon: '⚡', level: 'ORANGE' },
-    { id: 'BLR-MAJESTIC-12', name: 'Majestic Hub', fullName: 'Majestic Kempegowda Hub', icon: '🏛️', level: 'DARK_RED' },
-    { id: 'BLR-HORIZON-16', name: 'Smart Horizon Campus', fullName: 'Smart Horizon College Campus Hub', icon: '🎓', level: 'GREEN' }
+    { id: 'UP-NOIDA-AMITY', name: 'Amity Sec 125', fullName: 'Amity University Gate 2 Chowk', icon: '🎓', level: 'DARK_RED' },
+    { id: 'UP-NOIDA-MAHAMAYA', name: 'Mahamaya Flyover', fullName: 'Mahamaya Flyover Junction', icon: '🚦', level: 'DARK_RED' },
+    { id: 'UP-NOIDA-KALINDI', name: 'Kalindi Kunj Border', fullName: 'Kalindi Kunj Delhi-UP Border', icon: '🌉', level: 'DARK_RED' },
+    { id: 'UP-NOIDA-BOTANICAL', name: 'Botanical Garden', fullName: 'Botanical Garden Metro Hub', icon: '🚇', level: 'RED' },
+    { id: 'UP-NOIDA-ADVANT', name: 'Advant Navis', fullName: 'Advant Navis Business Park (Sec 142)', icon: '⚡', level: 'ORANGE' },
+    { id: 'UP-NOIDA-SEC18', name: 'Sector 18 DLF', fullName: 'Sector 18 Atta Market DLF', icon: '🏬', level: 'DARK_RED' },
+    { id: 'UP-NOIDA-DND', name: 'DND Flyway', fullName: 'DND Flyway Toll Plaza', icon: '🛣️', level: 'GREEN' }
   ];
 
   return (
@@ -470,15 +470,15 @@ export default function BangaloreTrafficMap() {
                 Primary Operational City (Live Demo)
               </span>
               <span className="text-slate-400 text-xs font-bold font-mono">
-                Lat: 12.9716° N • Lng: 77.5946° E
+                Lat: 28.5449° N • Lng: 77.3331° E
               </span>
             </div>
 
             <h1 className="text-2xl md:text-4xl font-black tracking-tight text-slate-900 flex items-center gap-3">
-              Bengaluru Traffic Intelligence & AI Routing Map
+              Noida - NCR Traffic Intelligence & AI Routing Map
             </h1>
             <p className="text-sm text-slate-500 max-w-3xl leading-relaxed">
-              Real-time multi-modal geospatial telemetry, turn-by-turn AI diversion routing, and live road hazard perception across Silk Board, Bellandur, Hebbal, and Smart Horizon College corridors.
+              Real-time multi-modal geospatial telemetry, turn-by-turn AI diversion routing, and live road hazard perception across Amity University, Mahamaya Flyover, Noida Expressway, and Kalindi Kunj corridors.
             </p>
           </div>
 
@@ -486,24 +486,24 @@ export default function BangaloreTrafficMap() {
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
             <div className="bg-slate-50 p-1.5 rounded-2xl border border-slate-200 flex items-center">
               <button
-                onClick={() => setSelectedCity('bengaluru')}
+                onClick={() => setSelectedCity('noida')}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                  selectedCity === 'bengaluru' 
+                  selectedCity === 'noida' 
                     ? 'bg-blue-600 text-white shadow-md' 
                     : 'text-slate-500 hover:text-slate-900'
                 }`}
               >
-                <Building2 className="w-3.5 h-3.5" /> Bengaluru (Primary)
+                <Building2 className="w-3.5 h-3.5" /> Noida - NCR (Primary)
               </button>
               <button
-                onClick={() => setSelectedCity('smart-horizon')}
+                onClick={() => setSelectedCity('amity-campus')}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                  selectedCity === 'smart-horizon' 
+                  selectedCity === 'amity-campus' 
                     ? 'bg-blue-600 text-white' 
                     : 'text-slate-500 hover:text-slate-900'
                 }`}
               >
-                Smart Horizon Campus (Node)
+                Amity University Campus (Node)
               </button>
             </div>
 
@@ -680,7 +680,7 @@ export default function BangaloreTrafficMap() {
                 <div>
                   <div className="flex items-center gap-2">
                     <p className="text-xs font-black text-white truncate max-w-[220px]">
-                      {mapViewMode === 'routing' ? `${routeOrigin} ➔ ${routeDestination}` : (selectedZone?.name || 'Silk Board Junction')}
+                      {mapViewMode === 'routing' ? `${routeOrigin} ➔ ${routeDestination}` : (selectedZone?.name || 'Amity University Gate 2 Chowk')}
                     </p>
                     <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase bg-blue-500/20 text-blue-400 font-mono">
                       {mapViewMode === 'routing' ? 'AI ROUTE' : 'LIVE'}
@@ -1074,7 +1074,7 @@ export default function BangaloreTrafficMap() {
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search Silk Board, Hebbal, ORR, Bellandur..."
+                    placeholder="Search Amity, Mahamaya, Noida Expressway, Sector 18..."
                     className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:border-blue-500"
                   />
                 </div>
@@ -1438,7 +1438,7 @@ export default function BangaloreTrafficMap() {
                   <Sparkles className="w-3 h-3" /> AI Decision Recommendation:
                 </p>
                 <p className="text-xs text-slate-200 font-medium leading-relaxed">
-                  {selectedZone.recommendation?.action || selectedZone.recommended_action || 'Synchronize Hosur Highway Waves & extend Silk Board phase timing by 45s'}
+                  {selectedZone.recommendation?.action || selectedZone.recommended_action || 'Synchronize Noida Expressway Waves & extend Amity Gate 2 phase timing by 35s'}
                 </p>
                 <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-[11px] font-mono text-slate-400">
                   <span>Delay Reduction: <strong className="text-emerald-400">-{selectedZone.recommendation?.expected_delay_reduction_percent || 44}%</strong></span>

@@ -3,45 +3,44 @@ import ParkingSpot from '../models/ParkingSpot.js';
 import ParkingZone from '../models/ParkingZone.js';
 
 const INTERSECTIONS = [
-  { signalId: 'SIG001', name: 'Silk Board Central Junction',        lat: 12.9176, lng: 77.6238 },
-  { signalId: 'SIG002', name: 'Smart Horizon College Campus Hub',    lat: 12.9279, lng: 77.6271 },
-  { signalId: 'SIG003', name: 'Koramangala 5th Block Junction',      lat: 12.9352, lng: 77.6245 },
-  { signalId: 'SIG004', name: 'Madiwala Crosswalk',                  lat: 12.9226, lng: 77.6174 },
-  { signalId: 'SIG005', name: 'Electronic City Tollgate Corridor',   lat: 12.8452, lng: 77.6602 },
-  { signalId: 'SIG006', name: 'Indiranagar 100ft Road Signal',       lat: 12.9784, lng: 77.6408 }
+  { signalId: 'SIG001', name: 'Amity University Gate 2 Chowk',          lat: 28.5449, lng: 77.3331 },
+  { signalId: 'SIG002', name: 'Mahamaya Flyover Expressway Junction',    lat: 28.5528, lng: 77.3235 },
+  { signalId: 'SIG003', name: 'Sector 18 Atta Market Central Signal',    lat: 28.5678, lng: 77.3211 },
+  { signalId: 'SIG004', name: 'Botanical Garden Metro Interchange',      lat: 28.5644, lng: 77.3342 },
+  { signalId: 'SIG005', name: 'Advant Navis Sector 142 Plaza',          lat: 28.5032, lng: 77.4116 },
+  { signalId: 'SIG006', name: 'Kalindi Kunj Border Signal',              lat: 28.5458, lng: 77.3115 }
 ];
 
 const PARKING_ZONES = [
-  { zoneId: 'ZONE-1', zone: 'Smart Horizon College Campus Hub', count: 30, pricePerHour: 50, lat: 12.9279, lng: 77.6271 },
-  { zoneId: 'ZONE-2', zone: 'Silk Board Multi-Level Plaza',      count: 40, pricePerHour: 60, lat: 12.9176, lng: 77.6238 },
-  { zoneId: 'ZONE-3', zone: 'Koramangala 5th Block Parking',    count: 35, pricePerHour: 70, lat: 12.9352, lng: 77.6245 },
-  { zoneId: 'ZONE-4', zone: 'Electronic City Toll Plaza',        count: 50, pricePerHour: 40, lat: 12.8452, lng: 77.6602 },
-  { zoneId: 'ZONE-5', zone: 'Indiranagar 100ft Road Hub',        count: 30, pricePerHour: 80, lat: 12.9784, lng: 77.6408 },
-  { zoneId: 'ZONE-6', zone: 'Madiwala Metro Station Parking',    count: 45, pricePerHour: 40, lat: 12.9226, lng: 77.6174 },
-  { zoneId: 'ZONE-7', zone: 'Whitefield ITPL Tech Hub',          count: 60, pricePerHour: 50, lat: 12.9863, lng: 77.7308 },
-  { zoneId: 'ZONE-8', zone: 'Hebbal Flyover Transit Hub',        count: 35, pricePerHour: 50, lat: 13.0358, lng: 77.5970 }
+  { zoneId: 'ZONE-1', zone: 'Amity University Sector 125 Campus Parking', count: 45, pricePerHour: 30, lat: 28.5449, lng: 77.3331 },
+  { zoneId: 'ZONE-2', zone: 'Mahamaya Flyover Transit Parking Hub',       count: 40, pricePerHour: 40, lat: 28.5528, lng: 77.3235 },
+  { zoneId: 'ZONE-3', zone: 'Sector 18 Atta Market Multi-Level Plaza',    count: 60, pricePerHour: 50, lat: 28.5678, lng: 77.3211 },
+  { zoneId: 'ZONE-4', zone: 'Botanical Garden Metro Park & Ride',         count: 50, pricePerHour: 30, lat: 28.5644, lng: 77.3342 },
+  { zoneId: 'ZONE-5', zone: 'Advant Navis Tech Hub Parking (Sec 142)',    count: 40, pricePerHour: 40, lat: 28.5032, lng: 77.4116 },
+  { zoneId: 'ZONE-6', zone: 'Okhla Bird Sanctuary Metro Parking',         count: 35, pricePerHour: 30, lat: 28.5444, lng: 77.3189 },
+  { zoneId: 'ZONE-7', zone: 'Sector 62 IT Park Commercial Lot',           count: 50, pricePerHour: 35, lat: 28.6271, lng: 77.3653 },
+  { zoneId: 'ZONE-8', zone: 'Pari Chowk Greater Noida Complex',           count: 35, pricePerHour: 30, lat: 28.4674, lng: 77.5141 }
 ];
 
 export async function initializeTrafficSimulation(io) {
-  // ── Cleanup all old legacy zones and spots so only Bengaluru hubs exist ──
+  // ── Cleanup all old legacy zones and spots so only Noida / Amity hubs exist ──
   const validZoneIds = PARKING_ZONES.map(z => z.zoneId);
   const validZoneNames = PARKING_ZONES.map(z => z.zone);
   await ParkingZone.deleteMany({ name: { $nin: validZoneNames } });
   await ParkingSpot.deleteMany({ zone: { $nin: validZoneNames } });
-  console.log('🧹 Cleaned up ALL legacy non-Bengaluru parking data');
+  await TrafficSignal.deleteMany({});
+  console.log('🧹 Cleaned up ALL legacy parking and signal data for Noida - NCR grid');
 
   // ── Initialize traffic signals ──────────────────────────────────────────────
   for (const intersection of INTERSECTIONS) {
-    const exists = await TrafficSignal.findOne({ signalId: intersection.signalId });
-    if (!exists) {
-      await TrafficSignal.create({
-        signalId: intersection.signalId,
+    await TrafficSignal.create({
+      signalId: intersection.signalId,
+      name: intersection.name,
+      location: {
         name: intersection.name,
-        location: {
-          name: intersection.name,
-          lat: intersection.lat,
-          lng: intersection.lng
-        },
+        lat: intersection.lat,
+        lng: intersection.lng
+      },
         status: 'green',
         currentTimer: 30,
         timings: { green: 30, yellow: 5, red: 30 },
@@ -55,7 +54,6 @@ export async function initializeTrafficSimulation(io) {
         isActive: true,
         lastUpdated: new Date()
       });
-    }
   }
 
   // ── Initialize parking zones & spots ────────────────────────────────────────

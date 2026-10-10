@@ -185,7 +185,7 @@ async function startServer() {
 
   httpServer.listen(env.PORT, '127.0.0.1', () => {
     console.log(`====================================================`);
-    console.log(`🚀 SMART HORIZON BENGALURU SMART CITY SERVER RUNNING ON PORT ${env.PORT}`);
+    console.log(`🚀 NOIDA - NCR (AMITY UNIVERSITY) SMART CITY SERVER RUNNING ON PORT ${env.PORT}`);
     console.log(`📡 REAL-TIME SOCKET.IO ENGINE: [ONLINE]`);
     console.log(`💳 PAYMENT GATEWAY (${env.PAYMENT_PROVIDER}): [ACTIVE]`);
     console.log(`🌍 CITY TRAFFIC SIMULATION: [LOADED]`);
