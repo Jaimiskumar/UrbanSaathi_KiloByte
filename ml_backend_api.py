@@ -114,6 +114,8 @@ class MLModels:
         self.plate_detector = None
         self.helmet_detector = None
         self.speed_detector = None
+        self.crowd_detector = None
+        self.crowd_detector_name = None
         self.pedestrian_behavior_model = None
         self.real_image_models = {}
         self.real_image_model_labels = {}
@@ -172,6 +174,15 @@ class MLModels:
                 logger.info(f"Pothole detector loaded: {pothole_path}")
             except Exception as e:
                 logger.error(f"Failed to load pothole detector: {e}")
+        crowd_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'yolo11n.pt')
+        if os.path.exists(crowd_path):
+            try:
+                from ultralytics import YOLO
+                self.crowd_detector = YOLO(crowd_path)
+                self.crowd_detector_name = os.path.basename(crowd_path)
+                logger.info(f"Crowd person detector loaded: {crowd_path}")
+            except Exception as e:
+                logger.error(f"Failed to load crowd detector: {e}")
         try:
             from ultralytics import YOLO
             vendor_path = os.path.join(real_model_dir, 'vendor_detector_yolov8n.pt')
@@ -503,6 +514,30 @@ def run_specialized_detector(image: np.ndarray, detector: Any, model_name: str) 
         logger.warning(f"{model_name} inference failed: {e}")
     return detections
 
+def run_crowd_detector(image: np.ndarray) -> List[Dict[str, Any]]:
+    if models.crowd_detector is None:
+        return []
+    detections = []
+    try:
+        results = models.crowd_detector.predict(image, classes=[0], conf=0.35, imgsz=640, max_det=100, verbose=False)
+        for result in results:
+            for box in result.boxes:
+                coords = box.xyxy[0].tolist()
+                detections.append({
+                    'label': 'person',
+                    'confidence': round(float(box.conf[0]), 4),
+                    'bbox': {
+                        'x1': round(float(coords[0]), 1),
+                        'y1': round(float(coords[1]), 1),
+                        'x2': round(float(coords[2]), 1),
+                        'y2': round(float(coords[3]), 1)
+                    },
+                    'model': models.crowd_detector_name
+                })
+    except Exception as e:
+        logger.warning(f"Crowd inference failed: {e}")
+    return detections
+
 # ==================== VEHICLE REGISTRY & CITIZEN DIRECTORY ====================
 
 VEHICLE_REGISTRY = [
@@ -723,6 +758,7 @@ async def health_check():
             "plate_detector": models.plate_detector is not None,
             "helmet_detector": models.helmet_detector is not None,
             "speed_detector": models.speed_detector is not None,
+            "crowd_detector": models.crowd_detector is not None,
             "pedestrian_behavior_model": models.pedestrian_behavior_model is not None,
             "accident_classifier": 'accident_classifier' in models.real_image_models,
             "vehicle_classifier": 'vehicle_classifier' in models.real_image_models,
@@ -803,6 +839,7 @@ async def process_comprehensive_traffic_video(request: VideoAnalysisRequest):
         plate_detections = run_specialized_detector(image, models.plate_detector, 'plate_detector')
         helmet_detections = run_specialized_detector(image, models.helmet_detector, 'helmet_detector')
         speed_vehicle_detections = run_specialized_detector(image, models.speed_detector, 'speed_detector')
+        crowd_detections = run_crowd_detector(image)
         detected_helmets = [
             {
                 'vehicleId': None,
@@ -1148,14 +1185,15 @@ async def process_comprehensive_traffic_video(request: VideoAnalysisRequest):
             } if collision_detected else None
 
         # Street Encroachment / Crowd
-        crowd_size = person_count
+        crowd_size = len(crowd_detections) if models.crowd_detector is not None else person_count
         crowd_data = {
             'crowdDetected': crowd_size > 4,
             'crowdSize': crowd_size,
+            'detections': crowd_detections,
             'roadBlockagePercentage': None,
             'severity': 'high' if crowd_size > 10 else 'medium' if crowd_size > 4 else 'none',
-            'model': 'person_count_baseline',
-            'requires_model_confirmation': True
+            'model': models.crowd_detector_name or 'person_count_baseline',
+            'requires_model_confirmation': models.crowd_detector is None
         }
 
         # Hawkers data
@@ -1235,6 +1273,7 @@ async def process_comprehensive_traffic_video(request: VideoAnalysisRequest):
             'plate_detections': plate_detections,
             'helmet_detections': helmet_detections,
             'speed_detections': speed_vehicle_detections,
+            'crowd_detections': crowd_detections,
             'segmentation': {
                 'enabled': request.enable_segmentation,
                 'road_lanes': road_segmentation_masks,
@@ -1357,7 +1396,16 @@ async def detect_helmet_endpoint(request: dict):
 
 @app.post("/detect/crowd")
 async def detect_crowd_endpoint(request: dict):
-    return {"available": False, "reason": "No trained crowd detector is configured"}
+    image = load_image(request.get('frame_url'), request.get('frame_base64'))
+    detections = run_crowd_detector(image)
+    return {
+        'available': models.crowd_detector is not None,
+        'model': models.crowd_detector_name,
+        'crowd_detected': len(detections) > 4,
+        'crowd_size': len(detections),
+        'detections': detections,
+        'total': len(detections)
+    }
 
 @app.post("/detect/illegal-parking")
 async def detect_illegal_parking_endpoint(request: dict):
@@ -1369,7 +1417,15 @@ async def detect_illegal_parking_endpoint(request: dict):
 
 @app.post("/detect/speed")
 async def detect_speed_endpoint(request: dict):
-    return {"available": False, "vehicle_id": request.get('vehicle_id'), "reason": "Speed requires calibrated multi-frame tracking and is not inferred from one image"}
+    image = load_image(request.get('frame_url'), request.get('frame_base64'))
+    detections = run_specialized_detector(image, models.speed_detector, 'speed_detector')
+    return {
+        'available': models.speed_detector is not None,
+        'model': 'speed_detector_yolov8s.pt',
+        'detections': detections,
+        'total': len(detections),
+        'speed_estimation': 'requires calibrated multi-frame tracking'
+    }
 
 from fastapi.responses import StreamingResponse
 

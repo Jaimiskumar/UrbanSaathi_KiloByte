@@ -310,6 +310,7 @@ const MLDetectionUpload = () => {
     drawDetectionBoxes(data.plate_detections || [], '#06B6D4');
     drawDetectionBoxes(data.helmet_detections || [], '#EAB308');
     drawDetectionBoxes(data.speed_detections || [], '#EF4444');
+    drawDetectionBoxes(data.crowd_detections || [], '#EC4899');
 
     return canvas.toDataURL('image/jpeg', 0.92);
   };
