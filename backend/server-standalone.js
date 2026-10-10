@@ -328,8 +328,8 @@ const syncFallbackEvents = async (data, location) => {
     });
     const results = await orchestratorAgent.handleNewEvent(enrichedEvent);
     
-    // Check if RoadHealthAgent processed it
-    const complaintResult = results.find(r => r && r.agent === 'Road Health Agent');
+    // Check if CivicAndRoadHealthAgent processed it
+    const complaintResult = results.find(r => r && r.agent === 'Civic And Road Health Agent');
     if (complaintResult && complaintResult.actionResult) {
       const c = complaintResult.actionResult;
       

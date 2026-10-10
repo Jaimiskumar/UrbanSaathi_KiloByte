@@ -37,15 +37,14 @@ class SmartHorizonOrchestrator extends BaseAgent {
 
   getRoutingMatrix(eventType) {
     const matrix = {
-      'POTHOLE_DETECTED': ['RoadHealthAgent'],
-      'CRACK_DETECTED': ['RoadHealthAgent'],
-      'TREE_DETECTED': ['CivicIssueAgent'],
-      'WATERLOGGING_DETECTED': ['CivicIssueAgent', 'TrafficAgent'],
-      'ENCROACHMENT_DETECTED': ['CivicIssueAgent'],
-      'HAWKER_DETECTED': ['CivicIssueAgent'],
-      'ROAD_BLOCKAGE': ['CivicIssueAgent', 'TrafficAgent'],
+      'POTHOLE_DETECTED': ['CivicAndRoadHealthAgent'],
+      'CRACK_DETECTED': ['CivicAndRoadHealthAgent'],
+      'TREE_DETECTED': ['CivicAndRoadHealthAgent'],
+      'WATERLOGGING_DETECTED': ['CivicAndRoadHealthAgent', 'TrafficAgent'],
+      'ENCROACHMENT_DETECTED': ['CivicAndRoadHealthAgent'],
+      'HAWKER_DETECTED': ['CivicAndRoadHealthAgent'],
+      'ROAD_BLOCKAGE': ['CivicAndRoadHealthAgent', 'TrafficAgent'],
       'ACCIDENT_DETECTED': ['AccidentEmergencyAgent', 'TrafficAgent'],
-      'CROWD_DETECTED': ['CrowdSafetyAgent'],
       'HELMET_VIOLATION': ['EnforcementAgent'],
       'OVERSPEEDING': ['EnforcementAgent'],
       'RASH_DRIVING': ['EnforcementAgent'],
