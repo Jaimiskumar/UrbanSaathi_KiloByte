@@ -25,6 +25,18 @@ class SmartHorizonEventBus extends EventEmitter {
     return enrichedEvent;
   }
 
+  async publishAndWait(event) {
+    const enrichedEvent = {
+      ...event,
+      timestamp: event.timestamp || new Date().toISOString(),
+      eventId: event.eventId || `EVT-${Date.now()}-${Math.floor(Math.random() * 1000)}`
+    };
+    this.history.push(enrichedEvent);
+    console.log(`[EventBus] Published: ${enrichedEvent.eventType} (${enrichedEvent.eventId})`);
+    const results = await Promise.all(this.listeners('NEW_DETECTION').map(listener => listener(enrichedEvent)));
+    return { event: enrichedEvent, workflow: results[0] };
+  }
+
   getHistory() {
     return this.history;
   }

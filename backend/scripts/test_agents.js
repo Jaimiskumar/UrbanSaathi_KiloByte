@@ -35,6 +35,34 @@ async function runTests() {
   eventBus.publish(accidentEvent);
   
   await new Promise(resolve => setTimeout(resolve, 1000));
+
+  // TEST 3: ENFORCEMENT -> E-CHALLAN FLOW
+  console.log("\n--- TEST 3: ENFORCEMENT AND E-CHALLAN EVENT ---");
+  eventBus.publish({
+    eventId: "EVT-TEST-SPEED-1",
+    eventType: "OVERSPEEDING",
+    source: { type: "ML_MODEL", model: "speed_tracking" },
+    location: { lat: 12.9716, lng: 77.5946 },
+    detection: { speed: 82, licensePlate: "KA01AB1234", confidence: 0.91 },
+    evidence: { frames: ["frame_1.jpg", "frame_2.jpg"] },
+    cameraId: "CAM_106"
+  });
+
+  await new Promise(resolve => setTimeout(resolve, 1000));
+
+  // TEST 4: CIVIC WORK ORDER AND VERIFICATION FLOW
+  console.log("\n--- TEST 4: WATERLOGGING EVENT ---");
+  eventBus.publish({
+    eventId: "EVT-TEST-WATER-1",
+    eventType: "WATERLOGGING_DETECTED",
+    source: { type: "ML_MODEL", model: "water_segmentation" },
+    location: { lat: 12.9716, lng: 77.5946 },
+    detection: { class: "waterlogging", confidence: 0.87, severity: "HIGH", roadBlocked: true },
+    evidence: { image: "evidence/waterlogging_123.jpg" },
+    cameraId: "CAM_107"
+  });
+
+  await new Promise(resolve => setTimeout(resolve, 1000));
   
   console.log("\n=== TESTS COMPLETED ===");
 }

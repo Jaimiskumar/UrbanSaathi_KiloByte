@@ -11,7 +11,7 @@ const roadIssueSchema = new mongoose.Schema(
     issueType: {
       type: String,
       required: true,
-      enum: ['Pothole', 'Under Construction', 'Roadblock', 'Damaged Signage', 'Water Logging', 'Other']
+      enum: ['Pothole', 'Under Construction', 'Roadblock', 'Damaged Signage', 'Water Logging', 'Fallen Tree', 'Encroachment', 'Accident', 'Other']
     },
     locationName: {
       type: String,
@@ -61,6 +61,24 @@ const roadIssueSchema = new mongoose.Schema(
     aiRecommendation: {
       type: String,
       default: ''
+    },
+    source: {
+      type: String,
+      enum: ['citizen_report', 'camera_ml', 'file_upload', 'demo_road_intelligence'],
+      default: 'citizen_report',
+      index: true
+    },
+    agentWorkflow: {
+      eventId: { type: String, index: true },
+      selectedAgents: { type: [String], default: [] },
+      completedAt: Date,
+      status: { type: String, default: 'PENDING' },
+      authorityStatus: { type: String, default: 'PENDING' },
+      authorityTicketId: String,
+      authorityId: String,
+      department: String,
+      slaHours: Number,
+      mlConfidence: Number
     }
   },
   {

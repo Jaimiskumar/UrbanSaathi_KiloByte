@@ -10,6 +10,7 @@ import TrafficViolation from '../models/TrafficViolation.js';
 import HelmetViolation from '../models/HelmetViolation.js';
 import MLDetectionLog from '../models/MLDetectionLog.js';
 import { createChallanFromViolation } from './challanGenerationService.js';
+import { processAgentDetections } from './agentWorkflowService.js';
 import { io } from '../server.js';
 
 const execFileAsync = promisify(execFile);
@@ -58,7 +59,7 @@ export const uploadMiddleware = multer({
 /**
  * Process uploaded file through ML pipeline
  */
-export async function processUploadedFile(filePath, fileType = 'image', cameraId = 'UPLOAD-CAM-001') {
+export async function processUploadedFile(filePath, fileType = 'image', cameraId = 'UPLOAD-CAM-001', userId = null) {
   try {
     console.log(`📸 Processing ${fileType}: ${filePath}`);
 
@@ -75,6 +76,14 @@ export async function processUploadedFile(filePath, fileType = 'image', cameraId
 
     // Process through ML inference
     const detectionResult = await realMLInference.processFrame(frameData);
+    const evidenceUrl = `/uploads/evidence/${path.basename(filePath)}`;
+    const agentWorkflows = userId
+      ? await processAgentDetections(detectionResult, {
+        ...frameData,
+        imageUrl: evidenceUrl,
+        source: 'file_upload'
+      }, userId)
+      : [];
 
     // Create violation records for detected issues
     const violations = [];
@@ -245,6 +254,13 @@ export async function processUploadedFile(filePath, fileType = 'image', cameraId
         fineAmount: v.fineAmount || 500
       })),
       detectionLogId: detectionLog?._id || null
+      ,agentWorkflows: agentWorkflows.map(({ issue, workflow }) => ({
+        issueId: issue._id,
+        issueType: issue.issueType,
+        status: issue.status,
+        agentWorkflow: issue.agentWorkflow,
+        workflow
+      }))
     };
 
   } catch (error) {

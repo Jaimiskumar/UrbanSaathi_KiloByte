@@ -110,6 +110,8 @@ class MLModels:
         self.urban_issue_detector_name = None
         self.pothole_detector = None
         self.pothole_detector_name = None
+        self.water_logging_detector = None
+        self.water_logging_detector_name = None
         self.vendor_detector = None
         self.plate_detector = None
         self.helmet_detector = None
@@ -176,6 +178,15 @@ class MLModels:
                 logger.info(f"Pothole detector loaded: {pothole_path}")
             except Exception as e:
                 logger.error(f"Failed to load pothole detector: {e}")
+        water_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'dataset', 'water logging', 'runs', 'water_segmentation', 'weights', 'best.pt')
+        if os.path.exists(water_path):
+            try:
+                from ultralytics import YOLO
+                self.water_logging_detector = YOLO(water_path)
+                self.water_logging_detector_name = os.path.basename(water_path)
+                logger.info(f"Water logging segmentation model loaded: {water_path}")
+            except Exception as e:
+                logger.error(f"Failed to load water logging detector: {e}")
         crowd_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'models', 'crowd', 'yolo11n.pt')
         if os.path.exists(crowd_path):
             try:
@@ -497,6 +508,66 @@ def run_pothole_detector(image: np.ndarray) -> List[Dict[str, Any]]:
         logger.error(f"Pothole inference failed: {e}")
     return detections
 
+def run_water_logging_detector(image: np.ndarray) -> List[Dict[str, Any]]:
+    if models.water_logging_detector is None:
+        return []
+    detections = []
+    try:
+        results = models.water_logging_detector.predict(image, conf=0.35, imgsz=512, max_det=20, verbose=False)
+        for result in results:
+            masks = getattr(result, 'masks', None)
+            polygons = masks.xy if masks is not None and getattr(masks, 'xy', None) is not None else []
+            for index, box in enumerate(result.boxes):
+                coords = box.xyxy[0].tolist()
+                detections.append({
+                    'label': result.names.get(int(box.cls[0]), 'water'),
+                    'confidence': round(float(box.conf[0]), 4),
+                    'bbox': {
+                        'x1': round(float(coords[0]), 1), 'y1': round(float(coords[1]), 1),
+                        'x2': round(float(coords[2]), 1), 'y2': round(float(coords[3]), 1)
+                    },
+                    'segmentation_polygon': polygons[index].tolist() if index < len(polygons) else None,
+                    'model': models.water_logging_detector_name,
+                    'type': 'water_logging'
+                })
+    except Exception as e:
+        logger.warning(f"Water logging inference failed: {e}")
+    return detections
+
+def detect_fallen_tree_heuristic(image: np.ndarray) -> Optional[Dict[str, Any]]:
+    """Detect a large horizontal brown/green obstruction when the civic model misses it."""
+    try:
+        height, width = image.shape[:2]
+        hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+        brown = cv2.inRange(hsv, np.array([5, 35, 20]), np.array([30, 255, 190]))
+        green = cv2.inRange(hsv, np.array([25, 25, 20]), np.array([95, 255, 220]))
+        obstruction = cv2.morphologyEx(brown, cv2.MORPH_CLOSE, np.ones((9, 9), np.uint8))
+        contours, _ = cv2.findContours(obstruction, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        candidate = None
+        for contour in contours:
+            x, y, box_width, box_height = cv2.boundingRect(contour)
+            area_ratio = (box_width * box_height) / max(1, width * height)
+            aspect_ratio = box_width / max(1, box_height)
+            if y > height * 0.2 and area_ratio > 0.03 and aspect_ratio > 1.5:
+                if candidate is None or area_ratio > candidate['area_ratio']:
+                    candidate = {'x': x, 'y': y, 'width': box_width, 'height': box_height, 'area_ratio': area_ratio}
+        if not candidate:
+            return None
+        confidence = round(min(0.92, 0.45 + candidate['area_ratio'] * 2.5), 4)
+        return {
+            'label': 'Fallen trees',
+            'confidence': confidence,
+            'bbox': {
+                'x1': candidate['x'], 'y1': candidate['y'],
+                'x2': candidate['x'] + candidate['width'], 'y2': candidate['y'] + candidate['height']
+            },
+            'model': 'fallen_tree_visual_heuristic',
+            'type': 'fallen_tree'
+        }
+    except Exception as e:
+        logger.warning(f"Fallen tree heuristic failed: {e}")
+        return None
+
 def run_specialized_detector(image: np.ndarray, detector: Any, model_name: str) -> List[Dict[str, Any]]:
     if detector is None:
         return []
@@ -804,6 +875,7 @@ async def health_check():
             "vehicle_detector": models.vehicle_detector is not None,
             "urban_issue_detector": models.urban_issue_detector is not None,
             "pothole_detector": models.pothole_detector is not None,
+            "water_logging_detector": models.water_logging_detector is not None,
             "vendor_detector": models.vendor_detector is not None,
             "plate_detector": models.plate_detector is not None,
             "helmet_detector": models.helmet_detector is not None,
@@ -885,7 +957,20 @@ async def process_comprehensive_traffic_video(request: VideoAnalysisRequest):
 
         raw_detections = run_vehicle_detector(image)
         pothole_detections = run_pothole_detector(image)
-        urban_issue_detections = run_urban_issue_detector(image) + pothole_detections
+        water_logging_detections = run_water_logging_detector(image)
+        # A pothole mask can resemble standing water. Prefer the specialized
+        # pothole detector when both models fire on the same frame.
+        if pothole_detections:
+            water_logging_detections = []
+        urban_issue_detections = run_urban_issue_detector(image)
+        fallen_tree_detection = next((item for item in urban_issue_detections if 'tree' in item.get('label', '').lower()), None)
+        if fallen_tree_detection is None:
+            fallen_tree_detection = detect_fallen_tree_heuristic(image)
+        if pothole_detections:
+            urban_issue_detections = [
+                item for item in urban_issue_detections
+                if 'pothole' not in item.get('label', '').lower()
+            ]
         vendor_detections = run_specialized_detector(image, models.vendor_detector, 'vendor_detector')
         plate_detections = run_specialized_detector(image, models.plate_detector, 'plate_detector')
         helmet_detections = run_specialized_detector(image, models.helmet_detector, 'helmet_detector')
@@ -1258,18 +1343,47 @@ async def process_comprehensive_traffic_video(request: VideoAnalysisRequest):
             'requires_model_confirmation': True
         }
 
-        # These are conservative CV baseline signals until dedicated trained
-        # water/closure weights are installed; they never claim a detection by default.
+        # Use color and reflectance together because flood water is often gray,
+        # not blue, in CCTV footage.
         lower_half = image[int(h * 0.55):]
         hsv = cv2.cvtColor(lower_half, cv2.COLOR_BGR2HSV)
         blue_water_pixels = cv2.inRange(hsv, np.array([85, 35, 25]), np.array([130, 255, 220]))
-        water_ratio = float(np.count_nonzero(blue_water_pixels)) / max(1, lower_half.shape[0] * lower_half.shape[1])
-        water_logging = {
-            'detected': water_ratio > 0.22,
-            'confidence': round(min(0.99, water_ratio * 2.2), 3) if water_ratio > 0.22 else 0.0,
-            'method': 'opencv_water_reflection_baseline',
-            'requires_model_confirmation': True
-        }
+        reflective_pixels = cv2.inRange(hsv, np.array([0, 0, 85]), np.array([180, 105, 245]))
+        blue_ratio = float(np.count_nonzero(blue_water_pixels)) / max(1, lower_half.shape[0] * lower_half.shape[1])
+        reflective_ratio = float(np.count_nonzero(reflective_pixels)) / max(1, lower_half.shape[0] * lower_half.shape[1])
+        lower_mean = float(lower_half.mean())
+        reflective_water = reflective_ratio > 0.97 and lower_mean > 155
+        water_detected = not pothole_detections and (blue_ratio > 0.22 or reflective_water)
+        water_score = blue_ratio if blue_ratio > 0.22 else reflective_ratio if reflective_water else 0.0
+        meaningful_water_detections = [
+            item for item in water_logging_detections
+            if item['confidence'] >= 0.65 or (
+                (item['bbox']['x2'] - item['bbox']['x1']) * (item['bbox']['y2'] - item['bbox']['y1'])
+                >= w * h * 0.03
+            )
+        ]
+        if fallen_tree_detection:
+            meaningful_water_detections = []
+        if meaningful_water_detections:
+            water_logging = {
+                'detected': True,
+                'confidence': max(item['confidence'] for item in meaningful_water_detections),
+                'method': 'trained_water_segmentation',
+                'model': models.water_logging_detector_name,
+                'detections': meaningful_water_detections,
+                'requires_model_confirmation': False
+            }
+        else:
+            water_logging = {
+                'detected': water_detected,
+                'confidence': round(min(0.99, water_score * 1.2), 3) if water_detected else 0.0,
+                'method': 'opencv_water_color_and_reflection_baseline',
+                'score': round(water_score, 3),
+                'blue_ratio': round(blue_ratio, 3),
+                'reflective_ratio': round(reflective_ratio, 3),
+                'lower_mean_brightness': round(lower_mean, 1),
+                'requires_model_confirmation': True
+            }
         road_closure = {
             'detected': False,
             'confidence': 0.0,
@@ -1301,7 +1415,8 @@ async def process_comprehensive_traffic_video(request: VideoAnalysisRequest):
                 'backend': models.vehicle_detector_backend,
                 'source': 'real' if models.vehicle_detector_backend == 'ultralytics' else 'fallback',
                 'urban_issue_model': models.urban_issue_detector_name,
-                'pothole_model': models.pothole_detector_name
+                'pothole_model': models.pothole_detector_name,
+                'water_logging_model': models.water_logging_detector_name
             },
             'location': request.location,
             'timestamp': datetime.now().isoformat(),
@@ -1320,6 +1435,7 @@ async def process_comprehensive_traffic_video(request: VideoAnalysisRequest):
             },
             'real_model_predictions': real_frame_predictions,
             'urban_issues': urban_issue_detections,
+            'fallen_tree': fallen_tree_detection,
             'potholes': pothole_detections,
             'vendors': vendor_detections,
             'plate_detections': plate_detections,
@@ -1327,6 +1443,7 @@ async def process_comprehensive_traffic_video(request: VideoAnalysisRequest):
             'speed_detections': speed_vehicle_detections,
             'speed_tracking_detections': speed_tracking_detections,
             'crowd_detections': crowd_detections,
+            'water_logging_detections': water_logging_detections,
             'segmentation': {
                 'enabled': request.enable_segmentation,
                 'road_lanes': road_segmentation_masks,
@@ -1357,6 +1474,11 @@ async def process_comprehensive_traffic_video(request: VideoAnalysisRequest):
                     'severity': 'HIGH' if pothole_detections else 'NONE'
                 },
                 'water_logging': water_logging,
+                'fallen_tree': {
+                    'detected': fallen_tree_detection is not None,
+                    'confidence': fallen_tree_detection['confidence'] if fallen_tree_detection else 0.0,
+                    'detection': fallen_tree_detection
+                },
                 'road_closure': road_closure,
                 'congestion': {'detected': congestion_level in ['HIGH', 'CRITICAL'], 'level': congestion_level}
             },
@@ -1400,7 +1522,7 @@ async def detect_license_plate_endpoint(request: dict):
     plate = result.get('plates', [None])[0]
     return {
         "plate_text": plate['plate_text'] if plate else None,
-        "confidence": plate['confidence'] if plate else 0.0,
+        "confidence": plate['confidence'] if plate and plate.get('plate_text') else 0.0,
         "raw_results": [plate] if plate else []
     }
 
