@@ -114,6 +114,8 @@ class MLModels:
         self.plate_detector = None
         self.helmet_detector = None
         self.speed_detector = None
+        self.speed_tracking_detector = None
+        self.speed_tracking_detector_name = None
         self.crowd_detector = None
         self.crowd_detector_name = None
         self.pedestrian_behavior_model = None
@@ -174,7 +176,7 @@ class MLModels:
                 logger.info(f"Pothole detector loaded: {pothole_path}")
             except Exception as e:
                 logger.error(f"Failed to load pothole detector: {e}")
-        crowd_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'yolo11n.pt')
+        crowd_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'models', 'crowd', 'yolo11n.pt')
         if os.path.exists(crowd_path):
             try:
                 from ultralytics import YOLO
@@ -183,6 +185,15 @@ class MLModels:
                 logger.info(f"Crowd person detector loaded: {crowd_path}")
             except Exception as e:
                 logger.error(f"Failed to load crowd detector: {e}")
+        speed_tracking_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'models', 'speed', 'yolo11n-seg.pt')
+        if os.path.exists(speed_tracking_path):
+            try:
+                from ultralytics import YOLO
+                self.speed_tracking_detector = YOLO(speed_tracking_path)
+                self.speed_tracking_detector_name = os.path.basename(speed_tracking_path)
+                logger.info(f"Speed tracking detector loaded: {speed_tracking_path}")
+            except Exception as e:
+                logger.error(f"Failed to load speed tracking detector: {e}")
         try:
             from ultralytics import YOLO
             vendor_path = os.path.join(real_model_dir, 'vendor_detector_yolov8n.pt')
@@ -538,6 +549,45 @@ def run_crowd_detector(image: np.ndarray) -> List[Dict[str, Any]]:
         logger.warning(f"Crowd inference failed: {e}")
     return detections
 
+def run_speed_tracking_detector(image: np.ndarray) -> List[Dict[str, Any]]:
+    if models.speed_tracking_detector is None:
+        return []
+    detections = []
+    try:
+        results = models.speed_tracking_detector.track(
+            image,
+            classes=[2, 3, 5, 7],
+            conf=0.35,
+            imgsz=640,
+            persist=True,
+            tracker='bytetrack.yaml',
+            verbose=False
+        )
+        for result in results:
+            masks = getattr(result, 'masks', None)
+            polygons = masks.xy if masks is not None and getattr(masks, 'xy', None) is not None else []
+            for index, box in enumerate(result.boxes):
+                coords = box.xyxy[0].tolist()
+                track_id = int(box.id[0]) if box.id is not None else None
+                detections.append({
+                    'track_id': track_id,
+                    'label': result.names.get(int(box.cls[0]), 'vehicle'),
+                    'confidence': round(float(box.conf[0]), 4),
+                    'bbox': {
+                        'x1': round(float(coords[0]), 1),
+                        'y1': round(float(coords[1]), 1),
+                        'x2': round(float(coords[2]), 1),
+                        'y2': round(float(coords[3]), 1)
+                    },
+                    'segmentation_polygon': polygons[index].tolist() if index < len(polygons) else None,
+                    'speed_kmh': None,
+                    'requires_temporal_tracking': True,
+                    'model': models.speed_tracking_detector_name
+                })
+    except Exception as e:
+        logger.warning(f"Speed tracking inference failed: {e}")
+    return detections
+
 # ==================== VEHICLE REGISTRY & CITIZEN DIRECTORY ====================
 
 VEHICLE_REGISTRY = [
@@ -758,6 +808,7 @@ async def health_check():
             "plate_detector": models.plate_detector is not None,
             "helmet_detector": models.helmet_detector is not None,
             "speed_detector": models.speed_detector is not None,
+            "speed_tracking_detector": models.speed_tracking_detector is not None,
             "crowd_detector": models.crowd_detector is not None,
             "pedestrian_behavior_model": models.pedestrian_behavior_model is not None,
             "accident_classifier": 'accident_classifier' in models.real_image_models,
@@ -839,6 +890,7 @@ async def process_comprehensive_traffic_video(request: VideoAnalysisRequest):
         plate_detections = run_specialized_detector(image, models.plate_detector, 'plate_detector')
         helmet_detections = run_specialized_detector(image, models.helmet_detector, 'helmet_detector')
         speed_vehicle_detections = run_specialized_detector(image, models.speed_detector, 'speed_detector')
+        speed_tracking_detections = run_speed_tracking_detector(image)
         crowd_detections = run_crowd_detector(image)
         detected_helmets = [
             {
@@ -1273,6 +1325,7 @@ async def process_comprehensive_traffic_video(request: VideoAnalysisRequest):
             'plate_detections': plate_detections,
             'helmet_detections': helmet_detections,
             'speed_detections': speed_vehicle_detections,
+            'speed_tracking_detections': speed_tracking_detections,
             'crowd_detections': crowd_detections,
             'segmentation': {
                 'enabled': request.enable_segmentation,
@@ -1419,10 +1472,13 @@ async def detect_illegal_parking_endpoint(request: dict):
 async def detect_speed_endpoint(request: dict):
     image = load_image(request.get('frame_url'), request.get('frame_base64'))
     detections = run_specialized_detector(image, models.speed_detector, 'speed_detector')
+    tracking_detections = run_speed_tracking_detector(image)
     return {
-        'available': models.speed_detector is not None,
+        'available': models.speed_detector is not None or models.speed_tracking_detector is not None,
         'model': 'speed_detector_yolov8s.pt',
         'detections': detections,
+        'tracking_detections': tracking_detections,
+        'tracking_model': models.speed_tracking_detector_name,
         'total': len(detections),
         'speed_estimation': 'requires calibrated multi-frame tracking'
     }
