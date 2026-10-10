@@ -24,7 +24,8 @@ import {
   Navigation,
   ArrowRight,
   RefreshCw,
-  Info
+  Info,
+  Wrench
 } from 'lucide-react';
 
 export default function SmartCityShield() {

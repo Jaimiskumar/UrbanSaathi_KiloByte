@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { AlertTriangle, Bot } from 'lucide-react';
+import { AlertTriangle, Bot, Activity, Clock, Video, Sliders, Sparkles, ExternalLink } from 'lucide-react';
 
 export default function TrafficMonitoring() {
   // Global control mode state
@@ -106,55 +106,72 @@ export default function TrafficMonitoring() {
   };
 
   return (
-    <div className="bg-[#F8FAFC] min-h-screen p-6 font-sans text-[#0F172A]">
+    <div className="min-h-screen p-2 sm:p-4 lg:p-6 font-sans text-slate-900">
       
-      {/* Alert Strip */}
+      {/* Alert Strip - Liquid Glass with Saturated Semantic Accents */}
       <div className="flex flex-col gap-3 mb-6 relative z-10">
         {alerts.map(alert => (
-          <div key={alert.id} className="flex items-center justify-between bg-white p-4 rounded-lg shadow-sm border-l-4" style={{ borderLeftColor: alert.colorHex }}>
-            <div className="flex items-center gap-4">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${alert.bgClass}`}>
+          <div 
+            key={alert.id} 
+            className="flex items-center justify-between bg-white/80 backdrop-blur-xl p-4 rounded-2xl shadow-glass border border-white/80 border-l-4 transition-all hover:shadow-glass-hover" 
+            style={{ borderLeftColor: alert.colorHex }}
+          >
+            <div className="flex items-center gap-3.5">
+              <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${alert.bgClass} ring-1 ring-black/5`}>
                 {alert.type === 'violation' ? (
-                  <svg className={`w-4 h-4 ${alert.textClass}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                  <AlertTriangle className={`w-4 h-4 ${alert.textClass}`} />
                 ) : (
-                  <svg className={`w-4 h-4 ${alert.textClass}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                  <Activity className={`w-4 h-4 ${alert.textClass}`} />
                 )}
               </div>
               <div>
-                <p className="font-semibold text-[#0F172A]">{alert.title}</p>
-                <div className="flex items-center gap-2 mt-0.5">
-                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide bg-gray-100 px-2 py-0.5 rounded">{alert.location}</span>
-                  <span className="text-xs text-gray-400">{alert.time}</span>
+                <p className="font-display font-bold text-sm text-slate-900 leading-tight">{alert.title}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider bg-slate-100/90 border border-slate-200/60 px-2 py-0.5 rounded-md">{alert.location}</span>
+                  <span className="text-[11px] font-medium text-slate-400 flex items-center gap-1">
+                    <Clock className="w-3 h-3 text-slate-400" />
+                    {alert.time}
+                  </span>
                 </div>
               </div>
             </div>
-            <button onClick={() => setAlerts(prev => prev.filter(a => a.id !== alert.id))} className="text-gray-400 hover:text-gray-600 p-1">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            <button 
+              onClick={() => setAlerts(prev => prev.filter(a => a.id !== alert.id))} 
+              className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-1.5 rounded-lg transition-colors"
+              aria-label="Dismiss alert"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
             </button>
           </div>
         ))}
       </div>
 
-      {/* Active Emergencies Box */}
-      <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg shadow-sm mb-6 flex items-center justify-between">
+      {/* Active Emergencies Box - Liquid Alert Glass */}
+      <div className="bg-red-50/80 backdrop-blur-xl border border-red-200/80 border-l-4 border-l-red-600 p-4 rounded-2xl shadow-alert-red mb-6 flex items-center justify-between transition-all">
         <div className="flex items-center">
-          <AlertTriangle className="h-6 w-6 text-red-500 mr-3 animate-pulse" />
+          <div className="relative flex h-8 w-8 items-center justify-center mr-3">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+            <div className="w-8 h-8 rounded-full bg-red-100 border border-red-300 flex items-center justify-center text-red-600 relative">
+              <AlertTriangle className="h-4 w-4 text-red-600" />
+            </div>
+          </div>
           <div>
-            <h3 className="text-lg font-bold text-red-800">Active Emergencies</h3>
-            <p className="text-sm font-semibold text-red-600 mt-0.5">System ready to activate green corridor when needed</p>
+            <h3 className="text-base font-display font-black text-red-900 tracking-tight">Active Emergency Corridor Ready</h3>
+            <p className="text-xs font-semibold text-red-700/90 mt-0.5">SITA AI Engine calibrated for priority Green Corridor preemption</p>
           </div>
         </div>
-        <div className="hidden sm:flex animate-pulse bg-white px-4 py-2 rounded shadow text-red-700 text-sm font-black tracking-widest border border-red-200">
-          TRACKING ACTIVE
+        <div className="hidden sm:flex items-center gap-2 bg-white/90 backdrop-blur-md px-3.5 py-1.5 rounded-xl shadow-xs text-red-700 text-xs font-black tracking-wider border border-red-200 uppercase">
+          <span className="w-2 h-2 rounded-full bg-red-600 animate-pulse"></span>
+          Preemption Active
         </div>
       </div>
 
-      {/* 2-Column Layout */}
+      {/* 2-Column Bento Layout */}
       <div className="flex flex-col lg:flex-row gap-6 mb-6">
         
-        {/* Left Column - Video Feed */}
-        <div className="lg:w-[50%] xl:w-[60%] flex flex-col">
-          <div className="bg-[#1E293B] rounded-lg shadow-md h-full min-h-[400px] flex items-center justify-center relative overflow-hidden group border border-slate-700">
+        {/* Left Column - Hero CCTV Video Bento Tile */}
+        <div className="lg:w-[52%] xl:w-[60%] flex flex-col">
+          <div className="bg-slate-900 rounded-3xl shadow-2xl h-full min-h-[420px] flex items-center justify-center relative overflow-hidden group border border-slate-700/80">
             {/* The Video Element */}
             <video 
                key={activeZone?.videoUrl || activeZone?.id}
@@ -167,52 +184,58 @@ export default function TrafficMonitoring() {
                  e.target.style.display = 'none';
                }}
             />
-            {/* Dark gradient overlay to make text readable */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/40 z-0"></div>
+            {/* Ambient Dark Gradient Vignette for crisp text readability */}
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-transparent to-slate-950/50 z-0 pointer-events-none"></div>
 
-            {/* Top Left Label */}
-            <div className="absolute top-4 left-4 z-10 flex items-center gap-2 bg-[#0F172A]/90 backdrop-blur-md px-3 py-1.5 rounded-md border border-slate-600 shadow-lg">
-              <div className="w-2.5 h-2.5 rounded-full bg-[#EF4444] animate-pulse"></div>
-              <span className="text-white text-sm font-semibold tracking-wide">{activeZone?.name}</span>
+            {/* Top Left Zone Name Pill */}
+            <div className="absolute top-4 left-4 z-10 flex items-center gap-2 bg-slate-950/85 backdrop-blur-xl px-3.5 py-1.5 rounded-xl border border-white/15 shadow-xl">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
+              </span>
+              <span className="text-white text-xs sm:text-sm font-display font-bold tracking-wide">{activeZone?.name}</span>
             </div>
 
             {/* Agent Insight Overlay */}
-            <div className="absolute top-16 left-4 z-10 max-w-[200px] pointer-events-none">
-              <div className="bg-blue-600/90 backdrop-blur-md px-3 py-2 rounded-lg shadow-xl border border-blue-400 animate-in fade-in slide-in-from-left duration-700">
+            <div className="absolute top-16 left-4 z-10 max-w-[240px] pointer-events-none">
+              <div className="bg-blue-600/90 backdrop-blur-xl px-3 py-2 rounded-xl shadow-2xl border border-blue-400/40 animate-in fade-in slide-in-from-left duration-500">
                 <div className="flex items-center gap-1.5 mb-1">
                   <Bot className="w-3.5 h-3.5 text-white" />
-                  <span className="text-[10px] font-black text-white tracking-widest uppercase">Agent Insight</span>
+                  <span className="text-[10px] font-black text-white tracking-widest uppercase">Autonomous Insight</span>
                 </div>
-                <p className="text-[11px] text-blue-50 font-medium leading-tight">
+                <p className="text-[11px] text-blue-50 font-medium leading-snug">
                   {activeZone?.congestion === 'HIGH' 
-                    ? "SITA is extending Green phase by 15s to clear heavy backlog." 
-                    : "Maintaining optimal balance between pedestrian and vehicle flow."}
+                    ? "SITA is dynamically extending Green phase by 15s to relieve backlog." 
+                    : "Optimal balance sustained across pedestrian and cross-junction traffic."}
                 </p>
               </div>
             </div>
 
-            {/* Top Right Label - Live Clock & Date */}
-            <div className="absolute top-4 right-4 z-10 bg-black/70 backdrop-blur-md px-3 py-1.5 rounded border border-slate-600 shadow-lg font-mono text-sm text-white">
+            {/* Top Right Live Clock Pill */}
+            <div className="absolute top-4 right-4 z-10 bg-slate-950/80 backdrop-blur-xl px-3 py-1.5 rounded-xl border border-white/15 shadow-xl font-mono text-xs text-slate-200">
               {new Date().toLocaleDateString()} {new Date().toLocaleTimeString()}
             </div>
 
-            {/* Bottom Overlay Texts */}
-            <div className="absolute bottom-4 left-4 z-10 flex items-center gap-3">
-               <span className="font-mono text-sm font-bold text-white bg-blue-600/90 px-3 py-1 rounded shadow-lg border border-blue-500">{activeZone?.cam}</span>
-               <span className="font-mono text-xs text-white bg-black/80 px-2 py-1.5 rounded border border-gray-600">FPS: 30</span>
+            {/* Bottom Left Camera Tag */}
+            <div className="absolute bottom-4 left-4 z-10 flex items-center gap-2.5">
+               <span className="font-mono text-xs font-bold text-white bg-blue-600 px-3 py-1 rounded-lg shadow-lg border border-blue-400/40 flex items-center gap-1.5">
+                 <Video className="w-3 h-3 text-white" />
+                 {activeZone?.cam}
+               </span>
+               <span className="font-mono text-[11px] text-slate-300 bg-slate-950/80 px-2.5 py-1 rounded-lg border border-white/10">30 FPS • HD</span>
             </div>
             
-            {/* Huge Timer Overlay at Bottom Right */}
+            {/* Bottom Right Signal Countdown Overlay */}
             <div className="absolute bottom-4 right-4 z-10 flex flex-col items-end gap-1">
-               <span className="text-xs font-bold text-gray-200 uppercase tracking-widest bg-black/50 px-2 py-0.5 rounded shadow">Active Signal Timer</span>
-               <div className={`font-mono text-4xl font-black bg-black/80 px-4 py-2 rounded-lg border-2 shadow-2xl backdrop-blur-sm flex items-center gap-3 ${
-                 activeZone?.signal === 'Red' ? 'text-red-500 border-red-500/70 shadow-[0_0_20px_rgba(239,68,68,0.5)]' :
-                 activeZone?.signal === 'Yellow' ? 'text-yellow-400 border-yellow-400/70 shadow-[0_0_20px_rgba(250,204,21,0.5)]' :
-                 'text-[#10B981] border-[#10B981]/70 shadow-[0_0_20px_rgba(16,185,129,0.5)]'
+               <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest bg-slate-950/70 backdrop-blur-md px-2.5 py-0.5 rounded-md border border-white/10">Signal Phase Countdown</span>
+               <div className={`font-mono text-3xl sm:text-4xl font-black bg-slate-950/90 px-4 py-2 rounded-2xl border-2 shadow-2xl backdrop-blur-xl flex items-center gap-3 ${
+                 activeZone?.signal === 'Red' ? 'text-red-400 border-red-500/70 shadow-[0_0_25px_rgba(239,68,68,0.45)]' :
+                 activeZone?.signal === 'Yellow' ? 'text-amber-300 border-amber-400/70 shadow-[0_0_25px_rgba(245,158,11,0.45)]' :
+                 'text-emerald-400 border-emerald-500/70 shadow-[0_0_25px_rgba(16,185,129,0.45)]'
                }`}>
-                 <div className={`w-4 h-4 rounded-full animate-pulse ${
-                    activeZone?.signal === 'Red' ? 'bg-red-500' :
-                    activeZone?.signal === 'Yellow' ? 'bg-yellow-400' : 'bg-[#10B981]'
+                 <div className={`w-3.5 h-3.5 rounded-full animate-pulse ${
+                    activeZone?.signal === 'Red' ? 'bg-red-500 shadow-[0_0_10px_rgba(239,68,68,1)]' :
+                    activeZone?.signal === 'Yellow' ? 'bg-amber-400 shadow-[0_0_10px_rgba(251,191,36,1)]' : 'bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,1)]'
                  }`}></div>
                  0:{activeZone?.timer < 10 ? `0${Math.max(0, activeZone.timer)}` : Math.max(0, activeZone.timer)}
                </div>
@@ -220,103 +243,117 @@ export default function TrafficMonitoring() {
           </div>
         </div>
 
-        {/* Right Column - Stat Cards & Controls */}
-        <div className="lg:w-[50%] xl:w-[40%] flex flex-col justify-between gap-4">
+        {/* Right Column - Stat Bento Cards & Controls */}
+        <div className="lg:w-[48%] xl:w-[40%] flex flex-col justify-between gap-4">
           
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Card: Vehicle Count */}
-            <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex flex-col justify-center">
-              <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">Live Flow Rate</p>
-              <h2 className="text-3xl sm:text-4xl font-black text-[#0F172A] mt-2 tabular-nums">{activeZone?.vehicles} <span className="text-sm font-medium text-slate-400">vehicles</span></h2>
+            <div className="bg-white/80 backdrop-blur-xl p-5 sm:p-6 rounded-3xl shadow-glass border border-white/70 glass-card-interactive flex flex-col justify-center">
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] text-slate-400 font-extrabold uppercase tracking-widest">Live Flow Rate</p>
+                <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
+              </div>
+              <h2 className="text-3xl sm:text-4xl font-display font-black text-slate-900 mt-2 tabular-nums">
+                {activeZone?.vehicles} <span className="text-sm font-semibold text-slate-400 font-sans">vehicles</span>
+              </h2>
+              <p className="text-[11px] font-medium text-slate-500 mt-1">Real-time corridor volume</p>
             </div>
 
             {/* Card: Congestion */}
-            <div className="bg-white p-5 rounded-3xl shadow-sm border border-gray-100 flex flex-col justify-center">
-              <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">Saturation State</p>
+            <div className="bg-white/80 backdrop-blur-xl p-5 sm:p-6 rounded-3xl shadow-glass border border-white/70 glass-card-interactive flex flex-col justify-center">
+              <p className="text-[10px] text-slate-400 font-extrabold uppercase tracking-widest">Saturation Level</p>
               <div className="mt-2 text-left">
-                <span className={`px-4 py-2 rounded-full font-black tracking-widest text-[10px] uppercase border inline-block ${getCongestionColor(activeZone?.congestion)}`}>
+                <span className={`px-3.5 py-1.5 rounded-xl font-black tracking-wider text-xs uppercase border inline-flex items-center gap-1.5 ${getCongestionColor(activeZone?.congestion)}`}>
+                  <span className="w-2 h-2 rounded-full bg-current"></span>
                   {activeZone?.congestion}
                 </span>
               </div>
+              <p className="text-[11px] font-medium text-slate-500 mt-2">Corridor capacity status</p>
             </div>
           </div>
 
           {/* Adaptive Signal Control Panel */}
-          <div className="bg-white p-5 sm:p-6 rounded-[2rem] shadow-sm border border-gray-100 flex flex-col flex-1">
-             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
+          <div className="bg-white/85 backdrop-blur-2xl p-5 sm:p-6 rounded-3xl shadow-glass border border-white/80 flex flex-col flex-1">
+             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-5">
                <div>
-                 <h3 className="text-lg font-black text-[#0F172A] tracking-tight">Signal Matrix</h3>
-                 <p className="text-xs font-bold text-gray-400">Autonomous & Manual Override</p>
+                 <h3 className="text-base sm:text-lg font-display font-black text-slate-900 tracking-tight flex items-center gap-2">
+                   <Sliders className="w-4 h-4 text-blue-600" />
+                   Adaptive Signal Matrix
+                 </h3>
+                 <p className="text-xs font-medium text-slate-400">Autonomous timing & operator manual override</p>
                </div>
                
-               {/* Toggle Switch */}
-               <div className="bg-slate-100 p-1 rounded-xl flex items-center self-start sm:self-auto">
+               {/* Toggle Switch - Frosted Glass Pill */}
+               <div className="bg-slate-100/90 backdrop-blur-sm p-1 rounded-xl flex items-center border border-slate-200/60 self-start sm:self-auto shadow-xs">
                  <button 
                   onClick={() => setControlMode('Automatic')}
-                  className={`px-3 py-1.5 text-sm font-semibold rounded-md transition-all ${controlMode === 'Automatic' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                  className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${controlMode === 'Automatic' ? 'bg-white shadow-xs text-blue-600' : 'text-slate-500 hover:text-slate-800'}`}
                  >
-                   Auto
+                   Auto AI
                  </button>
                  <button 
                   onClick={() => setControlMode('Manual')}
-                  className={`px-3 py-1.5 text-sm font-semibold rounded-md transition-all ${controlMode === 'Manual' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                  className={`px-3 py-1 text-xs font-bold rounded-lg transition-all ${controlMode === 'Manual' ? 'bg-white shadow-xs text-amber-600' : 'text-slate-500 hover:text-slate-800'}`}
                  >
                    Manual
                  </button>
                </div>
              </div>
              
-             <div className="flex items-center gap-6 mt-2 pb-2">
-                {/* Traffic Light UI */}
-                <div className="bg-slate-800 p-3 rounded-xl border-4 border-slate-900 inline-flex flex-col gap-3 shadow-lg">
+             <div className="flex items-center gap-6 mt-1 pb-1">
+                {/* Traffic Light UI - High-Tech Module */}
+                <div className="bg-slate-950 p-3 rounded-2xl border border-slate-800 inline-flex flex-col gap-3 shadow-xl ring-1 ring-slate-800">
                    {/* Red */}
                    <button 
                      onClick={() => handleManualSignalChange('Red')}
                      disabled={controlMode === 'Automatic'}
-                     className={`w-10 h-10 rounded-full transition-all duration-300 border-2 border-black/50 ${getSignalColorClass(activeZone?.signal, 'Red')} ${controlMode === 'Manual' && activeZone?.signal !== 'Red' ? 'hover:scale-110 cursor-pointer' : 'cursor-default'}`}
+                     aria-label="Set Signal Red"
+                     className={`w-9 h-9 rounded-full transition-all duration-300 border border-black/40 ${getSignalColorClass(activeZone?.signal, 'Red')} ${controlMode === 'Manual' && activeZone?.signal !== 'Red' ? 'hover:scale-110 cursor-pointer' : 'cursor-default'}`}
                    ></button>
                    {/* Yellow */}
                    <button 
                      onClick={() => handleManualSignalChange('Yellow')}
                      disabled={controlMode === 'Automatic'}
-                     className={`w-10 h-10 rounded-full transition-all duration-300 border-2 border-black/50 ${getSignalColorClass(activeZone?.signal, 'Yellow')} ${controlMode === 'Manual' && activeZone?.signal !== 'Yellow' ? 'hover:scale-110 cursor-pointer' : 'cursor-default'}`}
+                     aria-label="Set Signal Yellow"
+                     className={`w-9 h-9 rounded-full transition-all duration-300 border border-black/40 ${getSignalColorClass(activeZone?.signal, 'Yellow')} ${controlMode === 'Manual' && activeZone?.signal !== 'Yellow' ? 'hover:scale-110 cursor-pointer' : 'cursor-default'}`}
                    ></button>
                    {/* Green */}
                    <button 
                      onClick={() => handleManualSignalChange('Green')}
                      disabled={controlMode === 'Automatic'}
-                     className={`w-10 h-10 rounded-full transition-all duration-300 border-2 border-black/50 ${getSignalColorClass(activeZone?.signal, 'Green')} ${controlMode === 'Manual' && activeZone?.signal !== 'Green' ? 'hover:scale-110 cursor-pointer' : 'cursor-default'}`}
+                     aria-label="Set Signal Green"
+                     className={`w-9 h-9 rounded-full transition-all duration-300 border border-black/40 ${getSignalColorClass(activeZone?.signal, 'Green')} ${controlMode === 'Manual' && activeZone?.signal !== 'Green' ? 'hover:scale-110 cursor-pointer' : 'cursor-default'}`}
                    ></button>
                 </div>
                 
                 {/* Signal Info */}
                 <div className="flex-1 flex flex-col justify-center">
-                   <p className="text-sm text-gray-500 mb-1">Active Signal Timer</p>
+                   <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Current Active Timer</p>
                    {controlMode === 'Automatic' ? (
                      <div className="flex items-baseline gap-2">
-                       <h2 className="text-5xl font-bold text-[#0F172A] tabular-nums leading-none">
+                       <h2 className="text-4xl sm:text-5xl font-mono font-black text-slate-900 tabular-nums leading-none">
                          0:{activeZone?.timer < 10 ? `0${Math.max(0, activeZone.timer)}` : Math.max(0, activeZone.timer)}
                        </h2>
-                       <span className="text-gray-400 font-medium">sec</span>
+                       <span className="text-slate-400 font-semibold text-xs">sec remaining</span>
                      </div>
                    ) : (
-                     <div className="text-2xl font-bold italic text-gray-400">Manual Override</div>
+                     <div className="text-xl font-bold text-amber-600 font-display">Manual Hold Engaged</div>
                    )}
                    
                    <div className="mt-4 flex flex-col gap-2">
-                      <div className={`px-3 py-1.5 rounded inline-flex items-center text-xs font-bold border max-w-max ${
+                      <div className={`px-3 py-1.5 rounded-xl inline-flex items-center text-xs font-bold border max-w-max ${
                         controlMode === 'Automatic' 
-                          ? 'bg-blue-50 text-blue-600 border-blue-200' 
-                          : 'bg-orange-50 text-orange-600 border-orange-200'
+                          ? 'bg-blue-50/90 text-blue-700 border-blue-200 shadow-xs' 
+                          : 'bg-amber-50/90 text-amber-700 border-amber-200 shadow-xs'
                       }`}>
                         {controlMode === 'Automatic' ? (
-                           <><svg className="w-3.5 h-3.5 mr-1" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd"></path></svg> AI Optimizing</>
+                           <span className="flex items-center gap-1.5"><Sparkles className="w-3.5 h-3.5 text-blue-600" /> SITA Neural Signal Optimizer Active</span>
                         ) : (
-                           <><svg className="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg> Admin Override Active</>
+                           <span className="flex items-center gap-1.5"><Sliders className="w-3.5 h-3.5 text-amber-600" /> Manual Operator Control Engaged</span>
                         )}
                       </div>
                       {controlMode === 'Manual' && (
-                        <p className="text-xs text-slate-500">Click on the traffic light indicators to manually switch the signal.</p>
+                        <p className="text-[11px] font-medium text-slate-500">Tap individual signal lamps above to trigger immediate phase transitions.</p>
                       )}
                    </div>
                 </div>
@@ -326,45 +363,58 @@ export default function TrafficMonitoring() {
 
       </div>
 
-      {/* Bottom Horizontal Row of 4 Zone Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        {zones.map((zone) => (
-          <div 
-            key={zone.id} 
-            onClick={() => handleZoneCardClick(zone)}
-            className={`bg-white p-5 rounded-lg shadow-sm border flex flex-col justify-between cursor-pointer transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 hover:ring-1 hover:ring-blue-300 ${selectedZoneId === zone.id ? 'ring-2 ring-blue-500 border-transparent' : 'border-gray-100 hover:border-blue-200'}`}
-          >
-            <div className="flex justify-between items-start mb-6">
-               <div>
-                 <h4 className="font-bold text-[#0F172A] text-base leading-tight">{zone.name}</h4>
-                 <p className="text-xs text-gray-400 mt-1">Location ID: {zone.id}</p>
-               </div>
-               <span className={`px-2 py-1 rounded text-xs font-bold tracking-wider border ${getCongestionColor(zone.congestion)}`}>
-                 {zone.congestion}
-               </span>
+      {/* Bottom Horizontal Row of Zone Bento Cards */}
+      <div className="mb-2 flex items-center justify-between">
+        <h3 className="text-sm font-display font-bold text-slate-700 uppercase tracking-wider">Bengaluru Grid Corridors ({zones.length})</h3>
+        <span className="text-xs text-slate-400 font-medium">Click any corridor to switch live feed</span>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {zones.map((zone) => {
+          const isSelected = selectedZoneId === zone.id;
+          return (
+            <div 
+              key={zone.id} 
+              onClick={() => handleZoneCardClick(zone)}
+              className={`p-5 rounded-2xl shadow-glass border flex flex-col justify-between cursor-pointer transition-all duration-200 glass-card-interactive ${
+                isSelected 
+                  ? 'bg-white/95 ring-2 ring-blue-600 border-transparent shadow-glass-hover' 
+                  : 'bg-white/75 backdrop-blur-xl border-white/80 hover:bg-white/90'
+              }`}
+            >
+              <div className="flex justify-between items-start mb-4">
+                 <div>
+                   <h4 className="font-display font-bold text-slate-900 text-sm leading-snug">{zone.name}</h4>
+                   <p className="text-[10px] font-mono font-medium text-slate-400 mt-0.5">ID: {zone.cam}</p>
+                 </div>
+                 <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black tracking-wider border uppercase ${getCongestionColor(zone.congestion)}`}>
+                   {zone.congestion}
+                 </span>
+              </div>
+              <div className="flex justify-between items-end">
+                 <div className="flex flex-col">
+                   <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Density</span>
+                   <span className="text-2xl font-display font-black text-slate-900 tabular-nums mt-0.5">{zone.vehicles}</span>
+                   <button
+                     type="button"
+                     onClick={(event) => handleZoneMapClick(event, zone)}
+                     className="text-[11px] text-blue-600 font-semibold mt-2 inline-flex items-center gap-1 hover:text-blue-700 hover:underline cursor-pointer"
+                   >
+                     <span>Map</span>
+                     <ExternalLink className="w-3 h-3" />
+                   </button>
+                 </div>
+                 
+                 {/* Live Signal Indicator Pill */}
+                 <div className="flex flex-col items-center gap-1.5 bg-slate-100/90 border border-slate-200/60 p-2 rounded-xl shadow-xs">
+                    <div className={`w-2.5 h-2.5 rounded-full ${zone.signal === 'Red' ? 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,1)]' : 'bg-red-900/30'}`}></div>
+                    <div className={`w-2.5 h-2.5 rounded-full ${zone.signal === 'Yellow' ? 'bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,1)]' : 'bg-amber-900/30'}`}></div>
+                    <div className={`w-2.5 h-2.5 rounded-full ${zone.signal === 'Green' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,1)]' : 'bg-emerald-900/30'}`}></div>
+                 </div>
+              </div>
             </div>
-            <div className="flex justify-between items-end">
-               <div className="flex flex-col">
-                 <span className="text-xs text-gray-400 font-medium uppercase tracking-wide">Vehicles</span>
-                 <span className="text-3xl font-bold text-[#0F172A] tabular-nums mt-1">{zone.vehicles}</span>
-                 <button
-                   type="button"
-                   onClick={(event) => handleZoneMapClick(event, zone)}
-                   className="text-[11px] text-blue-600 font-semibold mt-2 underline underline-offset-2 text-left hover:text-blue-700 cursor-pointer"
-                 >
-                   Open in Google Maps
-                 </button>
-               </div>
-               
-               {/* Live Signal Indicator */}
-               <div className="flex flex-col items-center gap-1 bg-slate-100 p-1.5 rounded text-[10px] font-bold text-slate-500">
-                  <div className={`w-3 h-3 rounded-full ${zone.signal === 'Red' ? 'bg-red-500 shadow-[0_0_5px_rgba(239,68,68,1)]' : 'bg-red-900/30'}`}></div>
-                  <div className={`w-3 h-3 rounded-full ${zone.signal === 'Yellow' ? 'bg-yellow-400 shadow-[0_0_5px_rgba(250,204,21,1)]' : 'bg-yellow-900/30'}`}></div>
-                  <div className={`w-3 h-3 rounded-full ${zone.signal === 'Green' ? 'bg-green-500 shadow-[0_0_5px_rgba(34,197,94,1)]' : 'bg-green-900/30'}`}></div>
-               </div>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
     </div>
