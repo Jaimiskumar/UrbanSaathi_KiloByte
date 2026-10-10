@@ -30,7 +30,7 @@ torch.manual_seed(SEED)
 np.random.seed(SEED)
 
 
-def train_image_model(name: str, data_dir: Path, epochs: int = 10, max_per_class: int = 300):
+def train_image_model(name: str, data_dir: Path, epochs: int = 15, max_per_class: int = 500, eval_dir: Path | None = None):
     if not data_dir.exists():
         raise FileNotFoundError(f"Real dataset not found: {data_dir}")
 
@@ -50,17 +50,19 @@ def train_image_model(name: str, data_dir: Path, epochs: int = 10, max_per_class
             by_class[label].append(index)
     selected = np.array([index for indices in by_class.values() for index in indices])
     labels = [dataset.targets[index] for index in selected]
-    train_idx, test_idx = train_test_split(selected, test_size=0.2, random_state=SEED, stratify=labels)
-    train_loader = DataLoader(torch.utils.data.Subset(dataset, train_idx), batch_size=32, shuffle=True)
-    test_loader = DataLoader(torch.utils.data.Subset(dataset, test_idx), batch_size=32)
+    train_loader = DataLoader(torch.utils.data.Subset(dataset, selected), batch_size=32, shuffle=True)
+    evaluation_dataset = datasets.ImageFolder(eval_dir, transform=transform) if eval_dir and eval_dir.exists() else dataset
+    test_loader = DataLoader(evaluation_dataset, batch_size=32)
 
     model = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
     for parameter in model.parameters():
         parameter.requires_grad = False
+    for parameter in model.layer4.parameters():
+        parameter.requires_grad = True
     model.fc = nn.Linear(model.fc.in_features, len(dataset.classes))
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4)
+    optimizer = torch.optim.AdamW(filter(lambda parameter: parameter.requires_grad, model.parameters()), lr=1e-4)
     criterion = nn.CrossEntropyLoss()
     model.train()
     for _ in range(epochs):
@@ -86,6 +88,7 @@ def train_image_model(name: str, data_dir: Path, epochs: int = 10, max_per_class
         "dataset": str(data_dir),
         "classes": dataset.classes,
         "samples": len(dataset),
+        "evaluation_dataset": str(eval_dir) if eval_dir and eval_dir.exists() else str(data_dir),
         "accuracy": round(float(accuracy_score(actual, predictions)), 4),
         "f1_score": round(float(f1_score(actual, predictions, average="weighted")), 4),
         "epochs": epochs,
@@ -132,7 +135,8 @@ def main():
         "generated_at": datetime.now().isoformat(),
         "models": {
             "accident_classifier": train_image_model(
-                "accident_classifier", DATASET / "accident detection" / "data" / "train"
+                "accident_classifier", DATASET / "accident detection" / "data" / "train",
+                eval_dir=DATASET / "accident detection" / "data" / "val"
             ),
             "vehicle_classifier": train_image_model(
                 "vehicle_classifier", DATASET / "classification of vehicle" / "Vehicles"

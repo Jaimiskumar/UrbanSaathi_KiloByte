@@ -97,27 +97,6 @@ const generateFallbackDetection = (reqBody = {}) => {
   const violations = [];
   const challans = [];
 
-  if (hasPothole) {
-    urbanIssues.push({
-      label: 'Pothole',
-      type: 'Pothole',
-      confidence: 0.97,
-      bbox: { x1: 280, y1: 420, x2: 500, y2: 520 },
-      severity: 'HIGH',
-      location,
-      issueType: 'Pothole'
-    });
-    violations.push({
-      violation_id: 'VIO-PTH-01',
-      type: 'pothole',
-      title: 'Severe road pothole detected',
-      fine_amount: 1500,
-      legal_section: 'Road Maintenance & Safety Regulation',
-      status: 'ISSUED',
-      location
-    });
-  }
-
   if (hasAccident) {
     urbanIssues.push({
       label: 'Accident/Crash',

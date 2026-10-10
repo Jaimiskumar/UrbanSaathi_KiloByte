@@ -1,77 +1,68 @@
-"""Recover and train the real Kaggle Urban Issues YOLO dataset on Windows."""
+"""Prepare and train the supplied Urban Issues YOLO dataset."""
 
 import argparse
 import shutil
-import zipfile
 from pathlib import Path
 
 from ultralytics import YOLO
 
 ROOT = Path(__file__).resolve().parents[1]
-CACHE = Path.home() / ".cache" / "kagglehub" / "datasets" / "akinduhiman" / "urban-issues-dataset"
-ARCHIVE = CACHE / "19.archive"
+SOURCE = ROOT.parent / "dataset" / "urban issues"
 DATA = ROOT / "data" / "urban_issues_real"
 MODEL = ROOT / "models" / "real" / "urban_issues_yolov8n.pt"
 
 GROUPS = {
-    "Potholes and RoadCracks": 0,
-    "IllegalParking": 1,
-    "DamagedRoadSigns": 2,
-    "FallenTrees": 3,
-    "Garbage": 4,
-    "Graffitti": 5,
-    "DeadAnimalsPollution": 6,
-    "Damaged concrete structures": 7,
-    "DamagedElectricalPoles": 8,
+    "IllegalParking": 0,
+    "DamagedRoadSigns": 1,
+    "FallenTrees": 2,
+    "Garbage": 3,
+    "Graffitti": 4,
+    "DeadAnimalsPollution": 5,
+    "Damaged concrete structures": 6,
+    "DamagedElectricalPoles": 7,
 }
 NAMES = [
-    "Damaged Road issues", "Pothole Issues", "Illegal Parking Issues",
-    "Broken Road Sign Issues", "Fallen trees", "Littering/Garbage on Public Places",
-    "Vandalism Issues", "Dead Animal Pollution", "Damaged concrete structures",
-    "Damaged Electric wires and poles",
+    "Illegal Parking Issues", "Broken Road Sign Issues", "Fallen trees",
+    "Littering/Garbage on Public Places", "Vandalism Issues", "Dead Animal Pollution",
+    "Damaged concrete structures", "Damaged Electric wires and poles",
 ]
 
 
 def recover(max_per_class: int):
-    if not ARCHIVE.exists():
-        raise FileNotFoundError(f"Kaggle archive not found: {ARCHIVE}")
+    if not SOURCE.exists():
+        raise FileNotFoundError(f"Urban issues dataset not found: {SOURCE}")
     if DATA.exists():
         shutil.rmtree(DATA)
     for split in ("train", "val", "test"):
         (DATA / "images" / split).mkdir(parents=True)
         (DATA / "labels" / split).mkdir(parents=True)
 
-    counts = {class_id: 0 for class_id in GROUPS.values()}
-    with zipfile.ZipFile(ARCHIVE) as archive:
-        names = archive.namelist()
-        for source_group, class_id in GROUPS.items():
-            labels = [
-                name for name in names
-                if name.startswith(source_group + "/") and "/labels/" in name and name.endswith(".txt")
-            ]
-            for label_name in labels:
-                if counts[class_id] >= max_per_class:
+    counts = {(split, class_id): 0 for split in ("train", "val", "test") for class_id in GROUPS.values()}
+    for source_group, class_id in GROUPS.items():
+        group_root = SOURCE / source_group
+        for source_split in ("train", "valid", "test"):
+            image_dir = next((path for path in (group_root / source_split / "images", group_root / source_group / source_split / "images") if path.exists()), None)
+            label_dir = next((path for path in (group_root / source_split / "labels", group_root / source_group / source_split / "labels") if path.exists()), None)
+            if not image_dir or not label_dir:
+                continue
+            output_split = "val" if source_split == "valid" else source_split
+            for label_source in sorted(label_dir.glob("*.txt")):
+                if counts[(output_split, class_id)] >= max_per_class:
                     break
-                relative = Path(label_name)
-                split = next((part for part in ("train", "valid", "test") if part in relative.parts), None)
-                if split is None:
+                image_source = next((image_dir / f"{label_source.stem}{suffix}" for suffix in (".jpg", ".jpeg", ".png" ) if (image_dir / f"{label_source.stem}{suffix}").exists()), None)
+                if not image_source:
                     continue
-                output_split = "val" if split == "valid" else split
-                image_name = label_name.rsplit("/labels/", 1)[1][:-4] + ".jpg"
-                image_name = f"{class_id}_{Path(image_name).name}"
-                image_source = label_name.replace("/labels/", "/images/")[:-4] + ".jpg"
-                if image_source not in names:
-                    continue
+                image_name = f"{class_id}_{source_group}_{label_source.stem}{image_source.suffix}"
                 image_target = DATA / "images" / output_split / image_name
-                label_target = DATA / "labels" / output_split / (image_name[:-4] + ".txt")
-                image_target.write_bytes(archive.read(image_source))
+                label_target = DATA / "labels" / output_split / f"{Path(image_name).stem}.txt"
+                shutil.copy2(image_source, image_target)
                 rows = []
-                for row in archive.read(label_name).decode("utf-8").splitlines():
+                for row in label_source.read_text(encoding="utf-8").splitlines():
                     parts = row.split()
                     if len(parts) == 5:
                         rows.append(f"{class_id} {' '.join(parts[1:])}")
                 label_target.write_text("\n".join(rows), encoding="utf-8")
-                counts[class_id] += 1
+                counts[(output_split, class_id)] += 1
 
     yaml = DATA / "data.yaml"
     yaml.write_text(

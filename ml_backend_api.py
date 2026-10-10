@@ -37,9 +37,24 @@ import logging
 from datetime import datetime
 import json
 import joblib
+import pandas as pd
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+ACCIDENT_CONFIDENCE_THRESHOLD = float(os.getenv("URBANSAATHI_ACCIDENT_CONFIDENCE", "0.90"))
+URBAN_ISSUE_CONFIDENCE = float(os.getenv("URBANSAATHI_URBAN_ISSUE_CONFIDENCE", "0.45"))
+SPECIALIZED_CONFIDENCE = {
+    "vendor_detector": float(os.getenv("URBANSAATHI_VENDOR_CONFIDENCE", "0.40")),
+    "plate_detector": float(os.getenv("URBANSAATHI_PLATE_CONFIDENCE", "0.25")),
+    "helmet_detector": float(os.getenv("URBANSAATHI_HELMET_CONFIDENCE", "0.40")),
+    "speed_detector": float(os.getenv("URBANSAATHI_SPEED_CONFIDENCE", "0.40")),
+}
+SPECIALIZED_IMAGE_SIZE = {
+    "vendor_detector": 512,
+    "plate_detector": 640,
+    "helmet_detector": 512,
+    "speed_detector": 512,
+}
 
 app = FastAPI(title="Smart Traffic ML API & Vision Engine", version="2.0.0")
 
@@ -368,13 +383,16 @@ def run_urban_issue_detector(image: np.ndarray) -> List[Dict[str, Any]]:
         return []
     detections = []
     try:
-        results = models.urban_issue_detector.predict(image, conf=0.35, imgsz=640, verbose=False)
+        results = models.urban_issue_detector.predict(image, conf=URBAN_ISSUE_CONFIDENCE, imgsz=640, max_det=50, verbose=False)
         for result in results:
             names = result.names or {}
             for box in result.boxes:
                 class_id = int(box.cls[0])
+                label = names.get(class_id, str(class_id))
+                if re.search(r'pothole|road.?crack|damaged.?road', str(label), re.IGNORECASE):
+                    continue
                 detections.append({
-                    'label': names.get(class_id, str(class_id)),
+                    'label': label,
                     'confidence': round(float(box.conf[0]), 4),
                     'bbox': {
                         'x1': round(float(box.xyxy[0][0]), 1),
@@ -392,18 +410,28 @@ def run_specialized_detector(image: np.ndarray, detector: Any, model_name: str) 
     if detector is None:
         return []
     detections = []
-    for result in detector.predict(image, conf=0.35, imgsz=640, verbose=False):
-        for box in result.boxes:
-            class_id = int(box.cls[0])
-            detections.append({
-                'label': result.names.get(class_id, str(class_id)),
-                'confidence': round(float(box.conf[0]), 4),
-                'bbox': {
-                    'x1': round(float(box.xyxy[0][0]), 1), 'y1': round(float(box.xyxy[0][1]), 1),
-                    'x2': round(float(box.xyxy[0][2]), 1), 'y2': round(float(box.xyxy[0][3]), 1)
-                },
-                'model': model_name
-            })
+    try:
+        results = detector.predict(
+            image,
+            conf=SPECIALIZED_CONFIDENCE.get(model_name, 0.40),
+            imgsz=SPECIALIZED_IMAGE_SIZE.get(model_name, 512),
+            max_det=50,
+            verbose=False
+        )
+        for result in results:
+            for box in result.boxes:
+                class_id = int(box.cls[0])
+                detections.append({
+                    'label': result.names.get(class_id, str(class_id)),
+                    'confidence': round(float(box.conf[0]), 4),
+                    'bbox': {
+                        'x1': round(float(box.xyxy[0][0]), 1), 'y1': round(float(box.xyxy[0][1]), 1),
+                        'x2': round(float(box.xyxy[0][2]), 1), 'y2': round(float(box.xyxy[0][3]), 1)
+                    },
+                    'model': model_name
+                })
+    except Exception as e:
+        logger.warning(f"{model_name} inference failed: {e}")
     return detections
 
 # ==================== VEHICLE REGISTRY & CITIZEN DIRECTORY ====================
@@ -965,16 +993,20 @@ async def process_comprehensive_traffic_video(request: VideoAnalysisRequest):
             for j in range(i + 1, len(detected_vehicles)):
                 b1 = detected_vehicles[i]['bbox']
                 b2 = detected_vehicles[j]['bbox']
-                # Check bounding box overlap / proximity
-                dx = abs((b1['x1'] + b1['x2'])/2 - (b2['x1'] + b2['x2'])/2)
-                dy = abs((b1['y1'] + b1['y2'])/2 - (b2['y1'] + b2['y2'])/2)
-                if dx < 90 and dy < 90:
+                intersection_width = max(0.0, min(b1['x2'], b2['x2']) - max(b1['x1'], b2['x1']))
+                intersection_height = max(0.0, min(b1['y2'], b2['y2']) - max(b1['y1'], b2['y1']))
+                intersection_area = intersection_width * intersection_height
+                area_1 = max(0.0, b1['x2'] - b1['x1']) * max(0.0, b1['y2'] - b1['y1'])
+                area_2 = max(0.0, b2['x2'] - b2['x1']) * max(0.0, b2['y2'] - b2['y1'])
+                overlap_ratio = intersection_area / max(1.0, area_1 + area_2 - intersection_area)
+                if overlap_ratio >= 0.15:
                     collision_detected = True
                     accident_info = {
                         'accident_id': f"ACC-VID-{random.randint(1000, 9999)}",
                         'severity': 'CRITICAL',
                         'collision_probability': 0.94,
                         'confidence': 0.96,
+                        'evidence': 'vehicle_bbox_overlap',
                         'vehicles_involved': [detected_vehicles[i]['id'], detected_vehicles[j]['id']],
                         'plates_involved': [detected_vehicles[i]['plateNumber'], detected_vehicles[j]['plateNumber']],
                         'location': request.location,
@@ -984,8 +1016,11 @@ async def process_comprehensive_traffic_video(request: VideoAnalysisRequest):
                     break
 
         accident_prediction = classify_real_frame(image, 'accident_classifier')
-        if accident_prediction and accident_prediction['label'].lower() == 'accident':
-            collision_detected = True
+        if accident_prediction:
+            collision_detected = (
+                accident_prediction['label'].lower() == 'accident'
+                and accident_prediction['confidence'] >= ACCIDENT_CONFIDENCE_THRESHOLD
+            )
             accident_info = {
                 'accident_id': f"ACC-VID-{random.randint(1000, 9999)}",
                 'severity': 'HIGH',
@@ -997,7 +1032,7 @@ async def process_comprehensive_traffic_video(request: VideoAnalysisRequest):
                 'road_blockage_percent': None,
                 'emergency_dispatch_recommended': True,
                 'model': accident_prediction['model']
-            }
+            } if collision_detected else None
 
         # Street Encroachment / Crowd
         crowd_size = person_count
@@ -1184,7 +1219,9 @@ async def predict_pedestrian_behavior(request: dict):
 
 @app.post("/detect/helmet")
 async def detect_helmet_endpoint(request: dict):
-    return {"available": False, "vehicle_id": request.get('vehicle_id'), "reason": "No trained helmet detector is configured"}
+    image = load_image(request.get('frame_url'), request.get('frame_base64'))
+    detections = run_specialized_detector(image, models.helmet_detector, 'helmet_detector')
+    return {"available": models.helmet_detector is not None, "detections": detections, "total": len(detections)}
 
 @app.post("/detect/crowd")
 async def detect_crowd_endpoint(request: dict):
