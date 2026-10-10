@@ -54,7 +54,7 @@ Added a comprehensive AI-powered Encroachment & Obstruction Monitoring module to
 
 ### Documentation
 
-1. **Feature Documentation** (`docs/ENCROACHMENT_MONITORING.md`)
+1. **Feature Documentation** (`docs/features/ENCROACHMENT_MONITORING.md`)
    - Complete technical documentation
    - API reference
    - Usage guide
@@ -189,8 +189,8 @@ npm run dev
 - `frontend/src/components/admin/EncroachmentMonitoring.jsx`
 - `frontend/public/images/encroachment/` (directory)
 - `frontend/public/images/encroachment/README.md`
-- `docs/ENCROACHMENT_MONITORING.md`
-- `docs/IMAGE_FEATURE_OVERVIEW.md`
+- `docs/features/ENCROACHMENT_MONITORING.md`
+- `docs/features/IMAGE_FEATURE_OVERVIEW.md`
 - `ENCROACHMENT_FEATURE.md` (this file)
 - `IMAGE_INTEGRATION_GUIDE.md`
 - `QUICK_IMAGE_SETUP.txt`

@@ -197,7 +197,7 @@ echo "   4. Check violations in Recent Violations tab"
 echo ""
 
 echo -e "\n${YELLOW}📚 DOCUMENTATION:${NC}"
-echo "   Full deployment guide: DEPLOYMENT_GUIDE_ML_MODELS.md"
+echo "   Full deployment guide: docs/deployment/DEPLOYMENT_GUIDE_ML_MODELS.md"
 echo ""
 
 echo -e "${GREEN}Ready to deploy! 🚀${NC}\n"

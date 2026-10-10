@@ -183,7 +183,7 @@ echo    Email: admin@traffic.local
 echo    Password: Admin@123
 echo.
 echo 📚 For detailed setup guide, see:
-echo    DEPLOYMENT_GUIDE_ML_MODELS.md
+echo    docs\deployment\DEPLOYMENT_GUIDE_ML_MODELS.md
 echo.
 echo ✅ Ready to deploy!
 echo.

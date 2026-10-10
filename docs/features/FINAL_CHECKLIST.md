@@ -205,9 +205,9 @@
 ### Quick Help
 - **Image Setup**: See `QUICK_IMAGE_SETUP.txt`
 - **Detailed Guide**: See `IMAGE_INTEGRATION_GUIDE.md`
-- **Technical Docs**: See `docs/ENCROACHMENT_MONITORING.md`
-- **Visual Guide**: See `docs/IMAGE_FEATURE_OVERVIEW.md`
-- **System Flow**: See `docs/SYSTEM_FLOW_DIAGRAM.md`
+- **Technical Docs**: See `docs/features/ENCROACHMENT_MONITORING.md`
+- **Visual Guide**: See `docs/features/IMAGE_FEATURE_OVERVIEW.md`
+- **System Flow**: See `docs/architecture/SYSTEM_FLOW_DIAGRAMS.md`
 
 ### Common Questions
 

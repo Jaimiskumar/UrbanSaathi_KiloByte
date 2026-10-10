@@ -4,7 +4,7 @@ Welcome! This document index guides you through the comprehensive AI/ML traffic 
 
 ## 📚 Documentation Files
 
-### 🚀 **[QUICKSTART_ML_SYSTEM.md](QUICKSTART_ML_SYSTEM.md)** ⭐ START HERE
+### 🚀 **[QUICKSTART_ML_SYSTEM.md](../getting-started/QUICKSTART_ML_SYSTEM.md)** ⭐ START HERE
 Quick overview of all ML features, API examples, and deployment steps.
 - System components overview
 - All 7 ML detection models explained
@@ -22,7 +22,7 @@ Comprehensive documentation with architecture, database models, and all API endp
 - Performance metrics
 - Deployment guide
 
-### 🐍 **[PYTHON_ML_SERVICE_SETUP.md](PYTHON_ML_SERVICE_SETUP.md)** - ML Backend Setup
+### 🐍 **[PYTHON_ML_SERVICE_SETUP.md](../deployment/PYTHON_ML_SERVICE_SETUP.md)** - ML Backend Setup
 Step-by-step guide to install and run the Python FastAPI ML service.
 - Environment setup
 - Model installation and download

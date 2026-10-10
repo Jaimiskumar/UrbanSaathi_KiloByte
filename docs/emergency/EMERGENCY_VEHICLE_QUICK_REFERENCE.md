@@ -377,10 +377,10 @@ db.traffic_signals.find({signalId: "SIG001"})
 
 ## More Information
 
-- **Full Documentation**: `docs/EMERGENCY_VEHICLE_SYSTEM.md`
-- **API Testing**: `docs/EMERGENCY_VEHICLE_API_TESTING.md`
-- **ML Integration**: `docs/EMERGENCY_VEHICLE_ML_INTEGRATION.md`
-- **Implementation Summary**: `docs/EMERGENCY_VEHICLE_IMPLEMENTATION_SUMMARY.md`
+- **Full Documentation**: `docs/emergency/EMERGENCY_VEHICLE_SYSTEM.md`
+- **API Testing**: `docs/emergency/EMERGENCY_VEHICLE_API_TESTING.md`
+- **ML Integration**: `docs/emergency/EMERGENCY_VEHICLE_ML_INTEGRATION.md`
+- **Implementation Summary**: `docs/emergency/EMERGENCY_VEHICLE_IMPLEMENTATION_SUMMARY.md`
 
 ---
 **Version**: 1.0  

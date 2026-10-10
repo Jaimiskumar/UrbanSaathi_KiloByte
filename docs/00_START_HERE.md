@@ -5,24 +5,24 @@
 ## Quick Navigation
 
 ### 🚀 Getting Started (5 minutes)
-1. **[Start Here](EMERGENCY_VEHICLE_IMPLEMENTATION_COMPLETE.md)** - Overview and completion status
-2. **[Quick Reference](docs/EMERGENCY_VEHICLE_QUICK_REFERENCE.md)** - Commands and API overview
-3. **[API Testing](docs/EMERGENCY_VEHICLE_API_TESTING.md)** - Try endpoints immediately
+1. **[Start Here](emergency/EMERGENCY_VEHICLE_IMPLEMENTATION_COMPLETE.md)** - Overview and completion status
+2. **[Quick Reference](emergency/EMERGENCY_VEHICLE_QUICK_REFERENCE.md)** - Commands and API overview
+3. **[API Testing](emergency/EMERGENCY_VEHICLE_API_TESTING.md)** - Try endpoints immediately
 
 ### 🏗️ Understanding the System (15 minutes)
-1. **[System Architecture](docs/EMERGENCY_VEHICLE_SYSTEM.md)** - How everything works together
-2. **[Data Models](docs/EMERGENCY_VEHICLE_SYSTEM.md#data-models)** - Database schemas
-3. **[API Endpoints](docs/EMERGENCY_VEHICLE_API_TESTING.md#api-endpoint-tests)** - All available endpoints
+1. **[System Architecture](emergency/EMERGENCY_VEHICLE_SYSTEM.md)** - How everything works together
+2. **[Data Models](emergency/EMERGENCY_VEHICLE_SYSTEM.md#data-models)** - Database schemas
+3. **[API Endpoints](emergency/EMERGENCY_VEHICLE_API_TESTING.md#api-endpoint-tests)** - All available endpoints
 
 ### 💻 Implementation Details (30 minutes)
-1. **[Implementation Summary](docs/EMERGENCY_VEHICLE_IMPLEMENTATION_SUMMARY.md)** - Files created and why
-2. **[ML Integration](docs/EMERGENCY_VEHICLE_ML_INTEGRATION.md)** - How to integrate camera detection
-3. **[UI Integration](docs/EMERGENCY_VEHICLE_UI_INTEGRATION.md)** - Dashboard and app code
+1. **[Implementation Summary](emergency/EMERGENCY_VEHICLE_IMPLEMENTATION_SUMMARY.md)** - Files created and why
+2. **[ML Integration](emergency/EMERGENCY_VEHICLE_ML_INTEGRATION.md)** - How to integrate camera detection
+3. **[UI Integration](emergency/EMERGENCY_VEHICLE_UI_INTEGRATION.md)** - Dashboard and app code
 
 ### 🧪 Testing & Deployment (20 minutes)
-1. **[API Testing Guide](docs/EMERGENCY_VEHICLE_API_TESTING.md)** - Complete testing procedures
-2. **[Troubleshooting](docs/EMERGENCY_VEHICLE_QUICK_REFERENCE.md#common-issues--solutions)** - Common issues and fixes
-3. **[Setup Checklist](docs/EMERGENCY_VEHICLE_API_TESTING.md#production-checklist)** - Deploy to production
+1. **[API Testing Guide](emergency/EMERGENCY_VEHICLE_API_TESTING.md)** - Complete testing procedures
+2. **[Troubleshooting](emergency/EMERGENCY_VEHICLE_QUICK_REFERENCE.md#common-issues--solutions)** - Common issues and fixes
+3. **[Setup Checklist](emergency/EMERGENCY_VEHICLE_API_TESTING.md#production-checklist)** - Deploy to production
 
 ---
 
@@ -56,13 +56,13 @@
 
 | Document | Purpose | Length | Time |
 |----------|---------|--------|------|
-| `EMERGENCY_VEHICLE_IMPLEMENTATION_COMPLETE.md` | Project overview & status | 300 lines | 5 min |
-| `docs/EMERGENCY_VEHICLE_SYSTEM.md` | Complete system documentation | 600 lines | 15 min |
-| `docs/EMERGENCY_VEHICLE_API_TESTING.md` | API testing guide with examples | 500 lines | 20 min |
-| `docs/EMERGENCY_VEHICLE_ML_INTEGRATION.md` | ML detection integration guide | 400 lines | 15 min |
-| `docs/EMERGENCY_VEHICLE_QUICK_REFERENCE.md` | Quick lookups and commands | 300 lines | 5 min |
-| `docs/EMERGENCY_VEHICLE_UI_INTEGRATION.md` | Dashboard & app code examples | 600 lines | 20 min |
-| `docs/EMERGENCY_VEHICLE_IMPLEMENTATION_SUMMARY.md` | Technical implementation details | 400 lines | 15 min |
+| `emergency/EMERGENCY_VEHICLE_IMPLEMENTATION_COMPLETE.md` | Project overview & status | 300 lines | 5 min |
+| `emergency/EMERGENCY_VEHICLE_SYSTEM.md` | Complete system documentation | 600 lines | 15 min |
+| `emergency/EMERGENCY_VEHICLE_API_TESTING.md` | API testing guide with examples | 500 lines | 20 min |
+| `emergency/EMERGENCY_VEHICLE_ML_INTEGRATION.md` | ML detection integration guide | 400 lines | 15 min |
+| `emergency/EMERGENCY_VEHICLE_QUICK_REFERENCE.md` | Quick lookups and commands | 300 lines | 5 min |
+| `emergency/EMERGENCY_VEHICLE_UI_INTEGRATION.md` | Dashboard & app code examples | 600 lines | 20 min |
+| `emergency/EMERGENCY_VEHICLE_IMPLEMENTATION_SUMMARY.md` | Technical implementation details | 400 lines | 15 min |
 
 ---
 
@@ -215,7 +215,7 @@ socket.on('emergency_location_update', (data) => {
 });
 ```
 
-**See `docs/EMERGENCY_VEHICLE_QUICK_REFERENCE.md` for all 10 events**
+**See `emergency/EMERGENCY_VEHICLE_QUICK_REFERENCE.md` for all 10 events**
 
 ---
 
@@ -317,19 +317,19 @@ POST /api/emergency-vehicles/AMB002/deactivate-corridor
 ## Support & Help
 
 ### For Errors
-👉 See **[Troubleshooting Guide](docs/EMERGENCY_VEHICLE_QUICK_REFERENCE.md#common-issues--solutions)**
+👉 See **[Troubleshooting Guide](emergency/EMERGENCY_VEHICLE_QUICK_REFERENCE.md#common-issues--solutions)**
 
 ### For API Help
-👉 See **[API Testing Guide](docs/EMERGENCY_VEHICLE_API_TESTING.md)**
+👉 See **[API Testing Guide](emergency/EMERGENCY_VEHICLE_API_TESTING.md)**
 
 ### For ML Integration
-👉 See **[ML Integration Guide](docs/EMERGENCY_VEHICLE_ML_INTEGRATION.md)**
+👉 See **[ML Integration Guide](emergency/EMERGENCY_VEHICLE_ML_INTEGRATION.md)**
 
 ### For UI Code
-👉 See **[UI Integration Guide](docs/EMERGENCY_VEHICLE_UI_INTEGRATION.md)**
+👉 See **[UI Integration Guide](emergency/EMERGENCY_VEHICLE_UI_INTEGRATION.md)**
 
 ### For Details
-👉 See **[System Documentation](docs/EMERGENCY_VEHICLE_SYSTEM.md)**
+👉 See **[System Documentation](emergency/EMERGENCY_VEHICLE_SYSTEM.md)**
 
 ---
 
@@ -364,13 +364,13 @@ Status:                 ✅ Complete
 3. View real-time WebSocket events
 
 ### To Integrate:
-1. Read [System Architecture](docs/EMERGENCY_VEHICLE_SYSTEM.md)
-2. Review [Data Models](docs/EMERGENCY_VEHICLE_IMPLEMENTATION_SUMMARY.md#data-models)
-3. Check [UI Examples](docs/EMERGENCY_VEHICLE_UI_INTEGRATION.md)
+1. Read [System Architecture](emergency/EMERGENCY_VEHICLE_SYSTEM.md)
+2. Review [Data Models](emergency/EMERGENCY_VEHICLE_IMPLEMENTATION_SUMMARY.md#data-models)
+3. Check [UI Examples](emergency/EMERGENCY_VEHICLE_UI_INTEGRATION.md)
 
 ### To Deploy:
-1. Follow [Production Checklist](docs/EMERGENCY_VEHICLE_API_TESTING.md#production-checklist)
-2. Run [Complete Tests](docs/EMERGENCY_VEHICLE_API_TESTING.md#complete-test-scenario)
+1. Follow [Production Checklist](emergency/EMERGENCY_VEHICLE_API_TESTING.md#production-checklist)
+2. Run [Complete Tests](emergency/EMERGENCY_VEHICLE_API_TESTING.md#complete-test-scenario)
 3. Monitor performance metrics
 
 ### To Enhance:

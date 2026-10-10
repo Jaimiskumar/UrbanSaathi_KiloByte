@@ -228,7 +228,7 @@ Error Handling:
 
 ### 4. Documentation
 
-#### `docs/EMERGENCY_VEHICLE_SYSTEM.md` (600+ lines)
+#### `docs/emergency/EMERGENCY_VEHICLE_SYSTEM.md` (600+ lines)
 ```
 Complete system documentation including:
   - Architecture diagrams
@@ -243,7 +243,7 @@ Complete system documentation including:
   - Future enhancements
 ```
 
-#### `docs/EMERGENCY_VEHICLE_API_TESTING.md` (500+ lines)
+#### `docs/emergency/EMERGENCY_VEHICLE_API_TESTING.md` (500+ lines)
 ```
 Complete API testing guide including:
   - Authentication setup
@@ -257,7 +257,7 @@ Complete API testing guide including:
   - Performance benchmarks
 ```
 
-#### `docs/EMERGENCY_VEHICLE_ML_INTEGRATION.md` (400+ lines)
+#### `docs/emergency/EMERGENCY_VEHICLE_ML_INTEGRATION.md` (400+ lines)
 ```
 ML detection integration guide including:
   - Architecture diagram

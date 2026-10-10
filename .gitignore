@@ -38,6 +38,7 @@ Thumbs.db
 # Python
 __pycache__/
 *.py[cod]
+models/easyocr/
 # Generated training datasets and run directories stay local.
 data/additional_real/
 data/helmet_real/

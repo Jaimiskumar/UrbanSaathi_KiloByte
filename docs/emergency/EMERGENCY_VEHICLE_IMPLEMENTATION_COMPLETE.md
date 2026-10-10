@@ -57,31 +57,31 @@ A **production-ready emergency vehicle detection system** that automatically:
 
 ### Documentation (5 files - 2,400+ lines)
 ```
-✅ docs/EMERGENCY_VEHICLE_SYSTEM.md (600+ lines)
+✅ docs/emergency/EMERGENCY_VEHICLE_SYSTEM.md (600+ lines)
    - Complete system documentation
    - Architecture diagrams
    - Data models
    - Setup instructions
 
-✅ docs/EMERGENCY_VEHICLE_API_TESTING.md (500+ lines)
+✅ docs/emergency/EMERGENCY_VEHICLE_API_TESTING.md (500+ lines)
    - API endpoint testing
    - All 9 endpoints explained
    - Expected responses
    - Complete test scenarios
 
-✅ docs/EMERGENCY_VEHICLE_ML_INTEGRATION.md (400+ lines)
+✅ docs/emergency/EMERGENCY_VEHICLE_ML_INTEGRATION.md (400+ lines)
    - ML detection setup
    - YOLOv8 configuration
    - Webhook handlers
    - Python integration examples
 
-✅ docs/EMERGENCY_VEHICLE_QUICK_REFERENCE.md (300+ lines)
+✅ docs/emergency/EMERGENCY_VEHICLE_QUICK_REFERENCE.md (300+ lines)
    - Quick lookups
    - Command examples
    - WebSocket events
    - Troubleshooting
 
-✅ docs/EMERGENCY_VEHICLE_UI_INTEGRATION.md (600+ lines)
+✅ docs/emergency/EMERGENCY_VEHICLE_UI_INTEGRATION.md (600+ lines)
    - Dashboard implementation
    - Complete JavaScript code
    - CSS styling
@@ -374,12 +374,12 @@ app.use('/api/emergency-vehicles', emergencyVehicleRoutes);
 ## Support & Documentation
 
 Full documentation available in:
-- `docs/EMERGENCY_VEHICLE_SYSTEM.md` - Complete overview
-- `docs/EMERGENCY_VEHICLE_API_TESTING.md` - API testing guide
-- `docs/EMERGENCY_VEHICLE_ML_INTEGRATION.md` - ML integration
-- `docs/EMERGENCY_VEHICLE_QUICK_REFERENCE.md` - Quick reference
-- `docs/EMERGENCY_VEHICLE_UI_INTEGRATION.md` - UI code examples
-- `docs/EMERGENCY_VEHICLE_IMPLEMENTATION_SUMMARY.md` - Implementation details
+- `docs/emergency/EMERGENCY_VEHICLE_SYSTEM.md` - Complete overview
+- `docs/emergency/EMERGENCY_VEHICLE_API_TESTING.md` - API testing guide
+- `docs/emergency/EMERGENCY_VEHICLE_ML_INTEGRATION.md` - ML integration
+- `docs/emergency/EMERGENCY_VEHICLE_QUICK_REFERENCE.md` - Quick reference
+- `docs/emergency/EMERGENCY_VEHICLE_UI_INTEGRATION.md` - UI code examples
+- `docs/emergency/EMERGENCY_VEHICLE_IMPLEMENTATION_SUMMARY.md` - Implementation details
 
 ## Summary
 

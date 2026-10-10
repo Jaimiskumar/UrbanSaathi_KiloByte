@@ -63,7 +63,7 @@ frontend/src/components/admin/IllegalParkingDetection.jsx  - Main component
 
 ### Documentation
 ```
-docs/ILLEGAL_PARKING_DETECTION.md  - Complete technical docs
+docs/features/ILLEGAL_PARKING_DETECTION.md  - Complete technical docs
 ILLEGAL_PARKING_FEATURE.md         - This file
 ```
 

@@ -2,7 +2,7 @@
 
 ## 🎯 START HERE
 
-**First time?** → Read [`QUICK_START.md`](QUICK_START.md) (5 minutes)
+**First time?** → Read [`QUICK_START.md`](../getting-started/QUICK_START.md) (5 minutes)
 **Want details?** → Read [`DEPLOYMENT_GUIDE_ML_MODELS.md`](DEPLOYMENT_GUIDE_ML_MODELS.md) (30 minutes)
 **Just want summary?** → Read [`ML_MODELS_DEPLOYMENT_SUMMARY.md`](ML_MODELS_DEPLOYMENT_SUMMARY.md)
 
@@ -462,7 +462,7 @@ kill -9 <PID>
 
 ## 📝 NEXT IMMEDIATE STEPS
 
-1. **NOW**: Read [`QUICK_START.md`](QUICK_START.md)
+1. **NOW**: Read [`QUICK_START.md`](../getting-started/QUICK_START.md)
 2. **THEN**: Run `setup.bat` or `setup.sh`
 3. **THEN**: Start 3 services (follow setup instructions)
 4. **TEST**: Upload image → See real detections
