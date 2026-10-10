@@ -17,6 +17,7 @@ function generateChallanNumber() {
  * Map violation type to challan violation type
  */
 function mapViolationType(violationType, violationData = {}) {
+  const normalizedType = String(violationType || '').trim().toLowerCase();
   const typeMap = {
     'helmet_violation': 'helmet_violation',
     'speeding': 'speeding',
@@ -26,10 +27,28 @@ function mapViolationType(violationType, violationData = {}) {
     'no-parking-zone': 'no_parking_zone',
     'double-parking': 'illegal_parking',
     'street_encroachment': 'encroachment',
-    'pedestrian_gathering': 'encroachment'
+    'pedestrian_gathering': 'encroachment',
+    'overspeeding': 'speeding',
+    'rash-driving': 'rash_driving',
+    'signal-breaking': 'signal_violation'
   };
   
-  return typeMap[violationType] || violationType;
+  return typeMap[normalizedType] || normalizedType;
+}
+
+function normalizeLocation(location) {
+  if (!location || typeof location === 'string') return location;
+  if (typeof location === 'object') {
+    const label = location.name || location.label || location.locationName;
+    if (label) return String(label);
+    if (location.lat !== undefined && location.lng !== undefined) {
+      return `${location.lat}, ${location.lng}`;
+    }
+    if (location.latitude !== undefined && location.longitude !== undefined) {
+      return `${location.latitude}, ${location.longitude}`;
+    }
+  }
+  return String(location);
 }
 
 const CITIZEN_DIRECTORY = [
@@ -163,7 +182,7 @@ export async function createChallanFromViolation(violation, violationModel = 'Tr
     // Step 2: Generate challan number
     const challanNumber = violation.challanNumber || violation.challan_number || generateChallanNumber();
     const violationType = mapViolationType(violation.violationType || violation.type || violation.helmetStatus, violation);
-    const location = violation.location || violation.signalLocation || violation.area || 'Silk Board Junction, Bengaluru';
+    const location = normalizeLocation(violation.location || violation.signalLocation || violation.area || 'Silk Board Junction, Bengaluru');
     const evidenceImage = violation.evidence_photo || violation.imageUrl || violation.image_url || violation.snapshot;
 
     const legalSectionMap = {

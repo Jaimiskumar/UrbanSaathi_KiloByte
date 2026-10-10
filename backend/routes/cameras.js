@@ -5,6 +5,7 @@
 
 import express from 'express';
 import Camera from '../models/Camera.js';
+import SentinelEvent from '../models/SentinelEvent.js';
 import { authMiddleware } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -95,10 +96,12 @@ router.post('/', authMiddleware, async (req, res) => {
  */
 router.get('/', authMiddleware, async (req, res) => {
   try {
-    const { location, status, isActive, limit = 50, page = 1 } = req.query;
+    const { location, vendor, vmsId, status, isActive, limit = 50, page = 1 } = req.query;
 
     const filter = {};
     if (location) filter.location = new RegExp(location, 'i');
+    if (vendor) filter.vendor = new RegExp(vendor, 'i');
+    if (vmsId) filter.vmsId = vmsId;
     if (status) filter.status = status;
     if (isActive !== undefined) filter.isActive = isActive === 'true';
 
@@ -123,6 +126,29 @@ router.get('/', authMiddleware, async (req, res) => {
     console.error('Error fetching cameras:', error);
     res.status(500).json({ message: 'Internal server error' });
   }
+});
+
+router.get('/status', authMiddleware, async (req, res) => {
+  const [total, online, offline, maintenance] = await Promise.all([
+    Camera.countDocuments(),
+    Camera.countDocuments({ status: 'active' }),
+    Camera.countDocuments({ status: 'offline' }),
+    Camera.countDocuments({ status: 'maintenance' })
+  ]);
+  res.json({ total, ONLINE: online, OFFLINE: offline, DEGRADED: 0, MAINTENANCE: maintenance });
+});
+
+router.get('/:cameraId/events', authMiddleware, async (req, res) => {
+  const events = await SentinelEvent.find({ cameraId: req.params.cameraId }).sort({ timestamp: -1 }).limit(100).lean();
+  res.json({ cameraId: req.params.cameraId, events });
+});
+
+router.put('/:cameraId', authMiddleware, async (req, res) => {
+  const allowed = ['cameraName', 'vendor', 'vmsId', 'location', 'latitude', 'longitude', 'roadId', 'intersectionId', 'cameraType', 'protocol', 'streamUrl', 'resolution', 'fps', 'status', 'capabilities', 'notes'];
+  const update = Object.fromEntries(Object.entries(req.body).filter(([key]) => allowed.includes(key)));
+  const camera = await Camera.findOneAndUpdate({ cameraId: req.params.cameraId }, update, { new: true, runValidators: true });
+  if (!camera) return res.status(404).json({ message: 'Camera not found' });
+  res.json({ message: 'Camera updated successfully', camera });
 });
 
 /**

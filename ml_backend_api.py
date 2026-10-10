@@ -1648,12 +1648,17 @@ async def process_comprehensive_traffic_video(request: VideoAnalysisRequest):
                     }
                     break
 
-        accident_prediction = classify_real_frame(image, 'accident_classifier')
+        # A frame-level accident classifier can confuse isolated road damage or
+        # helmet imagery with a crash. Require a multi-vehicle scene before its
+        # result can escalate an event; geometric overlap above remains the
+        # stronger collision signal.
+        accident_prediction = classify_real_frame(image, 'accident_classifier') if len(detected_vehicles) >= 2 else None
         if accident_prediction:
-            collision_detected = (
+            model_detected_accident = (
                 accident_prediction['label'].lower() == 'accident'
                 and accident_prediction['confidence'] >= ACCIDENT_CONFIDENCE_THRESHOLD
             )
+            collision_detected = collision_detected or model_detected_accident
             accident_info = {
                 'accident_id': f"ACC-VID-{random.randint(1000, 9999)}",
                 'severity': 'HIGH',
@@ -1665,7 +1670,7 @@ async def process_comprehensive_traffic_video(request: VideoAnalysisRequest):
                 'road_blockage_percent': None,
                 'emergency_dispatch_recommended': True,
                 'model': accident_prediction['model']
-            } if collision_detected else None
+            } if model_detected_accident else accident_info
 
         # Street Encroachment / Crowd
         crowd_size = len(crowd_detections) if models.crowd_detector is not None else person_count

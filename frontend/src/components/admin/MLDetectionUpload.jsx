@@ -416,7 +416,7 @@ const MLDetectionUpload = () => {
     drawDetectionBoxes(data.crowd_detections || [], '#EC4899');
 
     // 3. Draw Accident / Collision Warning Overlay on Canvas
-    if (data.accident_detection?.accident_detected) {
+    if (isConfirmedAccident(data)) {
       const accConf = Math.round((data.accident_detection.details?.confidence || 0.90) * 100);
       ctx.strokeStyle = '#EF4444';
       ctx.lineWidth = 4;
@@ -547,9 +547,15 @@ const MLDetectionUpload = () => {
     }
   };
 
+  const isConfirmedAccident = (data) => Boolean(
+    data?.accident_detection?.accident_detected
+    && !data?.potholes?.length
+    && (data?.vehicles?.length >= 2 || data?.accident_detection?.details?.evidence === 'vehicle_bbox_overlap')
+  );
+  const hasConfirmedAccident = isConfirmedAccident(result);
   const hasPotholeDetection = Boolean(result?.potholes?.length);
   const detectionGroups = result ? [
-    ...(result.accident_detection?.accident_detected ? [{
+    ...(hasConfirmedAccident ? [{
       label: 'Accident / collision',
       detail: `${Math.round((result.accident_detection.details?.confidence || 0) * 100)}% confidence`,
       confidence: result.accident_detection.details?.confidence,
@@ -933,15 +939,15 @@ const MLDetectionUpload = () => {
               </p>
             </div>
 
-            <div className={`p-3 rounded-xl space-y-1 ${result?.accident_detection?.accident_detected ? 'bg-red-100 border border-red-300 animate-pulse' : 'bg-rose-50 border border-rose-200'}`}>
-              <p className={`text-[10px] font-bold uppercase flex items-center gap-1 ${result?.accident_detection?.accident_detected ? 'text-red-800' : 'text-rose-700'}`}>
-                <AlertOctagon className="w-3 h-3" /> {result?.accident_detection?.accident_detected ? 'Collision / Crash' : 'Collision Risks (TTC)'}
+            <div className={`p-3 rounded-xl space-y-1 ${hasConfirmedAccident ? 'bg-red-100 border border-red-300 animate-pulse' : 'bg-rose-50 border border-rose-200'}`}>
+              <p className={`text-[10px] font-bold uppercase flex items-center gap-1 ${hasConfirmedAccident ? 'text-red-800' : 'text-rose-700'}`}>
+                <AlertOctagon className="w-3 h-3" /> {hasConfirmedAccident ? 'Collision / Crash' : 'Collision Risks (TTC)'}
               </p>
-              <p className={`text-base font-black ${result?.accident_detection?.accident_detected ? 'text-red-900' : 'text-rose-900'}`}>
-                {result?.accident_detection?.accident_detected ? '1 (Active Impact)' : (result?.time_to_collision_analysis?.total_collision_risks_detected || 0)}
+              <p className={`text-base font-black ${hasConfirmedAccident ? 'text-red-900' : 'text-rose-900'}`}>
+                {hasConfirmedAccident ? '1 (Active Impact)' : (result?.time_to_collision_analysis?.total_collision_risks_detected || 0)}
               </p>
-              <p className={`text-[9px] ${result?.accident_detection?.accident_detected ? 'text-red-700 font-bold' : 'text-rose-600'}`}>
-                {result?.accident_detection?.accident_detected ? `Confidence: ${Math.round((result.accident_detection.details?.confidence || 0.90)*100)}%` : `${result?.time_to_collision_analysis?.critical_risks || 0} Critical (<1.8s)`}
+              <p className={`text-[9px] ${hasConfirmedAccident ? 'text-red-700 font-bold' : 'text-rose-600'}`}>
+                {hasConfirmedAccident ? `Confidence: ${Math.round((result.accident_detection.details?.confidence || 0.90)*100)}%` : `${result?.time_to_collision_analysis?.critical_risks || 0} Critical (<1.8s)`}
               </p>
             </div>
           </div>

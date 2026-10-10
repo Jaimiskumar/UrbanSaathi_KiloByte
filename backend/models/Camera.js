@@ -7,6 +7,10 @@ const cameraSchema = new mongoose.Schema({
     unique: true,
     index: true
   },
+  vmsId: {
+    type: String,
+    index: true
+  },
   cameraName: {
     type: String,
     required: true
@@ -24,10 +28,27 @@ const cameraSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
+  roadId: {
+    type: String,
+    index: true
+  },
+  intersectionId: {
+    type: String,
+    index: true
+  },
   cameraType: {
     type: String,
     enum: ['fixed', 'ptz', 'thermal', 'high_speed'],
     default: 'fixed'
+  },
+  protocol: {
+    type: String,
+    enum: ['RTSP', 'ONVIF', 'HTTP', 'HLS', 'WebRTC'],
+    default: 'RTSP'
+  },
+  capabilities: {
+    type: [String],
+    default: ['vehicle_detection', 'plate_detection']
   },
   signalLocation: String,  // Associated traffic signal
   zoneId: mongoose.Schema.Types.ObjectId,  // Reference to ParkingZone if applicable
@@ -68,6 +89,7 @@ const cameraSchema = new mongoose.Schema({
     default: 0.6
   },
   lastHeartbeat: Date,
+  lastSeen: Date,
   totalViolationsDetected: {
     type: Number,
     default: 0

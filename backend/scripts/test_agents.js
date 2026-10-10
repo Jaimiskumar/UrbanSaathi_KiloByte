@@ -1,7 +1,11 @@
+import mongoose from 'mongoose';
+import { env } from '../config/env.js';
 import { eventBus } from '../services/agents/index.js';
 
 async function runTests() {
   console.log("=== STARTING SMART-HORIZON AGENT TESTS ===\n");
+  await mongoose.connect(env.MONGODB_URI);
+  console.log('MongoDB connected for agent tests\n');
 
   // TEST 1: POTHOLE FLOW
   console.log("--- TEST 1: POTHOLE EVENT ---");
@@ -65,6 +69,11 @@ async function runTests() {
   await new Promise(resolve => setTimeout(resolve, 1000));
   
   console.log("\n=== TESTS COMPLETED ===");
+  await mongoose.disconnect();
 }
 
-runTests();
+runTests().catch(async (error) => {
+  console.error('Agent tests failed:', error);
+  await mongoose.disconnect();
+  process.exitCode = 1;
+});

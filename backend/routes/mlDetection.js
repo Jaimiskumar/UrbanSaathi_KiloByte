@@ -19,9 +19,11 @@ import { realMLInference } from '../services/realMLInference.js';
 import { createChallanFromViolation } from '../services/challanGenerationService.js';
 import { authMiddleware, optionalAuth } from '../middleware/auth.js';
 import { processEnforcementDetections, processEncroachmentDetections } from '../services/enforcementWorkflowService.js';
-import { io } from '../server.js';
+import { processAgentDetections } from '../services/agentWorkflowService.js';
+import { getSocketServer } from '../services/socketServer.js';
 
 const router = express.Router();
+const io = { emit: (...args) => getSocketServer().emit(...args) };
 
 const uploadDirectory = path.resolve(process.cwd(), 'uploads', 'evidence');
 fs.mkdirSync(uploadDirectory, { recursive: true });

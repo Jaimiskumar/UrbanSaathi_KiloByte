@@ -15,6 +15,7 @@ import BangaloreTrafficMap from '../components/admin/BangaloreTrafficMap';
 import V2VSafetyCenter from '../components/admin/V2VSafetyCenter';
 import RoadIntelligence from '../components/admin/RoadIntelligence';
 import TrafficAmbientBackground from '../components/common/TrafficAmbientBackground';
+import SentinelCommandCenter from '../components/admin/SentinelCommandCenter';
 
 export default function AdminDashboard({ user, onLogout }) {
   const location = useLocation();
@@ -27,8 +28,9 @@ export default function AdminDashboard({ user, onLogout }) {
   }, [location]);
 
   const tabs = [
+    { id: 'sentinel', label: 'SENTINEL-X Command Center', icon: Shield, path: '/admin/sentinel', color: 'cyan' },
     { id: 'v2v-safety', label: 'Connected Vehicle & Safety', icon: Radio, path: '/admin/v2v-safety', color: 'blue' },
-    { id: 'bangalore-map', label: 'Bangalore Traffic Map', icon: MapIcon, path: '/admin/bangalore-map', color: 'blue' },
+    { id: 'bangalore-map', label: 'Gujarat Traffic Map', icon: MapIcon, path: '/admin/bangalore-map', color: 'blue' },
     { id: 'agents', label: 'AI Agent Center', icon: Bot, path: '/admin/agents', color: 'indigo' },
     { id: 'traffic', label: 'Traffic Monitoring', icon: Car, path: '/admin/traffic', color: 'blue' },
     { id: 'parking', label: 'Parking Management', icon: ParkingCircle, path: '/admin/parking', color: 'green' },
@@ -121,7 +123,7 @@ export default function AdminDashboard({ user, onLogout }) {
                 </span>
                 <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">Live Control Room</span>
                 <span className="text-slate-300">|</span>
-                <span className="text-[11px] font-mono font-medium text-slate-500">Bengaluru Grid Active</span>
+                <span className="text-[11px] font-mono font-medium text-slate-500">Gujarat Grid Active</span>
               </div>
             </div>
 
@@ -161,6 +163,7 @@ export default function AdminDashboard({ user, onLogout }) {
           <div className="animate-fade-in max-w-7xl mx-auto pb-20 lg:pb-0">
             <Routes>
               <Route path="/" element={<V2VSafetyCenter />} />
+              <Route path="/sentinel" element={<SentinelCommandCenter />} />
               <Route path="/v2v-safety" element={<V2VSafetyCenter />} />
               <Route path="/connected-vehicle" element={<V2VSafetyCenter />} />
               <Route path="/bangalore-map" element={<BangaloreTrafficMap />} />

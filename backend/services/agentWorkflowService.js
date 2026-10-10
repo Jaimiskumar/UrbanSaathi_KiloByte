@@ -1,7 +1,7 @@
 import RoadIssue from '../models/RoadIssue.js';
 import { eventBus } from './agents/index.js';
 import { lookupRoad } from './roadIntelligenceService.js';
-import { io } from '../server.js';
+import { getSocketServer } from './socketServer.js';
 
 const canonicalIssue = (label = '') => {
   const value = label.toLowerCase();
@@ -47,6 +47,7 @@ function detectionsToEvents(result, frame) {
 }
 
 export async function processAgentDetections(result, frame, userId) {
+  const io = getSocketServer();
   const workflowRecords = [];
   for (const event of detectionsToEvents(result, frame)) {
     const { event: enrichedEvent, workflow } = await eventBus.publishAndWait(event);
