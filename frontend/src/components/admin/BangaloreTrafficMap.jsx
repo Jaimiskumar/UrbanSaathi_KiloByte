@@ -56,6 +56,8 @@ export default function BangaloreTrafficMap() {
   const [hotspots, setHotspots] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedZone, setSelectedZone] = useState(null);
+  const [trafficAnalysis, setTrafficAnalysis] = useState(null);
+  const [isAnalyzingTraffic, setIsAnalyzingTraffic] = useState(false);
   const [filterSeverity, setFilterSeverity] = useState('ALL'); // 'ALL' | 'CRITICAL' | 'HIGH'
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -65,6 +67,8 @@ export default function BangaloreTrafficMap() {
   // Map View Mode: 'google_traffic' | 'routing' | 'satellite' | 'ai_telemetry'
   const [mapViewMode, setMapViewMode] = useState('google_traffic');
   const [mapZoom, setMapZoom] = useState(14);
+  const [mapFrameLoaded, setMapFrameLoaded] = useState(false);
+  const [mapFrameTimedOut, setMapFrameTimedOut] = useState(false);
 
   // ── AI Dynamic Routing State ──
   const [routeOrigin, setRouteOrigin] = useState('Silk Board Junction');
@@ -249,6 +253,13 @@ export default function BangaloreTrafficMap() {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    setMapFrameLoaded(false);
+    setMapFrameTimedOut(false);
+    const timeout = setTimeout(() => setMapFrameTimedOut(true), 2500);
+    return () => clearTimeout(timeout);
+  }, [mapViewMode, selectedZone?.name, searchQuery, mapZoom]);
+
   // 2. Real-Time Socket.IO Synchronization
   useEffect(() => {
     const socket = io({
@@ -292,6 +303,39 @@ export default function BangaloreTrafficMap() {
   const focusOnZone = (zone) => {
     setSelectedZone(zone);
     setMapZoom(15);
+    setTrafficAnalysis(null);
+  };
+
+  const analyzeSelectedTraffic = async () => {
+    if (!selectedZone) return;
+
+    setIsAnalyzingTraffic(true);
+    try {
+      const response = await axios.post('/api/traffic-signals/analyze', {
+        location: {
+          name: selectedZone.name,
+          zone: selectedZone.zone_id
+        },
+        areas: [{
+          area: selectedZone.name,
+          vehicleCount: selectedZone.current_vehicle_density || 0,
+          averageSpeedKmh: selectedZone.average_speed || 0,
+          queueLength: selectedZone.prediction_30min?.queue_m || 0,
+          roadBlocked: Boolean(selectedZone.roadBlocked),
+          blockageSeverity: selectedZone.blockageSeverity || selectedZone.risk_level
+        }],
+        applySignalChanges: false,
+        source: 'bangalore-traffic-map'
+      });
+
+      setTrafficAnalysis(response.data?.analysis || null);
+      toast.success('Traffic Agent analysis completed', { duration: 4000 });
+    } catch (error) {
+      console.error('Traffic Agent analysis failed:', error);
+      toast.error(error.response?.data?.error || 'Traffic Agent analysis failed');
+    } finally {
+      setIsAnalyzingTraffic(false);
+    }
   };
 
   // Trigger Emergency Green Wave Demo
@@ -360,13 +404,17 @@ export default function BangaloreTrafficMap() {
 
   // Build high-definition embed URL for Google Maps
   const getGoogleMapsEmbedUrl = () => {
-    const base = "https://maps.google.com/maps";
+    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+    const legacyBase = 'https://maps.google.com/maps';
+    const base = apiKey ? 'https://www.google.com/maps/embed/v1' : legacyBase;
     
     // Route Directions Mode
     if (mapViewMode === 'routing') {
       const origin = routeOrigin ? `${routeOrigin}, Bengaluru, Karnataka` : "Silk Board Junction, Bengaluru, Karnataka";
       const destination = routeDestination ? `${routeDestination}, Bengaluru, Karnataka` : "Electronic City, Bengaluru, Karnataka";
-      return `${base}?saddr=${encodeURIComponent(origin)}&daddr=${encodeURIComponent(destination)}&t=m&output=embed`;
+      return apiKey
+        ? `${base}/directions?key=${encodeURIComponent(apiKey)}&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&travelmode=driving`
+        : `${base}?saddr=${encodeURIComponent(origin)}&daddr=${encodeURIComponent(destination)}&t=m&output=embed`;
     }
 
     // Standard / Satellite / AI Mode
@@ -374,8 +422,12 @@ export default function BangaloreTrafficMap() {
     if (searchQuery.trim()) {
       target = `${searchQuery.trim()}, Bengaluru, Karnataka`;
     }
+    if (apiKey) {
+      const mapType = mapViewMode === 'satellite' ? '&maptype=satellite' : '';
+      return `${base}/place?key=${encodeURIComponent(apiKey)}&q=${encodeURIComponent(target)}${mapType}&zoom=${mapZoom}`;
+    }
     const mapType = mapViewMode === 'satellite' ? 'k' : 'm';
-    return `${base}?q=${encodeURIComponent(target)}&t=${mapType}&z=${mapZoom}&output=embed&iwloc=near`;
+    return `${legacyBase}?q=${encodeURIComponent(target)}&t=${mapType}&z=${mapZoom}&output=embed&iwloc=near`;
   };
 
   // Filtered hotspots list
@@ -405,17 +457,16 @@ export default function BangaloreTrafficMap() {
     <div className="space-y-6 pb-20 max-w-[1700px] mx-auto">
       
       {/* ── Header: Operational City Banner ── */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-3xl p-6 md:p-8 text-white shadow-xl border border-slate-800 relative overflow-hidden">
+      <div className="bg-white rounded-3xl p-6 md:p-8 text-slate-900 shadow-sm border border-slate-200 relative overflow-hidden">
         
         {/* Background Ambient Glow */}
-        <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl pointer-events-none"></div>
-        <div className="absolute bottom-0 left-1/3 w-80 h-80 bg-purple-500/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div className="absolute top-0 right-0 w-72 h-72 bg-blue-50 rounded-full blur-3xl pointer-events-none"></div>
 
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2">
             <div className="flex items-center gap-3">
-              <span className="bg-blue-500 text-white text-[10px] font-black uppercase tracking-[0.25em] px-3 py-1 rounded-full shadow-sm flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+              <span className="bg-blue-50 text-blue-700 text-[10px] font-black uppercase tracking-[0.25em] px-3 py-1 rounded-full border border-blue-100 flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
                 Primary Operational City (Live Demo)
               </span>
               <span className="text-slate-400 text-xs font-bold font-mono">
@@ -423,23 +474,23 @@ export default function BangaloreTrafficMap() {
               </span>
             </div>
 
-            <h1 className="text-2xl md:text-4xl font-black tracking-tight text-white flex items-center gap-3">
+            <h1 className="text-2xl md:text-4xl font-black tracking-tight text-slate-900 flex items-center gap-3">
               Bengaluru Traffic Intelligence & AI Routing Map
             </h1>
-            <p className="text-sm text-slate-300 max-w-3xl leading-relaxed">
+            <p className="text-sm text-slate-500 max-w-3xl leading-relaxed">
               Real-time multi-modal geospatial telemetry, turn-by-turn AI diversion routing, and live road hazard perception across Silk Board, Bellandur, Hebbal, and Smart Horizon College corridors.
             </p>
           </div>
 
           {/* City Mode & Status Switcher */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-            <div className="bg-slate-800/90 p-1.5 rounded-2xl border border-slate-700 flex items-center">
+            <div className="bg-slate-50 p-1.5 rounded-2xl border border-slate-200 flex items-center">
               <button
                 onClick={() => setSelectedCity('bengaluru')}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
                   selectedCity === 'bengaluru' 
                     ? 'bg-blue-600 text-white shadow-md' 
-                    : 'text-slate-400 hover:text-white'
+                    : 'text-slate-500 hover:text-slate-900'
                 }`}
               >
                 <Building2 className="w-3.5 h-3.5" /> Bengaluru (Primary)
@@ -449,24 +500,24 @@ export default function BangaloreTrafficMap() {
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
                   selectedCity === 'smart-horizon' 
                     ? 'bg-blue-600 text-white' 
-                    : 'text-slate-400 hover:text-white'
+                    : 'text-slate-500 hover:text-slate-900'
                 }`}
               >
                 Smart Horizon Campus (Node)
               </button>
             </div>
 
-            <div className="bg-slate-800/90 p-4 rounded-2xl border border-slate-700 text-center min-w-[120px]">
-              <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wider mb-0.5">Tracked Zones</p>
-              <p className="text-2xl font-black text-emerald-400 font-mono">{zones.length}</p>
+            <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-100 text-center min-w-[120px]">
+              <p className="text-emerald-700 text-[10px] font-bold uppercase tracking-wider mb-0.5">Tracked Zones</p>
+              <p className="text-2xl font-black text-emerald-600 font-mono">{zones.length}</p>
             </div>
           </div>
         </div>
 
         {/* ── Quick Corridor Navigation Strip ── */}
-        <div className="mt-6 pt-5 border-t border-slate-800/80 flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+        <div className="mt-6 pt-5 border-t border-slate-200 flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
           <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider shrink-0 flex items-center gap-1">
-            <Crosshair className="w-3.5 h-3.5 text-blue-400" /> Jump Corridor:
+            <Crosshair className="w-3.5 h-3.5 text-blue-600" /> Jump Corridor:
           </span>
           {keyCorridors.map((corridor) => {
             const isSelected = selectedZone?.name === corridor.fullName || selectedZone?.zone_id === corridor.id;
@@ -491,7 +542,7 @@ export default function BangaloreTrafficMap() {
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 ${
                   isSelected
                     ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30 scale-105 border border-blue-400'
-                    : 'bg-slate-800/70 hover:bg-slate-800 text-slate-300 border border-slate-700/60'
+                    : 'bg-slate-50 hover:bg-blue-50 text-slate-600 border border-slate-200'
                 }`}
               >
                 <span>{corridor.icon}</span>
@@ -505,6 +556,65 @@ export default function BangaloreTrafficMap() {
         </div>
 
       </div>
+
+      {/* ── Traffic Agent Summary ── */}
+      <section className="bg-white rounded-3xl border border-slate-200 shadow-sm p-5 md:p-6" aria-live="polite">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="rounded-2xl bg-blue-50 p-3 text-blue-600">
+              <Sparkles className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-700">LangGraph Traffic Agent</p>
+              <h2 className="text-lg font-black text-slate-900">Traffic analysis workspace</h2>
+              <p className="mt-1 text-xs text-slate-500">Analyze congestion, forecast intensity, rank hotspots, and prepare signal recommendations for {selectedZone?.name || 'the selected corridor'}.</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={analyzeSelectedTraffic}
+            disabled={!selectedZone || isAnalyzingTraffic}
+            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-black text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isAnalyzingTraffic ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Activity className="w-4 h-4" />}
+            {isAnalyzingTraffic ? 'Analyzing...' : 'Analyze selected corridor'}
+          </button>
+        </div>
+
+        {trafficAnalysis ? (
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            <div className="rounded-2xl bg-blue-50 p-4">
+              <span className="text-[10px] font-bold uppercase text-blue-700">Intensity</span>
+              <p className="mt-1 text-2xl font-black text-slate-900">{trafficAnalysis.overallIntensity?.score ?? 0}<span className="text-sm text-slate-500">/100</span></p>
+              <p className="text-[10px] font-black text-blue-700">{trafficAnalysis.overallIntensity?.level || 'UNKNOWN'}</p>
+            </div>
+            <div className="rounded-2xl bg-slate-50 p-4">
+              <span className="text-[10px] font-bold uppercase text-slate-500">Average speed</span>
+              <p className="mt-1 text-2xl font-black text-slate-900">{trafficAnalysis.averageSpeedKmh ?? 0}</p>
+              <p className="text-[10px] text-slate-500">km/h across analyzed areas</p>
+            </div>
+            <div className="rounded-2xl bg-amber-50 p-4">
+              <span className="text-[10px] font-bold uppercase text-amber-700">Forecast</span>
+              <p className="mt-1 text-lg font-black text-slate-900">{trafficAnalysis.intensityByArea?.[0]?.forecast?.trend || 'STABLE'}</p>
+              <p className="text-[10px] text-amber-700">15-30 minute outlook</p>
+            </div>
+            <div className="rounded-2xl bg-rose-50 p-4">
+              <span className="text-[10px] font-bold uppercase text-rose-700">Priority areas</span>
+              <p className="mt-1 text-2xl font-black text-slate-900">{trafficAnalysis.networkSummary?.highRiskAreas ?? 0}</p>
+              <p className="text-[10px] text-rose-700">high-risk hotspots</p>
+            </div>
+            <div className="rounded-2xl bg-emerald-50 p-4">
+              <span className="text-[10px] font-bold uppercase text-emerald-700">Throughput</span>
+              <p className="mt-1 text-2xl font-black text-slate-900">{trafficAnalysis.networkSummary?.estimatedThroughputVehiclesPerHour ?? 0}</p>
+              <p className="text-[10px] text-emerald-700">estimated vehicles/hour</p>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-5 rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-500">
+            Select a corridor and run the agent to see explainable traffic results here.
+          </div>
+        )}
+      </section>
 
       {/* ── Layer Toggles Toolbar ── */}
       <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 flex items-center justify-between gap-4 flex-wrap">
@@ -683,8 +793,64 @@ export default function BangaloreTrafficMap() {
                 loading="lazy"
                 title="Bengaluru High-Definition Traffic Intelligence Map"
                 className="w-full h-full transition-all duration-700"
-                sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+                onLoad={() => setMapFrameLoaded(true)}
               ></iframe>
+
+              {false && (
+                <div className="absolute inset-0 z-[5] bg-slate-50 p-6 md:p-10">
+                  <div className="absolute inset-0 opacity-60" style={{ backgroundImage: 'linear-gradient(28deg, transparent 46%, #cbd5e1 47%, #cbd5e1 48%, transparent 49%), linear-gradient(148deg, transparent 46%, #dbeafe 47%, #dbeafe 48%, transparent 49%), linear-gradient(#e2e8f0 1px, transparent 1px), linear-gradient(90deg, #e2e8f0 1px, transparent 1px)', backgroundSize: '100% 100%, 100% 100%, 42px 42px, 42px 42px' }}></div>
+                  <div className="absolute inset-0 overflow-hidden">
+                    <div className="absolute left-[8%] top-[28%] h-1 w-[84%] rotate-[18deg] rounded-full bg-blue-200/80"></div>
+                    <div className="absolute left-[10%] top-[60%] h-1 w-[82%] -rotate-[14deg] rounded-full bg-slate-300/90"></div>
+                    <div className="absolute left-[46%] top-[5%] h-[90%] w-1 rotate-[20deg] rounded-full bg-indigo-100"></div>
+                    <div className="absolute left-[23%] top-[8%] h-[86%] w-1 -rotate-[34deg] rounded-full bg-slate-200"></div>
+                    <div className="absolute left-[12%] top-[45%] h-1 w-[75%] rotate-[2deg] rounded-full bg-emerald-100"></div>
+                    {(zones.length ? zones.slice(0, 8) : keyCorridors).map((zone, index) => {
+                      const isZone = Boolean(zone.zone_id);
+                      const name = isZone ? zone.name : zone.fullName;
+                      const level = isZone ? zone.congestion_level : zone.level;
+                      const positions = [['14%', '26%'], ['31%', '48%'], ['48%', '22%'], ['66%', '34%'], ['82%', '24%'], ['24%', '76%'], ['53%', '70%'], ['76%', '67%']];
+                      const [left, top] = positions[index % positions.length];
+                      const selected = selectedZone?.name === name || selectedZone?.zone_id === zone.zone_id;
+                      const color = level === 'DARK_RED' || level === 'CRITICAL' ? 'bg-rose-500' : level === 'RED' || level === 'HIGH' ? 'bg-orange-500' : level === 'ORANGE' ? 'bg-amber-400' : 'bg-emerald-500';
+                      return (
+                        <button key={`${name}-${index}`} type="button" onClick={() => isZone && focusOnZone(zone)} className="absolute -translate-x-1/2 -translate-y-1/2 text-left" style={{ left, top }} title={name}>
+                          <span className={`block h-4 w-4 rounded-full border-4 border-white shadow-lg ${color} ${selected ? 'ring-4 ring-blue-200' : ''}`}></span>
+                          <span className={`mt-1 block max-w-[130px] truncate rounded-md bg-white/95 px-1.5 py-0.5 text-[9px] font-black text-slate-700 shadow-sm ${selected ? 'text-blue-700' : ''}`}>{name}</span>
+                        </button>
+                      );
+                    })}
+                    {mapViewMode === 'routing' && <div className="absolute left-[18%] top-[57%] h-1 w-[64%] rotate-[-10deg] rounded-full bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,0.15)]"></div>}
+                  </div>
+                  <div className="relative mx-auto flex h-full max-w-3xl flex-col justify-between">
+                    <div className="flex items-center justify-between">
+                      <div className="rounded-xl border border-slate-200 bg-white/95 px-3 py-2 shadow-sm">
+                        <p className="text-[10px] font-black uppercase tracking-wider text-blue-700">Traffic canvas</p>
+                        <p className="text-xs font-bold text-slate-800">{selectedZone?.name || 'Bengaluru network'}</p>
+                      </div>
+                      <span className="rounded-full bg-white/95 px-3 py-2 text-[10px] font-black text-slate-500 shadow-sm">LIVE TELEMETRY</span>
+                    </div>
+
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      <div className="rounded-2xl border border-white bg-white/95 p-4 shadow-sm">
+                        <MapPin className="mb-3 h-4 w-4 text-blue-600" />
+                        <p className="text-[10px] font-bold uppercase text-slate-400">Selected zone</p>
+                        <p className="mt-1 text-sm font-black text-slate-900">{selectedZone?.name || 'Bengaluru'}</p>
+                      </div>
+                      <div className="rounded-2xl border border-white bg-white/95 p-4 shadow-sm">
+                        <Gauge className="mb-3 h-4 w-4 text-rose-500" />
+                        <p className="text-[10px] font-bold uppercase text-slate-400">Average speed</p>
+                        <p className="mt-1 text-xl font-black text-rose-600">{selectedZone?.average_speed || 0} <span className="text-xs">km/h</span></p>
+                      </div>
+                      <div className="rounded-2xl border border-white bg-white/95 p-4 shadow-sm">
+                        <Activity className="mb-3 h-4 w-4 text-amber-500" />
+                        <p className="text-[10px] font-bold uppercase text-slate-400">Traffic state</p>
+                        <p className="mt-1 text-sm font-black uppercase text-amber-700">{selectedZone?.congestion_level || 'MONITORING'}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* ⚡ ADVANCED HOLOGRAPHIC CYBER HUD OVERLAY (Active in AI Cyber Twin Mode) */}
               {mapViewMode === 'ai_telemetry' && (
@@ -1279,6 +1445,121 @@ export default function BangaloreTrafficMap() {
                   <span>Confidence: <strong className="text-blue-400">{Math.round((selectedZone.recommendation?.confidence || 0.94) * 100)}%</strong></span>
                 </div>
               </div>
+
+              <button
+                type="button"
+                onClick={analyzeSelectedTraffic}
+                disabled={isAnalyzingTraffic}
+                className="w-full flex items-center justify-center gap-2 rounded-2xl bg-blue-600 px-4 py-3 text-xs font-black text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700 disabled:cursor-wait disabled:opacity-60"
+              >
+                {isAnalyzingTraffic ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                {isAnalyzingTraffic ? 'Traffic Agent Analyzing...' : 'Run Traffic Agent Analysis'}
+              </button>
+
+              {trafficAnalysis && (
+                <div className="space-y-3 rounded-2xl border border-blue-100 bg-blue-50/60 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-wider text-blue-700">LangGraph Traffic Agent</p>
+                      <p className="text-xs font-bold text-slate-700">Complete congestion and signal analysis</p>
+                    </div>
+                    <span className="rounded-full bg-white px-2 py-1 text-[10px] font-black font-mono text-blue-700">
+                      {trafficAnalysis.overallIntensity?.level || 'UNKNOWN'} {trafficAnalysis.overallIntensity?.score ?? 0}/100
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-[10px] font-mono">
+                    <div className="rounded-xl bg-white p-2">
+                      <span className="block text-slate-400">Vehicles</span>
+                      <strong className="text-slate-900">{trafficAnalysis.totalVehicles ?? 0}</strong>
+                    </div>
+                    <div className="rounded-xl bg-white p-2">
+                      <span className="block text-slate-400">Blocked Areas</span>
+                      <strong className="text-rose-600">{trafficAnalysis.blockedAreas?.length ?? 0}</strong>
+                    </div>
+                    <div className="rounded-xl bg-white p-2">
+                      <span className="block text-slate-400">Avg Speed</span>
+                      <strong className="text-slate-900">{trafficAnalysis.averageSpeedKmh ?? 0} km/h</strong>
+                    </div>
+                    <div className="rounded-xl bg-white p-2">
+                      <span className="block text-slate-400">Queue Length</span>
+                      <strong className="text-orange-600">{trafficAnalysis.totalQueueLength ?? 0}</strong>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl bg-white p-3 text-[10px]">
+                    <p className="font-black uppercase text-slate-500">Network summary</p>
+                    <div className="mt-2 grid grid-cols-2 gap-2 font-mono">
+                      <span>Hotspots: <strong>{trafficAnalysis.rankedHotspots?.length ?? 0}</strong></span>
+                      <span>High risk: <strong className="text-rose-600">{trafficAnalysis.networkSummary?.highRiskAreas ?? 0}</strong></span>
+                      <span>Throughput: <strong>{trafficAnalysis.networkSummary?.estimatedThroughputVehiclesPerHour ?? 0}/h</strong></span>
+                      <span>Source: <strong className="text-blue-700">{trafficAnalysis.networkSummary?.dataSource || 'event stream'}</strong></span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    {trafficAnalysis.intensityByArea?.map((area) => (
+                      <div key={`${area.area}-${area.signalId || 'area'}`} className="rounded-xl bg-white p-3 text-[10px]">
+                        <div className="flex items-center justify-between gap-2">
+                          <strong className="text-slate-900">{area.area}</strong>
+                          <span className="font-black font-mono text-blue-700">{area.intensityLevel} {area.intensityScore}/100</span>
+                        </div>
+                        <p className="mt-1 text-slate-500">
+                          {area.vehicleCount} vehicles · {area.averageSpeedKmh || 0} km/h · {area.estimatedDelayMinutes || 0} min estimated delay
+                        </p>
+                        <p className="mt-1 text-slate-600">
+                          Cause: <strong>{area.primaryCauses?.join(', ')}</strong>
+                        </p>
+                        <div className="mt-2 grid grid-cols-3 gap-1 font-mono text-[9px]">
+                          <span className="rounded bg-slate-50 p-1">Now {area.intensityScore}</span>
+                          <span className="rounded bg-amber-50 p-1 text-amber-700">15m {area.forecast?.intensity15Min?.score ?? 0}</span>
+                          <span className="rounded bg-rose-50 p-1 text-rose-700">30m {area.forecast?.intensity30Min?.score ?? 0}</span>
+                        </div>
+                        <div className="mt-2 flex items-center justify-between text-[9px] text-slate-400">
+                          <span>Risk: <strong className="text-rose-600">{area.risk?.level} {area.risk?.score}/100</strong></span>
+                          <span>{area.forecast?.trend || 'STABLE'}</span>
+                        </div>
+                        <div className="mt-2 space-y-1">
+                          {area.laneDiagnostics?.map((lane) => (
+                            <div key={`${area.area}-${lane.lane}`} className="flex justify-between rounded bg-slate-50 px-2 py-1 font-mono text-[9px]">
+                              <span>{lane.lane}: {lane.status}</span>
+                              <span>{lane.vehicleCount} vehicles · {lane.averageSpeedKmh} km/h</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="rounded-xl bg-white p-3 text-[10px]">
+                    <p className="font-black uppercase text-slate-500">Signal Plan</p>
+                    {trafficAnalysis.signalRecommendations?.map((recommendation) => (
+                      <div key={`${recommendation.area}-${recommendation.signalId || 'signal'}`} className="mt-2 flex items-start justify-between gap-3">
+                        <div>
+                          <span className="block text-slate-600">{recommendation.area}</span>
+                          <span className="text-[9px] text-slate-400">{recommendation.reason}</span>
+                        </div>
+                        <strong className="shrink-0 text-right text-emerald-700">{recommendation.recommendedGreenSeconds}s green<br />{Math.round((recommendation.confidence || 0) * 100)}% conf.</strong>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="rounded-xl bg-white p-3 text-[10px]">
+                    <p className="font-black uppercase text-slate-500">Priority hotspots</p>
+                    {trafficAnalysis.rankedHotspots?.map((hotspot) => (
+                      <div key={hotspot.area} className="mt-2 flex items-center justify-between gap-2">
+                        <span><strong className="text-blue-700">#{hotspot.rank}</strong> {hotspot.area}</span>
+                        <span className="font-mono text-rose-600">{hotspot.level} · {hotspot.primaryCause}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="rounded-xl border border-amber-100 bg-amber-50 p-3 text-[10px] text-amber-900">
+                    <strong className="block uppercase">Vehicle automation advisory</strong>
+                    <span>{trafficAnalysis.vehicleAutomation?.recommendedActions?.join(' · ') || 'No advisory actions'}</span>
+                  </div>
+                </div>
+              )}
 
             </div>
           )}

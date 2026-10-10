@@ -8,8 +8,55 @@ import TrafficSignal from '../models/TrafficSignal.js';
 import MLDetectionLog from '../models/MLDetectionLog.js';
 import { authMiddleware } from '../middleware/auth.js';
 import { io } from '../server.js';
+import { eventBus } from '../services/agents/EventBus.js';
 
 const router = express.Router();
+
+/**
+ * POST /api/traffic-signals/analyze
+ * Run the complete traffic analysis through the LangGraph agent workflow.
+ */
+router.post('/analyze', authMiddleware, async (req, res) => {
+  try {
+    const {
+      area,
+      areas,
+      location = {},
+      detection = {},
+      applySignalChanges = false,
+      source = 'traffic-dashboard'
+    } = req.body;
+
+    const requestedAreas = Array.isArray(areas) && areas.length
+      ? areas
+      : area
+        ? [{ ...area, area: typeof area === 'string' ? area : undefined }]
+        : undefined;
+    const event = {
+      eventType: 'TRAFFIC_ANALYSIS_REQUEST',
+      source: { type: source },
+      location,
+      detection,
+      areas: requestedAreas,
+      applySignalChanges: Boolean(applySignalChanges),
+      requestedBy: req.user.userId
+    };
+
+    const { event: enrichedEvent, workflow } = await eventBus.publishAndWait(event);
+    const traffic = workflow.results?.TrafficAgent?.actionResult;
+
+    return res.json({
+      success: workflow.status === 'COMPLETED' && Boolean(traffic),
+      event: enrichedEvent,
+      workflow,
+      analysis: traffic?.analysis || null,
+      action: traffic || null
+    });
+  } catch (error) {
+    console.error('Traffic analysis workflow failed:', error);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+});
 
 /**
  * GET /api/traffic-signals

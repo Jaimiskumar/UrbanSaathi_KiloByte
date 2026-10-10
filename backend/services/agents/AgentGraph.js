@@ -17,7 +17,7 @@ const routeForEvent = (event) => {
   if (['EMERGENCY_VEHICLE'].includes(type)) return ['GreenCorridorAgent'];
   if (['CROWD_DETECTED'].includes(type)) return ['CrowdSafetyAgent'];
   if (['HELMET_VIOLATION', 'OVERSPEEDING', 'RASH_DRIVING', 'ILLEGAL_PARKING'].includes(type)) return ['EnforcementAgent'];
-  if (type === 'TRAFFIC_CONGESTION' || type === 'ROAD_BLOCKAGE') return ['TrafficAgent'];
+  if (['TRAFFIC_CONGESTION', 'ROAD_BLOCKAGE', 'TRAFFIC_ANALYSIS_REQUEST'].includes(type)) return ['TrafficAgent'];
   return [];
 };
 
