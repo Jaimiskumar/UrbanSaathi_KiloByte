@@ -41,7 +41,9 @@ function detectionsToEvents(result, frame) {
   if (result.accident_detection?.accident_detected) add('accident', result.accident_detection.details || result.accident_detection);
   for (const item of result.urban_issues || []) add(item.label || item.class_name || item.type, item);
   if (result.hawkers?.hawkersDetected) add('hawker', result.hawkers);
-  return events;
+  return events.filter((event, index, allEvents) => (
+    allEvents.findIndex((candidate) => candidate.eventType === event.eventType) === index
+  ));
 }
 
 export async function processAgentDetections(result, frame, userId) {

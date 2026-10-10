@@ -449,33 +449,37 @@ const MLDetectionUpload = () => {
       label: 'Accident / collision',
       detail: `${Math.round((result.accident_detection.details?.confidence || 0) * 100)}% confidence`,
       confidence: result.accident_detection.details?.confidence,
-      color: 'red'
+      color: 'red',
+      agent: 'AccidentEmergencyAgent + TrafficAgent'
     }] : []),
     ...(!hasPotholeDetection && (result.events?.water_logging?.detected || result.water_logging?.detected) ? [{
       label: 'Water logging',
       detail: result.events?.water_logging?.method || 'Road water accumulation',
       confidence: result.events?.water_logging?.confidence || result.water_logging?.confidence,
-      color: 'cyan'
+      color: 'cyan',
+      agent: 'CivicAndRoadHealthAgent'
     }] : []),
     ...((result.events?.fallen_tree?.detected || result.fallen_tree) ? [{
       label: 'Fallen tree',
       detail: 'Civic obstruction',
       confidence: result.events?.fallen_tree?.confidence || result.fallen_tree?.confidence,
-      color: 'amber'
+      color: 'amber',
+      agent: 'CivicAndRoadHealthAgent'
     }] : []),
-    ...(result.potholes || []).map((item) => ({ label: item.label || 'Pothole', detail: 'Road damage', confidence: item.confidence, color: 'orange' })),
-    ...(result.urban_issues || []).filter((item) => !/pothole/i.test(item.label || item.class_name || item.type || '')).map((item) => ({ label: item.label || item.class_name || item.type || 'Urban issue', detail: 'Civic issue', confidence: item.confidence, color: 'amber' })),
+    ...(result.potholes || []).map((item) => ({ label: item.label || 'Pothole', detail: 'Road damage', confidence: item.confidence, color: 'orange', agent: 'CivicAndRoadHealthAgent' })),
+    ...(result.urban_issues || []).filter((item) => !/pothole/i.test(item.label || item.class_name || item.type || '')).map((item) => ({ label: item.label || item.class_name || item.type || 'Urban issue', detail: 'Civic issue', confidence: item.confidence, color: 'amber', agent: 'CivicAndRoadHealthAgent' })),
     ...(result.plate_detections || result.plates || []).map((item) => ({ label: item.plate_text || item.plateNumber || 'Plate detected', detail: 'Number plate OCR', confidence: item.confidence, color: 'cyan' })),
     ...(result.helmets || result.helmet_detections || []).map((item) => ({
       label: item.helmetDetected === false ? 'Without helmet' : item.helmetDetected === true ? 'With helmet' : 'Helmet status unavailable',
       detail: item.helmetType || 'Helmet detection',
       confidence: item.confidence,
-      color: item.helmetDetected === false ? 'red' : 'yellow'
+      color: item.helmetDetected === false ? 'red' : 'yellow',
+      agent: 'EnforcementAgent'
     })),
-    ...(result.speeds || []).filter((item) => Number.isFinite(item.speed)).map((item) => ({ label: item.isSpeeding ? 'Speeding' : 'Speed detected', detail: `${item.speed} km/h`, confidence: item.confidence, color: item.isSpeeding ? 'red' : 'blue' })),
-    ...(result.speed_tracking_detections || []).filter((item) => Number.isFinite(item.speed_kmh)).map((item) => ({ label: 'Speed detected', detail: `${item.speed_kmh} km/h`, confidence: item.confidence, color: 'blue' })),
+    ...(result.speeds || []).filter((item) => Number.isFinite(item.speed)).map((item) => ({ label: item.isSpeeding ? 'Speeding' : 'Speed detected', detail: `${item.speed} km/h`, confidence: item.confidence, color: item.isSpeeding ? 'red' : 'blue', agent: item.isSpeeding ? 'EnforcementAgent' : 'TrafficAgent' })),
+    ...(result.speed_tracking_detections || []).filter((item) => Number.isFinite(item.speed_kmh)).map((item) => ({ label: 'Speed detected', detail: `${item.speed_kmh} km/h`, confidence: item.confidence, color: 'blue', agent: 'TrafficAgent' })),
     ...(result.crowd_detections || []).map((item) => ({ label: item.label || 'Crowd / person', detail: 'Crowd detection', confidence: item.confidence, color: 'pink' })),
-    ...(result.violations_summary?.violations || []).map((item) => ({ label: item.title || item.type || 'Traffic violation', detail: item.vehicle_number || 'Violation', confidence: 1, color: 'red' }))
+    ...(result.violations_summary?.violations || []).map((item) => ({ label: item.title || item.type || 'Traffic violation', detail: item.vehicle_number || 'Violation', confidence: 1, color: 'red', agent: 'EnforcementAgent' }))
   ] : [];
   const detectionColorClasses = {
     red: 'bg-red-400', orange: 'bg-orange-400', amber: 'bg-amber-400', cyan: 'bg-cyan-400',
@@ -763,6 +767,7 @@ const MLDetectionUpload = () => {
                 <div className="min-w-0 flex-1">
                   <p className="text-xs font-bold truncate">{item.label}</p>
                   <p className="text-[10px] text-slate-400 truncate">{item.detail}</p>
+                  {item.agent && <p className="text-[10px] text-cyan-300 truncate mt-1">Agent: {item.agent}</p>}
                 </div>
                 {typeof item.confidence === 'number' && item.confidence > 0 && (
                   <span className="text-[10px] font-mono text-slate-300">{Math.round(item.confidence * 100)}%</span>
