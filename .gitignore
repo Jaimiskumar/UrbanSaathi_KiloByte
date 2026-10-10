@@ -45,3 +45,14 @@ data/helmet_real/
 data/urban_issues_real/
 models/real/*/
 *$py.class
+
+# Uploads & User Generated Media
+backend/uploads/evidence/*.mp4
+backend/uploads/evidence/processed_*
+backend/uploads/evidence/video-*
+backend/uploads/temp/
+backend/uploads/*.mp4
+*.mp4
+*.avi
+*.mov
+

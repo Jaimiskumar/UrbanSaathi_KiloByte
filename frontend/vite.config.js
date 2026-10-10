@@ -13,6 +13,7 @@ export default defineConfig({
     proxy: {
       '^/api/ml/': mlTarget,
       '/api': backendTarget,
+      '/uploads': backendTarget,
       '/socket.io': {
         target: backendTarget,
         ws: true
