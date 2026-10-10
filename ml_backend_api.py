@@ -1871,6 +1871,7 @@ async def detect_speed_endpoint(request: dict):
 
 import subprocess
 import tempfile
+import shutil
 from fastapi.responses import StreamingResponse, FileResponse
 from fastapi import BackgroundTasks
 
@@ -2304,18 +2305,25 @@ async def process_full_video_endpoint(request: VideoProcessRequest, background_t
         t_h264.close()
         temp_h264_out = t_h264.name
 
-        ffmpeg_binary = r'C:\Users\sashwat puri sachdev\OneDrive\Desktop\UrbanSaathi\backend\node_modules\ffmpeg-static\ffmpeg.exe'
-        if not os.path.exists(ffmpeg_binary):
-            ffmpeg_binary = 'ffmpeg'
-
-        encode_cmd = [
-            ffmpeg_binary, '-y', '-hide_banner', '-loglevel', 'error',
-            '-i', temp_raw_out,
-            '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-profile:v', 'main', '-level', '3.1',
-            '-movflags', '+faststart',
-            temp_h264_out
+        ffmpeg_candidates = [
+            os.path.join(os.path.dirname(__file__), 'backend', 'node_modules', 'ffmpeg-static', 'ffmpeg.exe'),
+            os.path.join(os.getcwd(), 'backend', 'node_modules', 'ffmpeg-static', 'ffmpeg.exe'),
+            shutil.which('ffmpeg')
         ]
-        subprocess.run(encode_cmd, check=True)
+        ffmpeg_binary = next((candidate for candidate in ffmpeg_candidates if candidate and os.path.isfile(candidate)), None)
+
+        if ffmpeg_binary:
+            encode_cmd = [
+                ffmpeg_binary, '-y', '-hide_banner', '-loglevel', 'error',
+                '-i', temp_raw_out,
+                '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-profile:v', 'main', '-level', '3.1',
+                '-movflags', '+faststart',
+                temp_h264_out
+            ]
+            subprocess.run(encode_cmd, check=True)
+        else:
+            logger.warning('FFmpeg binary not found; serving the OpenCV-encoded MP4 output.')
+            shutil.copy2(temp_raw_out, temp_h264_out)
 
         # Save processed video to backend/uploads/evidence for fast static serving and zero-lag streaming
         evidence_dir = os.path.join(os.getcwd(), 'backend', 'uploads', 'evidence')
@@ -2326,7 +2334,6 @@ async def process_full_video_endpoint(request: VideoProcessRequest, background_t
         vid_filename = f"processed_ml_video_{int(datetime.now().timestamp())}_{random.randint(1000, 9999)}.mp4"
         dest_vid_path = os.path.join(evidence_dir, vid_filename)
 
-        import shutil
         shutil.copy2(temp_h264_out, dest_vid_path)
         processed_video_rel_url = f"/uploads/evidence/{vid_filename}"
 
