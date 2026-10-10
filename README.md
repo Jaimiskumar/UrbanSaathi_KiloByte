@@ -5,8 +5,8 @@
 [![Backend](https://img.shields.io/badge/Backend-Node.js%20%2B%20Express-339933.svg)](#)
 [![Database](https://img.shields.io/badge/Database-MongoDB%20%2B%20Mongoose-47A248.svg)](#)
 [![AI/ML](https://img.shields.io/badge/AI%2FML-PyTorch%20%7C%20YOLOv5%20%7C%20OpenCV-EE4C2C.svg)](#)
-[![Streaming](https://img.shields.io/badge/Streaming-FastAPI%20%7C%20WebSocket%20%7C%20Socket.IO-009688.svg)](#)
-[![Status](https://img.shields.io/badge/Milestone%206-Real--time%20ML%20Inference%20%26%20Streaming%20API-brightgreen.svg)](#)
+[![Emergency](https://img.shields.io/badge/Emergency-Dynamic%20Green%20Corridor%20Preemption-red.svg)](#)
+[![Status](https://img.shields.io/badge/Milestone%207-Emergency%20Dispatch%20%26%20Green%20Corridor-brightgreen.svg)](#)
 
 ---
 
@@ -28,74 +28,75 @@
 ```
                           ┌─────────────────────────────────────────┐
                           │           UrbanSaathi Client            │
-                          │   (React 18 / Live Video Canvas / HUD)  │
+                          │   (Command Center / Emergency HUD)      │
                           └────────────────────┬────────────────────┘
                                                │ REST / Socket.IO
                                                ▼
                           ┌─────────────────────────────────────────┐
                           │        Express API & Socket Gateway     │
-                          │         (Node.js / Port 5001)           │
-                          └────────────┬──────────────────┬─────────┘
-                                       │                  │
-                ┌──────────────────────┴──────┐      ┌────┴────────────────────────┐
-                ▼                             ▼      ▼                             ▼
-    ┌─────────────────────────────┐    ┌───────────────────────────────────────────────┐
-    │      MongoDB Database       │    │           Python ML Backend Service           │
-    │  (Incidents, Challans, Hubs)│    │       (ml_backend_api.py / Port 8000)         │
-    └─────────────────────────────┘    └──────────────────────┬────────────────────────┘
+                          │   (Node.js / Emergency Dispatcher)      │
+                          └───────┬──────────────────────────┬──────┘
+                                  │                          │
+                 ┌────────────────┴───────────┐         ┌────┴────────────────────────┐
+                 ▼                            ▼         ▼                             ▼
+    ┌─────────────────────────────┐    ┌──────────────────────────────────────────────┐
+    │     MongoDB Database        │    │          Dynamic Green Wave Engine           │
+    │ (Corridors, Signals, Units) │    │        (greenCorridorService.js)             │
+    └─────────────────────────────┘    └──────────────────────┬───────────────────────┘
                                                               │
                      ┌────────────────────────────────────────┴────────────────────────────────────────┐
                      ▼                                                                                 ▼
     ┌───────────────────────────────────┐                             ┌────────────────────────────────────────────────┐
-    │    Live OpenCV Stream Analysis    │                             │       UrbanFlow Edge Coordination Agent        │
-    │  • Multi-camera Video Feeds       │                             │  • urbanflow_app/main.py                       │
-    │  • Bounding Boxes & Tracking      │                             │  • Adaptive Signal Time Allocation             │
-    │  • Helmet & Plate OCR Engine      │                             │  • Real-time Congestion Metric Synthesis       │
+    │     Cascaded Signal Preemption    │                             │         Dynamic Civilian Rerouting Engine      │
+    │  • Predictive Waypoint Clearance  │                             │  • Emergency Bypass Calculation                │
+    │  • Multi-Junction Green Waves     │                             │  • Citizen Mobile Warning Dissemination        │
+    │  • Hosur & Outer Ring Road Artery │                             │  • Turn-by-Turn Path Re-anchoring              │
     └───────────────────────────────────┘                             └────────────────────────────────────────────────┘
 ```
 
 ---
 
-## ⚡ Milestone 6: Real-time Video Stream Inference & ML API Gateway
+## 🚑 Milestone 7: Emergency Dispatch & Automated Green Corridor Bypass
 
-This milestone brings computer vision models to life by establishing the real-time video stream ingestion, frame annotation, and WebSocket streaming pipeline:
+This milestone introduces mission-critical emergency vehicle routing and automated traffic light synchronization:
 
-### 1. High-Performance ML Inference API (`ml_backend_api.py`)
-- **Video Ingestion Engine**: Decodes RTSP surveillance streams, mobile dashcam HTTP tunnels, and high-definition MP4 feeds via OpenCV.
-- **Dynamic Entity Tracking**: Processes incoming frames with YOLOv5s, computing centroid tracking, vehicle classification (cars, two-wheelers, heavy vehicles), and lane speed estimates.
-- **Automated Violation Trigger**: Crops high-confidence violation regions (riders without helmets, stop-line encroachment), computes license plate OCR, and transmits violation payloads to the Node.js backend.
-- **REST & SSE Endpoints**:
-  - `POST /api/ml/detect-frame`: Single-frame inference for uploaded surveillance snapshots.
-  - `POST /api/ml/analyze-video`: Asynchronous batch video processing with timeline violation bookmarks.
-  - `GET /api/ml/live-stream`: Server-Sent Events (SSE) / multipart stream broadcasting annotated bounding-box video directly to the browser.
+### 1. Dynamic Green Wave Preemption (`greenCorridorService.js`)
+- **Cascaded Junction Interlock**: Automatically detects advancing emergency vehicles and preemptively switches downstream traffic signals to continuous green.
+- **Buffer Clearance Calculation**: Flushes intersecting queues 45 seconds ahead of vehicle arrival, eliminating bottleneck decelerations for transit ambulances.
+- **Emergency Priority Ranking**: Integrates with `emergency_priority_model.joblib` to rank simultaneous emergency dispatches based on patient severity and distance.
 
-### 2. UrbanFlow Edge AI Agent (`urbanflow_app/main.py`)
-- Standalone edge computing runtime designed to run directly on junction IPC hardware.
-- Real-time density calculation per junction arm, dynamically negotiating phase durations to minimize cumulative queue delay.
+### 2. Multi-Path AI Routing Bypass
+- **Civilian Divert Engine**: Disseminates live diversion vectors to consumer mapping clients, clearing priority emergency lanes before sirens reach audible range.
+- **Bengaluru Artery Models**: Pre-configured dynamic corridor definitions across high-density corridors including Hosur Road, MG Road, and Silk Board Junction.
 
-### 3. ML Testing & Verification Guides
-- **`ML_TESTING_GUIDE.md`**: Complete test harness for synthetic and real camera video feeds, verifying frames per second (FPS), detection latency, and memory footprint.
-- **`ML_DEPLOYMENT_INDEX.md`**: Architectural directory of model dependencies, hardware acceleration flags (CUDA / MPS / CPU), and port configurations.
+### 3. Emergency Architecture & Verification Suite (`docs/`)
+- **`EMERGENCY_VEHICLE_IMPLEMENTATION_COMPLETE.md`**: Architectural breakdown of signal controller hooks and edge fail-safe protocols.
+- **`EMERGENCY_VEHICLE_API_TESTING.md`**: Complete curl and Postman test scripts for dispatch triggers, status telemetry, and corridor decommissioning.
+- **`SYSTEM_FLOW_DIAGRAMS.md`**: State machines and event flowcharts illustrating civilian diversion, camera confirmation, and emergency corridor closure.
 
 ---
 
-## 📁 Repository Structure (Milestone 6)
+## 📁 Repository Structure (Milestone 7)
 
 ```text
 UrbanSaathi/
-├── ml_backend_api.py                      # FastAPI/Flask live vision stream service
-├── urbanflow_app/
-│   └── main.py                            # Edge junction AI coordination agent
-├── ML_TESTING_GUIDE.md                    # ML verification & benchmark runbook
-├── ML_DEPLOYMENT_INDEX.md                 # Deployment specifications & port bindings
+├── EMERGENCY_VEHICLE_IMPLEMENTATION_COMPLETE.md  # Emergency corridor technical specifications
+├── docs/                                  # Complete system blueprints & test guides
+│   ├── EMERGENCY_VEHICLE_SYSTEM.md
+│   ├── EMERGENCY_VEHICLE_API_TESTING.md
+│   ├── EMERGENCY_VEHICLE_ML_INTEGRATION.md
+│   ├── SYSTEM_FLOW_DIAGRAMS.md
+│   └── ...
 ├── backend/
+│   ├── services/greenCorridorService.js   # Cascaded signal preemption engine
+│   └── routes/emergencyRoutes.js          # Dispatch REST endpoints
+├── ml_backend_api.py
+├── urbanflow_app/
 ├── frontend/
 ├── models/
 ├── training/
 ├── data/
 ├── scripts/
-├── ml_requirements.txt
-├── setup_ai.py
 ├── docker-compose.yml
 ├── .gitignore
 └── README.md
@@ -103,20 +104,19 @@ UrbanSaathi/
 
 ---
 
-## 🚀 Running the Full AI Stream Pipeline
+## 🚀 Triggering an Emergency Corridor
 
 ```bash
-# 1. Start Python ML Inference Service (Terminal 1)
-source venv/bin/activate
-python3 ml_backend_api.py
-
-# 2. Start Express API & Socket Gateway (Terminal 2)
-cd backend
-npm run dev
-
-# 3. Start React Frontend Client (Terminal 3)
-cd frontend
-npm run dev
+# Trigger automated Green Corridor on Hosur Road
+curl -X POST http://localhost:5001/api/emergency/dispatch \
+  -H "Content-Type: application/json" \
+  -d '{
+    "vehicleId": "AMB-KA01-9999",
+    "emergencyType": "CRITICAL_CARE",
+    "origin": "St. Johns Hospital",
+    "destination": "NIMHANS Bengaluru",
+    "corridor": "Hosur Road Artery"
+  }'
 ```
 
 ---
@@ -128,8 +128,8 @@ npm run dev
 - [x] **Milestone 3: Express Backend Core, Authentication & Database Models**
 - [x] **Milestone 4: Full-Stack API Integration & State Synchronization**
 - [x] **Milestone 5: AI/ML Infrastructure & Vehicle Detection Models**
-- [x] **Milestone 6: Real-time Video Stream Inference & WebSocket Gateway** *(Current)*
-- [ ] **Milestone 7: Emergency Dispatch & Automated Green Corridor Bypass**
+- [x] **Milestone 6: Real-time Video Stream Inference & WebSocket Gateway**
+- [x] **Milestone 7: Emergency Dispatch & Automated Green Corridor Bypass** *(Current)*
 - [ ] **Milestone 8: Connected Vehicle (V2X) Protocol & Driver HUD**
 - [ ] **Milestone 9: Multi-Agent Signal Coordination & Explainable AI**
 - [ ] **Milestone 10: Urban Digital Twin, Production Hardening & Final Polishing**
