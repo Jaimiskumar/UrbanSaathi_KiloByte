@@ -306,7 +306,17 @@ const generateFallbackDetection = (reqBody = {}) => {
     },
     urban_issues: urbanIssues,
     vendors: hasVendor ? [{ label: 'vendor', confidence: 0.9, bbox: { x1: 90, y1: 160, x2: 270, y2: 330 } }] : [],
-    plate_detections: vehicles.map((v) => ({ plate_text: v.plateNumber, confidence: 0.96, bbox: v.bbox })),
+    plate_detections: vehicles.map((v) => ({
+      label: 'license_plate',
+      plate_text: v.plateNumber,
+      detection_confidence: 0.93,
+      confidence: 0.93,
+      ocr_confidence: 0.91,
+      format_confidence: 0.96,
+      final_confidence: 0.93,
+      status: 'recognized',
+      bbox: v.bbox
+    })),
     helmet_detections: helmetDetections,
     speed_detections: speeds,
     segmentation: {
@@ -314,7 +324,15 @@ const generateFallbackDetection = (reqBody = {}) => {
       road_lanes: { lane_1: [[120, 480], [420, 220], [520, 220], [420, 480]], lane_2: [[420, 480], [520, 220], [680, 220], [780, 480]] },
       vehicle_polygons_count: vehicles.length
     },
-    plates: vehicles.map((v) => ({ vehicle_id: v.id, plate_text: v.plateNumber, confidence: 0.96, bbox: v.bbox })),
+    plates: vehicles.map((v) => ({
+      bbox: [v.bbox?.x1 || 0, v.bbox?.y1 || 0, v.bbox?.x2 || 0, v.bbox?.y2 || 0],
+      detection_confidence: 0.93,
+      plate_text: v.plateNumber,
+      ocr_confidence: 0.91,
+      format_confidence: 0.96,
+      final_confidence: 0.93,
+      status: 'recognized'
+    })),
     vehicles,
     pedestrians: [{ id: 'PED-001', bbox: { x1: 700, y1: 420, x2: 760, y2: 520 }, confidence: 0.92 }],
     helmets: helmetDetections,
