@@ -27,7 +27,7 @@ from pydantic import BaseModel, Field
 # Setup Directories & Paths
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MODELS_DIR = os.path.join(BASE_DIR, 'models')
-METRICS_PATH = os.path.join(MODELS_DIR, 'metrics.json')
+METRICS_PATH = os.path.join(MODELS_DIR, 'synthetic', 'metrics.json') if os.path.exists(os.path.join(MODELS_DIR, 'synthetic', 'metrics.json')) else os.path.join(MODELS_DIR, 'metrics.json')
 
 app = FastAPI(
     title="UrbanFlow Multi-Agent AI Microservice",
@@ -79,11 +79,13 @@ class ModelRegistry:
         }
 
         for name, filename in model_files.items():
-            path = os.path.join(MODELS_DIR, filename)
+            path = os.path.join(MODELS_DIR, 'synthetic', filename)
+            if not os.path.exists(path):
+                path = os.path.join(MODELS_DIR, filename)
             if os.path.exists(path):
                 try:
                     self.models[name] = joblib.load(path)
-                    print(f"  ✅ Loaded: {name} from {filename}")
+                    print(f"  ✅ Loaded: {name} from {path}")
                 except Exception as e:
                     print(f"  ⚠️ Error loading {name}: {e}")
                     self.models[name] = None

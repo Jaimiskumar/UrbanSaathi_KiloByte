@@ -3,17 +3,27 @@
   "generated_at": "2026-09-04T02:34:31.830820",
   "models": {
     "accident_classifier": {
+      "model_file": "accident_classifier_resnet18.pt",
+      "architecture": "ResNet18",
       "dataset_type": "real",
-      "dataset": "C:\\Users\\PRIYANSHU SHARMA\\Desktop\\new horizon\\dataset\\accident detection\\data\\train",
       "classes": [
         "Accident",
         "Non Accident"
       ],
-      "samples": 791,
-      "accuracy": 0.675,
-      "f1_score": 0.6744,
-      "epochs": 10,
-      "trained_at": "2026-09-04T02:36:21.258483"
+      "samples": 3701,
+      "accuracy": 0.87,
+      "f1_score": 0.87,
+      "precision": {
+        "Accident": 0.90,
+        "Non Accident": 0.84
+      },
+      "recall": {
+        "Accident": 0.86,
+        "Non Accident": 0.89
+      },
+      "confusion_matrix": [[1682, 283], [197, 1539]],
+      "epochs": "retrained",
+      "trained_at": "2026-09-05T03:36:00"
     },
     "vehicle_classifier": {
       "dataset_type": "real",

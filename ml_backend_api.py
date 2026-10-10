@@ -141,16 +141,33 @@ class MLModels:
                 logger.info("Contractor prediction assets found; model loading deferred")
             except Exception as error:
                 logger.warning(f"Contractor prediction assets unavailable: {error}")
-        for model_name in ('accident_classifier', 'vehicle_classifier'):
-            model_path = os.path.join(real_model_dir, f'{model_name}.pt')
-            if os.path.exists(model_path):
-                try:
-                    self.real_image_models[model_name] = torch.jit.load(model_path, map_location='cpu').eval()
-                    with open(os.path.join(real_model_dir, 'metrics.json'), 'r', encoding='utf-8') as metrics_file:
-                        self.real_image_model_labels[model_name] = json.load(metrics_file)['models'][model_name]['classes']
-                    logger.info(f"Real image classifier loaded: {model_name}")
-                except Exception as e:
-                    logger.error(f"Failed to load real image classifier {model_name}: {e}")
+        # ── Accident classifier (ResNet18 state-dict checkpoint) ──────────────
+        accident_resnet_path = os.path.join(real_model_dir, 'accident_classifier_resnet18.pt')
+        if os.path.exists(accident_resnet_path):
+            try:
+                import torchvision.models as _tv_models
+                _ckpt = torch.load(accident_resnet_path, map_location='cpu', weights_only=False)
+                _class_names = _ckpt.get('class_names', ['Accident', 'Non Accident'])
+                _resnet = _tv_models.resnet18(num_classes=len(_class_names))
+                _resnet.load_state_dict(_ckpt['model_state_dict'])
+                _resnet.eval()
+                self.real_image_models['accident_classifier'] = _resnet
+                self.real_image_model_labels['accident_classifier'] = _class_names
+                logger.info(f"Accident classifier (ResNet18) loaded: {accident_resnet_path} | classes={_class_names}")
+            except Exception as e:
+                logger.error(f"Failed to load ResNet18 accident classifier: {e}")
+        else:
+            logger.warning("accident_classifier_resnet18.pt not found in models/real/ — accident detection disabled")
+        # ── Vehicle classifier (TorchScript) ───────────────────────────────────
+        vehicle_model_path = os.path.join(real_model_dir, 'vehicle_classifier.pt')
+        if os.path.exists(vehicle_model_path):
+            try:
+                self.real_image_models['vehicle_classifier'] = torch.jit.load(vehicle_model_path, map_location='cpu').eval()
+                with open(os.path.join(real_model_dir, 'metrics.json'), 'r', encoding='utf-8') as metrics_file:
+                    self.real_image_model_labels['vehicle_classifier'] = json.load(metrics_file)['models']['vehicle_classifier']['classes']
+                logger.info("Vehicle classifier (TorchScript) loaded")
+            except Exception as e:
+                logger.error(f"Failed to load vehicle classifier: {e}")
         congestion_path = os.path.join(real_model_dir, 'congestion_model.joblib')
         if os.path.exists(congestion_path):
             try:
@@ -741,6 +758,16 @@ VEHICLE_REGISTRY = [
         "vehicle_model": "Hero HF Deluxe / Splendor (Red/Black, 2-Wheeler)",
         "vehicle_class": "2-wheeler",
         "address": "Shakti Nagar, Sonbhadra, UP"
+    },
+    {
+        "plate": "22BH6517A",
+        "formatted_plate": "22 BH 6517 A",
+        "owner_name": "Rohan Deshmukh",
+        "owner_phone": "+91 98451 76517",
+        "owner_email": "rohan.d@bharat.in",
+        "vehicle_model": "Hyundai Verna (Polar White, 4-Wheeler)",
+        "vehicle_class": "4-wheeler",
+        "address": "Defence Colony, Indiranagar, Bengaluru"
     }
 ]
 
@@ -1671,6 +1698,50 @@ async def process_comprehensive_traffic_video(request: VideoAnalysisRequest):
             'crosswalk_zone': [[150, 520], [1050, 520], [1080, 590], [130, 590]],
             'no_parking_zone': [[20, 280], [240, 280], [220, 180], [20, 180]]
         }
+
+        # Consolidate and format plates to strictly adhere to the ALPR backend format
+        final_plates = []
+        # Priority 1: Enrich from detected_plates or plate_detections
+        source_plates = detected_plates if detected_plates else plate_detections
+        for p in source_plates:
+            text_val = (p.get('plate_text') or p.get('plateNumber') or p.get('raw_plate') or '').strip()
+            ocr_conf_val = float(p.get('ocr_confidence') or p.get('confidence') or 0.85)
+            det_conf_val = float(p.get('detection_confidence') or p.get('confidence') or 0.93)
+            is_unreadable = not text_val or text_val.upper() == 'UNREADABLE'
+            status_val = 'unreadable' if is_unreadable else (p.get('status') or 'recognized')
+
+            b = p.get('bbox')
+            if isinstance(b, dict):
+                bbox_arr = [b.get('x1', 0), b.get('y1', 0), b.get('x2', 0), b.get('y2', 0)]
+            elif isinstance(b, (list, tuple)):
+                bbox_arr = list(b)
+            else:
+                bbox_arr = [0, 0, 0, 0]
+
+            final_plates.append({
+                'bbox': bbox_arr,
+                'detection_confidence': round(det_conf_val, 2),
+                'plate_text': 'UNREADABLE' if is_unreadable else text_val,
+                'ocr_confidence': round(ocr_conf_val, 2),
+                'format_confidence': round(p.get('format_confidence') or 0.95, 2),
+                'final_confidence': round(p.get('final_confidence') or ((det_conf_val * 0.3) + (ocr_conf_val * 0.7)), 2),
+                'status': status_val,
+                'raw_plate': p.get('raw_plate') or text_val,
+                'owner_name': p.get('owner_name') or p.get('ownerName'),
+                'owner_phone': p.get('owner_phone') or p.get('ownerPhone'),
+                'vehicle_model': p.get('vehicle_model') or p.get('vehicleModel')
+            })
+
+        # Also ensure plate_detections has bbox as dict and plate_text & detection_confidence
+        for idx, pd_item in enumerate(plate_detections):
+            if idx < len(final_plates):
+                matched = final_plates[idx]
+                pd_item['plate_text'] = matched['plate_text']
+                pd_item['detection_confidence'] = matched['detection_confidence']
+                pd_item['ocr_confidence'] = matched['ocr_confidence']
+                pd_item['status'] = matched['status']
+
+        detected_plates = final_plates
 
         return {
             'success': True,

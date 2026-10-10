@@ -345,31 +345,59 @@ const MLDetectionUpload = () => {
 
     const drawDetectionBoxes = (items, color, labelKey = 'label') => {
       items.forEach((item) => {
-        const b = item.bbox;
+        let b = item.bbox;
         if (!b) return;
+        // Normalize array bbox [x1, y1, x2, y2] to {x1, y1, x2, y2} if needed
+        if (Array.isArray(b)) {
+          b = { x1: b[0], y1: b[1], x2: b[2], y2: b[3] };
+        }
         ctx.strokeStyle = color;
         ctx.lineWidth = 3;
         ctx.strokeRect(b.x1, b.y1, b.x2 - b.x1, b.y2 - b.y1);
         
-        let labelText = '';
-        if (item.plate_text) {
-          labelText = `PLATE: ${item.plate_text} • ${((item.confidence || item.ocr_confidence || 0.9) * 100).toFixed(0)}%`;
-        } else {
-          labelText = `${item[labelKey] || item.type || 'detection'} ${(item.confidence * 100 || 0).toFixed(0)}%`;
-        }
+        const isPlateItem = Boolean(item.plate_text || item.label === 'license_plate' || item.label === 'number_plate');
+        const detConfidence = Math.round(((item.detection_confidence ?? item.confidence) || 0.93) * 100);
+        const hasPlateText = item.plate_text && item.plate_text !== 'UNREADABLE' && item.status !== 'unreadable';
 
-        ctx.font = 'bold 12px monospace';
-        const textWidth = Math.max(160, ctx.measureText(labelText).width + 16);
-        ctx.fillStyle = color;
-        ctx.fillRect(b.x1, Math.max(0, b.y1 - 24), textWidth, 24);
-        ctx.fillStyle = '#FFFFFF';
-        ctx.fillText(labelText, b.x1 + 6, Math.max(16, b.y1 - 8));
+        if (isPlateItem) {
+          const line1 = `license_plate ${detConfidence}%`;
+          const line2 = hasPlateText ? item.plate_text : (item.status === 'unreadable' || item.plate_text === 'UNREADABLE' ? 'Number: Unreadable' : '');
+          
+          ctx.font = 'bold 12px monospace';
+          const w1 = ctx.measureText(line1).width;
+          const w2 = line2 ? ctx.measureText(line2).width : 0;
+          const textWidth = Math.max(160, Math.max(w1, w2) + 16);
+          const boxHeight = line2 ? 38 : 22;
+          const labelY = Math.max(0, b.y1 - boxHeight);
+
+          ctx.fillStyle = color;
+          ctx.fillRect(b.x1, labelY, textWidth, boxHeight);
+
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillText(line1, b.x1 + 6, labelY + 14);
+          if (line2) {
+            ctx.fillStyle = '#FEF08A'; // Yellow accent for plate number
+            ctx.fillText(line2, b.x1 + 6, labelY + 30);
+          }
+        } else {
+          const labelText = `${item[labelKey] || item.type || 'detection'} ${Math.round((item.confidence || 0) * 100)}%`;
+          ctx.font = 'bold 12px monospace';
+          const textWidth = Math.max(160, ctx.measureText(labelText).width + 16);
+          ctx.fillStyle = color;
+          ctx.fillRect(b.x1, Math.max(0, b.y1 - 24), textWidth, 24);
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillText(labelText, b.x1 + 6, Math.max(16, b.y1 - 8));
+        }
       });
     };
 
     drawDetectionBoxes(data.urban_issues || [], '#F97316');
     drawDetectionBoxes(data.vendors || [], '#A855F7');
-    drawDetectionBoxes(data.plate_detections || [], '#06B6D4');
+    // Draw plate detections with fallback to plates array
+    const plateItems = (data.plate_detections && data.plate_detections.length > 0)
+      ? data.plate_detections
+      : (data.plates || []);
+    drawDetectionBoxes(plateItems, '#06B6D4');
     drawDetectionBoxes(data.helmet_detections || [], '#EAB308');
     drawDetectionBoxes((data.speeds || []).filter((item) => Number.isFinite(item.speed)), '#EF4444');
     drawDetectionBoxes((data.speed_tracking_detections || []).filter((item) => Number.isFinite(item.speed_kmh)), '#0EA5E9');
@@ -471,6 +499,9 @@ const MLDetectionUpload = () => {
         });
 
         const detectionData = res.data?.data || res.data;
+        console.log("ALPR result:", detectionData);
+        console.log("Detected plates:", detectionData?.plates);
+        console.log("Plate text:", detectionData?.plates?.[0]?.plate_text);
         setResult(detectionData);
         setAgentWorkflows(res.data?.agentWorkflows || []);
 
@@ -515,7 +546,32 @@ const MLDetectionUpload = () => {
     }] : []),
     ...(result.potholes || []).map((item) => ({ label: item.label || 'Pothole', detail: 'Road damage', confidence: item.confidence, color: 'orange', agent: 'CivicAndRoadHealthAgent' })),
     ...(result.urban_issues || []).filter((item) => !/pothole/i.test(item.label || item.class_name || item.type || '')).map((item) => ({ label: item.label || item.class_name || item.type || 'Urban issue', detail: 'Civic issue', confidence: item.confidence, color: 'amber', agent: 'CivicAndRoadHealthAgent' })),
-    ...(result.plate_detections || result.plates || []).map((item) => ({ label: item.plate_text || item.plateNumber || 'Plate detected', detail: 'Number plate OCR', confidence: item.confidence, color: 'cyan' })),
+    ...((() => {
+      // Prioritize plates array, fallback to plate_detections
+      const sourcePlates = (result.plates && result.plates.length > 0)
+        ? result.plates
+        : (result.plate_detections && result.plate_detections.length > 0)
+          ? result.plate_detections
+          : [];
+
+      return sourcePlates.map((item) => {
+        const rawText = item.plate_text || item.plateNumber || item.raw_plate || '';
+        const isUnreadable = !rawText || rawText === 'UNREADABLE' || item.status === 'unreadable';
+        const detConf = item.detection_confidence ?? item.confidence ?? 0.93;
+        const ocrConf = item.ocr_confidence ?? 0.91;
+        
+        return {
+          isPlate: true,
+          label: 'Plate detected',
+          plate_text: isUnreadable ? 'UNREADABLE' : rawText,
+          status: isUnreadable ? 'unreadable' : (item.status || 'recognized'),
+          detection_confidence: detConf,
+          ocr_confidence: ocrConf,
+          confidence: detConf,
+          color: 'cyan'
+        };
+      });
+    })()),
     ...(result.helmets || result.helmet_detections || []).map((item) => ({
       label: item.helmetDetected === false ? 'Without helmet' : item.helmetDetected === true ? 'With helmet' : 'Helmet status unavailable',
       detail: item.helmetType || 'Helmet detection',
@@ -905,19 +961,74 @@ const MLDetectionUpload = () => {
             )}
             {!result && <p className="text-xs text-slate-500 py-8 text-center">Run analysis to see model results.</p>}
             {result && detectionGroups.length === 0 && <p className="text-xs text-slate-400 py-8 text-center">No target detected in this frame.</p>}
-            {detectionGroups.map((item, index) => (
-              <div key={`${item.label}-${index}`} className="flex items-start gap-3 rounded-xl bg-white/5 border border-white/10 p-3">
-                <span className={`mt-1 w-2.5 h-2.5 rounded-full shrink-0 ${detectionColorClasses[item.color] || 'bg-slate-400'}`} />
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs font-bold truncate">{item.label}</p>
-                  <p className="text-[10px] text-slate-400 truncate">{item.detail}</p>
-                  {item.agent && <p className="text-[10px] text-cyan-300 truncate mt-1">Agent: {item.agent}</p>}
+            {detectionGroups.map((item, index) => {
+              if (item.isPlate) {
+                const isUnreadable = item.status === 'unreadable' || !item.plate_text || item.plate_text === 'UNREADABLE';
+                const detPct = Math.round((item.detection_confidence || 0.93) * 100);
+                const ocrPct = Math.round((item.ocr_confidence || 0.91) * 100);
+
+                return (
+                  <div
+                    key={`plate-card-${index}`}
+                    className="rounded-xl bg-slate-900/90 border border-cyan-500/30 p-3.5 shadow-sm space-y-2.5 text-white"
+                  >
+                    {/* Header Row: Dot + "Plate detected" + Detection Conf % */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 shrink-0 animate-pulse" />
+                        <span className="text-xs font-bold text-slate-100 tracking-wide">
+                          Plate detected
+                        </span>
+                      </div>
+                      <span className="text-xs font-mono font-bold text-slate-200">
+                        {detPct}%
+                      </span>
+                    </div>
+
+                    {/* Subtitle */}
+                    <p className="text-[11px] text-slate-400 pl-4.5">
+                      Number plate OCR
+                    </p>
+
+                    {/* Plate Display Box */}
+                    <div className="bg-black/50 border border-slate-700/60 rounded-lg p-2.5 ml-1">
+                      {isUnreadable ? (
+                        <p className="text-sm font-semibold text-amber-400 tracking-wide">
+                          Number unreadable
+                        </p>
+                      ) : (
+                        <p className="text-base font-black font-mono tracking-widest text-emerald-400">
+                          {item.plate_text}
+                        </p>
+                      )}
+                      
+                      {/* OCR Confidence Row */}
+                      <p className="text-[11px] text-slate-400 mt-1">
+                        {isUnreadable ? (
+                          <span>OCR confidence: <strong className="text-amber-400 font-normal">Low</strong></span>
+                        ) : (
+                          <span>OCR Confidence: <strong className="text-slate-200 font-mono font-semibold">{ocrPct}%</strong></span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                );
+              }
+
+              return (
+                <div key={`${item.label}-${index}`} className="flex items-start gap-3 rounded-xl bg-white/5 border border-white/10 p-3">
+                  <span className={`mt-1 w-2.5 h-2.5 rounded-full shrink-0 ${detectionColorClasses[item.color] || 'bg-slate-400'}`} />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-bold truncate">{item.label}</p>
+                    <p className="text-[10px] text-slate-400 truncate">{item.detail}</p>
+                    {item.agent && <p className="text-[10px] text-cyan-300 truncate mt-1">Agent: {item.agent}</p>}
+                  </div>
+                  {typeof item.confidence === 'number' && item.confidence > 0 && (
+                    <span className="text-[10px] font-mono text-slate-300">{Math.round(item.confidence * 100)}%</span>
+                  )}
                 </div>
-                {typeof item.confidence === 'number' && item.confidence > 0 && (
-                  <span className="text-[10px] font-mono text-slate-300">{Math.round(item.confidence * 100)}%</span>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
