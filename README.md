@@ -4,7 +4,8 @@
 [![Frontend](https://img.shields.io/badge/Frontend-React%2018%20%2B%20Vite%20%2B%20TailwindCSS-61DAFB.svg)](#)
 [![Backend](https://img.shields.io/badge/Backend-Node.js%20%2B%20Express-339933.svg)](#)
 [![Database](https://img.shields.io/badge/Database-MongoDB%20%2B%20Mongoose-47A248.svg)](#)
-[![Status](https://img.shields.io/badge/Milestone%203-Backend%20Core%20%26%20Database%20Architecture-brightgreen.svg)](#)
+[![Data Engine](https://img.shields.io/badge/Data%20Engine-Traffic%20%26%20Incident%20Pipelines-purple.svg)](#)
+[![Status](https://img.shields.io/badge/Milestone%204-Full--Stack%20Integration%20%26%20Incident%20Data-brightgreen.svg)](#)
 
 ---
 
@@ -40,84 +41,75 @@
     ┌───────────────────────────┐    ┌──────────────────────────────────────────────┐
     │     MongoDB Database      │    │             Python AI/ML Engine              │
     │  (26 Mongoose Schemas)    │    │     (YOLOv5, OpenCV, Deep Learning)          │
+    └─────────────┬─────────────┘    └──────────────────────┬───────────────────────┘
+                  │                                         │
+                  ▼                                         ▼
+    ┌───────────────────────────┐    ┌──────────────────────────────────────────────┐
+    │   Traffic & Incidents     │    │        Synthetic City Traffic Datasets       │
+    │  (Accidents, Violations)  │    │      (Potholes, Hotspots, Trajectories)      │
     └───────────────────────────┘    └──────────────────────────────────────────────┘
 ```
 
 ---
 
-## ⚙️ Milestone 3: Backend Core & Database Architecture
+## 🔄 Milestone 4: Full-Stack Integration & Incident Data Pipelines
 
-This milestone establishes the robust server runtime, database schemas, and authenticated RESTful API gateway:
+This milestone establishes complete client-server cohesion and integrates comprehensive traffic telemetry datasets:
 
-### 1. Express Application Runtime (`server.js` & `server-standalone.js`)
-- Highly resilient Express server architecture featuring zero-crash fallback mechanisms.
-- Real-time Socket.IO event gateway enabling synchronized telemetry across mobile, desktop, and administrative command consoles.
-- Modular route mounting, request logging, error middleware, and CORS security.
+### 1. Client-to-Server Data Synchronization
+- **JWT Session Persistence**: Client interceptors dynamically manage access tokens, automatic refresh rotations, and authorization headers across all API endpoints.
+- **Dynamic Parking Engine**: Real-time bay occupancy fetches, dynamic fare calculation, and instant pass verification.
+- **Violation & Appeal Workflow**: Citizen penalty retrieval with photographic proof and direct appeal review pipelines.
 
-### 2. Database Models & Schema Design (`backend/models/`)
-Comprehensive Mongoose data models encapsulating urban municipal operations:
-- **`User.js` & `RefreshToken.js`**: Multi-role identity (Citizen, Admin, Traffic Police, Field Agent) with hashed credentials and secure token invalidation.
-- **`Challan.js`, `Fine.js`, `TrafficViolation.js`**: E-Challan records, violation proofs, payment verification statuses, and citizen appeal logs.
-- **`HelmetViolation.js` & `Encroachment.js`**: AI vision incident structures capturing bounding coordinates, confidence metrics, and timestamped snapshots.
-- **`ParkingSpot.js` & `ParkingBooking.js`**: Real-time slot occupancy tracking, dynamic hourly tariff calculations, and QR verification codes.
-- **`EmergencyVehicle.js` & `SignalCoordination.js`**: Priority vehicle telemetry, destination waypoints, and automated green corridor stages.
-- **`RoadNetwork.js` & `TrafficSignal.js`**: Urban road geometry, intersection junction nodes, and adaptive signal phase timings.
+### 2. Urban Traffic & Incident Dataset Suite (`data/`)
+Rich datasets structured to train and evaluate traffic density and incident detection models:
+- **`accidents/`**: Historical and simulated metropolitan collision records with severity indexing.
+- **`hotspots/`**: Spatial density clusters identifying recurring urban bottlenecks.
+- **`pedestrians/`**: Crossing patterns and pedestrian hazard risk metrics.
+- **`potholes/`**: Road surface degradation coordinates for municipal prioritization.
+- **`v2v/`**: Connected vehicle beacon trajectories and telemetry logs.
 
-### 3. Service Layer Architecture (`backend/services/`)
-- **`challanGenerationService.js`**: Automated e-challan synthesis from camera violation events.
-- **`greenCorridorService.js`**: Dynamic signal preemption algorithm routing priority responders through congestion bottlenecks.
-- **`adminCitizenSyncService.js`**: Bidirectional state synchronization between citizen violation appeals and administrative resolutions.
-- **`parkingAmenitiesService.js`**: Real-time bay reservation validation and payment reconciliation.
-
-### 4. API Endpoints Catalog
-| Method | Endpoint | Description | Auth Required |
-|---|---|---|---|
-| `POST` | `/api/auth/login` | Authenticate user & issue JWT tokens | Public |
-| `POST` | `/api/auth/register` | Register citizen profile | Public |
-| `GET` | `/api/parking/spots` | Retrieve live parking bays and vacancy states | Optional |
-| `POST` | `/api/parking/book` | Reserve parking slot and generate pass | Citizen |
-| `GET` | `/api/challans/my-fines` | Fetch outstanding traffic penalties | Citizen |
-| `POST` | `/api/challans/appeal` | Submit penalty review appeal with evidence | Citizen |
-| `GET` | `/api/traffic/junctions` | Live traffic junction congestion levels | Admin |
-| `POST` | `/api/emergency/dispatch` | Trigger green corridor signal preemption | Admin / Fleet |
-| `GET` | `/api/urbanflow/network-info` | Network interface detection for LAN & mobile access | Public |
+### 3. Simulation & Seed Tooling (`scripts/`)
+- **`generate_synthetic_data.py`**: Parametric generation of realistic urban mobility patterns and congestion cycles.
+- **`seedReports.mjs` & `seedFines.mjs`**: High-fidelity municipal violation records and citizen reports for local testing.
+- **`test_connected_vehicle_system.js`**: Simulated V2X packet broadcast and latency verification.
 
 ---
 
-## 📁 Repository Structure (Milestone 3)
+## 📁 Repository Structure (Milestone 4)
 
 ```text
 UrbanSaathi/
 ├── backend/
-│   ├── package.json
-│   ├── package-lock.json
-│   ├── .env.example
-│   ├── server.js                          # Core Express API entrypoint
-│   ├── server-standalone.js               # Resilient standalone gateway
-│   ├── test-ml-detection.sh               # API verification script
 │   ├── config/
-│   │   ├── env.js                         # Environment validation
-│   │   └── bangaloreGeospatial.js         # Geospatial landmarks & boundaries
 │   ├── middleware/
-│   │   └── auth.js                        # JWT verification & role authorization
-│   ├── models/                            # 26 Mongoose schema models
-│   │   ├── User.js, RefreshToken.js
-│   │   ├── Challan.js, Fine.js, TrafficViolation.js
-│   │   ├── HelmetViolation.js, Encroachment.js, IllegalParking.js
-│   │   ├── ParkingSpot.js, ParkingBooking.js, ParkingZone.js
-│   │   ├── EmergencyVehicle.js, SignalCoordination.js
-│   │   └── RoadNetwork.js, TrafficSignal.js, Camera.js
-│   ├── routes/                            # 26 Express REST controllers
-│   ├── services/                          # Business logic & automation engines
-│   ├── scripts/                           # Database seeders (seed.js)
-│   └── utils/                             # Token generators & permissions
+│   ├── models/
+│   ├── routes/
+│   ├── services/
+│   ├── scripts/
+│   ├── uploads/                           # Dynamic file storage (proofs, evidence)
+│   ├── utils/
+│   ├── server.js
+│   └── package.json
 ├── frontend/
-│   ├── index.html
-│   ├── package.json
-│   ├── package-lock.json
-│   ├── vite.config.js
 │   ├── public/
-│   └── src/
+│   ├── src/
+│   └── package.json
+├── data/                                  # Traffic & incident dataset pipelines
+│   ├── synthetic/
+│   │   ├── accidents/
+│   │   ├── emergency/
+│   │   ├── hotspots/
+│   │   ├── pedestrians/
+│   │   ├── potholes/
+│   │   ├── traffic/
+│   │   └── v2v/
+│   └── processed/
+├── scripts/                               # Data generators & seed scripts
+│   ├── generate_synthetic_data.py
+│   ├── seedFines.mjs
+│   ├── seedReports.mjs
+│   └── test_connected_vehicle_system.js
 ├── docker-compose.yml
 ├── setup.sh
 ├── setup.bat
@@ -128,20 +120,20 @@ UrbanSaathi/
 
 ---
 
-## 🚀 Running the Backend
+## 🚀 Running Full-Stack
 
 ```bash
+# Terminal 1: Start Express API
 cd backend
-npm install
-cp .env.example .env
-
-# Seed initial database with Bengaluru urban junctions & parking hubs
-npm run seed
-
-# Start server
 npm run dev
+
+# Terminal 2: Start React Frontend
+cd frontend
+npm run dev
+
+# (Optional) Generate fresh synthetic mobility data
+python3 scripts/generate_synthetic_data.py
 ```
-The API server will listen on `http://localhost:5001`.
 
 ---
 
@@ -149,8 +141,8 @@ The API server will listen on `http://localhost:5001`.
 
 - [x] **Milestone 1: Project Scaffolding & Setup**
 - [x] **Milestone 2: Frontend Layout, Navigation & Portal UI**
-- [x] **Milestone 3: Express Backend Core, Authentication & Database Models** *(Current)*
-- [ ] **Milestone 4: Full-Stack API Integration & State Synchronization**
+- [x] **Milestone 3: Express Backend Core, Authentication & Database Models**
+- [x] **Milestone 4: Full-Stack API Integration & State Synchronization** *(Current)*
 - [ ] **Milestone 5: AI/ML Infrastructure & Vehicle Detection Models**
 - [ ] **Milestone 6: Real-time Video Stream Inference & WebSocket Gateway**
 - [ ] **Milestone 7: Emergency Dispatch & Automated Green Corridor Bypass**
