@@ -91,6 +91,8 @@ class MLModels:
         self.vehicle_detector_name = None
         self.urban_issue_detector = None
         self.urban_issue_detector_name = None
+        self.pothole_detector = None
+        self.pothole_detector_name = None
         self.vendor_detector = None
         self.plate_detector = None
         self.helmet_detector = None
@@ -130,6 +132,15 @@ class MLModels:
                 logger.info("Real urban-issues detector loaded")
             except Exception as e:
                 logger.error(f"Failed to load real urban-issues detector: {e}")
+        pothole_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'models', 'PotHole', 'best.pt')
+        if os.path.exists(pothole_path):
+            try:
+                from ultralytics import YOLO
+                self.pothole_detector = YOLO(pothole_path)
+                self.pothole_detector_name = os.path.basename(pothole_path)
+                logger.info(f"Pothole detector loaded: {pothole_path}")
+            except Exception as e:
+                logger.error(f"Failed to load pothole detector: {e}")
         try:
             from ultralytics import YOLO
             vendor_path = os.path.join(real_model_dir, 'vendor_detector_yolov8n.pt')
@@ -406,6 +417,33 @@ def run_urban_issue_detector(image: np.ndarray) -> List[Dict[str, Any]]:
         logger.error(f"Urban issue inference failed: {e}")
     return detections
 
+def run_pothole_detector(image: np.ndarray) -> List[Dict[str, Any]]:
+    if models.pothole_detector is None:
+        return []
+    detections = []
+    try:
+        results = models.pothole_detector.predict(image, conf=URBAN_ISSUE_CONFIDENCE, imgsz=640, max_det=50, verbose=False)
+        for result in results:
+            names = result.names or {}
+            for box in result.boxes:
+                class_id = int(box.cls[0])
+                coords = box.xyxy[0].tolist()
+                detections.append({
+                    'label': names.get(class_id, 'pothole'),
+                    'confidence': round(float(box.conf[0]), 4),
+                    'bbox': {
+                        'x1': round(float(coords[0]), 1),
+                        'y1': round(float(coords[1]), 1),
+                        'x2': round(float(coords[2]), 1),
+                        'y2': round(float(coords[3]), 1)
+                    },
+                    'model': models.pothole_detector_name,
+                    'type': 'pothole'
+                })
+    except Exception as e:
+        logger.error(f"Pothole inference failed: {e}")
+    return detections
+
 def run_specialized_detector(image: np.ndarray, detector: Any, model_name: str) -> List[Dict[str, Any]]:
     if detector is None:
         return []
@@ -640,6 +678,7 @@ async def health_check():
         "models_loaded": {
             "vehicle_detector": models.vehicle_detector is not None,
             "urban_issue_detector": models.urban_issue_detector is not None,
+            "pothole_detector": models.pothole_detector is not None,
             "vendor_detector": models.vendor_detector is not None,
             "plate_detector": models.plate_detector is not None,
             "helmet_detector": models.helmet_detector is not None,
@@ -685,7 +724,8 @@ async def process_comprehensive_traffic_video(request: VideoAnalysisRequest):
         auto_generated_echallans = []
 
         raw_detections = run_vehicle_detector(image)
-        urban_issue_detections = run_urban_issue_detector(image)
+        pothole_detections = run_pothole_detector(image)
+        urban_issue_detections = run_urban_issue_detector(image) + pothole_detections
         vendor_detections = run_specialized_detector(image, models.vendor_detector, 'vendor_detector')
         plate_detections = run_specialized_detector(image, models.plate_detector, 'plate_detector')
         helmet_detections = run_specialized_detector(image, models.helmet_detector, 'helmet_detector')
@@ -1097,7 +1137,8 @@ async def process_comprehensive_traffic_video(request: VideoAnalysisRequest):
                 'name': models.vehicle_detector_name,
                 'backend': models.vehicle_detector_backend,
                 'source': 'real' if models.vehicle_detector_backend == 'ultralytics' else 'fallback',
-                'urban_issue_model': models.urban_issue_detector_name
+                'urban_issue_model': models.urban_issue_detector_name,
+                'pothole_model': models.pothole_detector_name
             },
             'location': request.location,
             'timestamp': datetime.now().isoformat(),
@@ -1116,6 +1157,7 @@ async def process_comprehensive_traffic_video(request: VideoAnalysisRequest):
             },
             'real_model_predictions': real_frame_predictions,
             'urban_issues': urban_issue_detections,
+            'potholes': pothole_detections,
             'vendors': vendor_detections,
             'plate_detections': plate_detections,
             'helmet_detections': helmet_detections,
@@ -1143,6 +1185,12 @@ async def process_comprehensive_traffic_video(request: VideoAnalysisRequest):
                     'detections': urban_issue_detections,
                     'severity': 'HIGH' if urban_issue_detections else 'NONE'
                 },
+                'potholes': {
+                    'detected': len(pothole_detections) > 0,
+                    'count': len(pothole_detections),
+                    'detections': pothole_detections,
+                    'severity': 'HIGH' if pothole_detections else 'NONE'
+                },
                 'water_logging': water_logging,
                 'road_closure': road_closure,
                 'congestion': {'detected': congestion_level in ['HIGH', 'CRITICAL'], 'level': congestion_level}
@@ -1165,6 +1213,17 @@ async def process_comprehensive_traffic_video(request: VideoAnalysisRequest):
 @app.post("/detect/vehicles")
 async def detect_vehicles_endpoint(request: dict):
     return await process_comprehensive_traffic_video(VideoAnalysisRequest(frame_url=request.get('frame_url'), frame_base64=request.get('frame_base64')))
+
+@app.post("/detect/potholes")
+async def detect_potholes_endpoint(request: dict):
+    image = load_image(request.get('frame_url'), request.get('frame_base64'))
+    detections = run_pothole_detector(image)
+    return {
+        'success': True,
+        'model': models.pothole_detector_name,
+        'detections': detections,
+        'count': len(detections)
+    }
 
 @app.post("/detect/license-plate")
 async def detect_license_plate_endpoint(request: dict):

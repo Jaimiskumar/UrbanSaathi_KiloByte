@@ -275,6 +275,21 @@ const MLDetectionUpload = () => {
       });
     }
 
+    if (data.potholes && data.potholes.length > 0) {
+      data.potholes.forEach((pothole) => {
+        const b = pothole.bbox;
+        if (!b) return;
+        ctx.strokeStyle = '#F97316';
+        ctx.lineWidth = 4;
+        ctx.strokeRect(b.x1, b.y1, b.x2 - b.x1, b.y2 - b.y1);
+        ctx.fillStyle = '#F97316';
+        ctx.fillRect(b.x1, Math.max(0, b.y1 - 24), 190, 24);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 12px monospace';
+        ctx.fillText(`POTHOLE • ${Math.round(pothole.confidence * 100)}%`, b.x1 + 6, Math.max(16, b.y1 - 8));
+      });
+    }
+
     const drawDetectionBoxes = (items, color, labelKey = 'label') => {
       items.forEach((item) => {
         const b = item.bbox;
@@ -617,6 +632,11 @@ const MLDetectionUpload = () => {
             <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl">
               <p className="text-[10px] text-blue-700 font-bold">SEGMENTED OBJECTS</p>
               <p className="text-base font-black text-blue-900">{result?.vehicles?.length || 0} Vehicles</p>
+            </div>
+            <div className="mt-2 p-3 bg-orange-50 border border-orange-200 rounded-xl">
+              <p className="text-[10px] text-orange-700 font-bold">POTHOLES DETECTED</p>
+              <p className="text-base font-black text-orange-900">{result?.potholes?.length || 0}</p>
+              <p className="text-[10px] text-orange-600">Model: {result?.model?.pothole_model || 'Not run'}</p>
             </div>
             <div className="p-3 bg-purple-50 border border-purple-200 rounded-xl">
               <p className="text-[10px] text-purple-700 font-bold">AUTO E-CHALLANS</p>

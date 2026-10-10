@@ -471,6 +471,23 @@ app.post('/api/ml-detection/process-frame', async (req, res) => {
   }
 });
 
+app.post('/api/ml-detection/potholes', async (req, res) => {
+  try {
+    const response = await fetch('http://127.0.0.1:8000/detect/potholes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        frame_url: req.body.frameUrl,
+        frame_base64: req.body.frameBase64
+      })
+    });
+    const result = await response.json();
+    return res.status(response.status).json(result);
+  } catch (error) {
+    return res.status(503).json({ message: `Pothole ML backend unavailable: ${error.message}` });
+  }
+});
+
 app.get('/api/ml-detection/logs', authMiddleware, (req, res) => {
   const limit = Number(req.query.limit || 10);
   res.json({ success: true, data: mlDetectionStore.slice(0, limit) });
