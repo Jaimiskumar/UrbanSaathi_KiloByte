@@ -54,6 +54,9 @@ export default function ConnectedVehicleDashboard() {
   const [workOrders, setWorkOrders] = useState([]);
   const [pipelineFeed, setPipelineFeed] = useState([]);
   const [activeWarning, setActiveWarning] = useState(null);
+  const [filterCategory, setFilterCategory] = useState('ALL');
+  const [verifiedOnly, setVerifiedOnly] = useState(false);
+  const [selectedHazard, setSelectedHazard] = useState(null);
   
   // Demo Execution State
   const [isDemoRunning, setIsDemoRunning] = useState(false);
@@ -96,7 +99,34 @@ export default function ConnectedVehicleDashboard() {
   ]);
   const animationFrameRef = useRef(null);
 
-  // Fetch local network IP for iPhone Wi-Fi connect URL
+  // 0. Fetch community cloud, vehicles, work orders & feed
+  const fetchData = async () => {
+    try {
+      const [vRes, hRes, wRes, fRes] = await Promise.allSettled([
+        axios.get('/api/urbanflow/connected-vehicle/vehicles'),
+        axios.get('/api/urbanflow/community-cloud/hazards'),
+        axios.get('/api/urbanflow/work-orders'),
+        axios.get('/api/urbanflow/connected-vehicle/feed')
+      ]);
+
+      if (vRes.status === 'fulfilled' && vRes.value.data?.vehicles) {
+        setVehicles(vRes.value.data.vehicles);
+      }
+      if (hRes.status === 'fulfilled' && hRes.value.data?.hazards) {
+        setHazards(hRes.value.data.hazards);
+      }
+      if (wRes.status === 'fulfilled' && wRes.value.data?.workOrders) {
+        setWorkOrders(wRes.value.data.workOrders);
+      }
+      if (fRes.status === 'fulfilled' && fRes.value.data?.feed) {
+        setPipelineFeed(fRes.value.data.feed);
+      }
+    } catch (err) {
+      console.warn('Error fetching connected vehicle data:', err);
+    }
+  };
+
+  // Fetch local network IP for iPhone Wi-Fi connect URL & initial data
   useEffect(() => {
     const fetchNetInfo = async () => {
       try {
@@ -110,6 +140,7 @@ export default function ConnectedVehicleDashboard() {
       }
     };
     fetchNetInfo();
+    fetchData();
   }, []);
 
   // Socket.IO Listener for iPhone live frame broadcast
@@ -311,7 +342,7 @@ export default function ConnectedVehicleDashboard() {
     setIsLiveStreaming(true);
     if (!mobileTransmitterOnline) {
       setShowIPhoneConnectModal(true);
-      toast.info('📲 Scan the QR code on your iPhone to start streaming feed');
+      toast('📲 Scan the QR code on your iPhone to start streaming feed', { icon: '📲' });
     } else {
       toast.success('🟢 Receiving Wireless Live Feed from iPhone Back Camera!');
     }
@@ -327,7 +358,7 @@ export default function ConnectedVehicleDashboard() {
     setIsLiveStreaming(false);
     setWifiStreamConnected(false);
     setRealYoloDetections([]);
-    toast.info('🚗 Switched to Bengaluru Dashcam Simulation Engine');
+    toast('🚗 Switched to Bengaluru Dashcam Simulation Engine', { icon: '🚗' });
   };
 
   // Run Real-Time YOLO-v11 ML Vision Analysis on Current Frame
