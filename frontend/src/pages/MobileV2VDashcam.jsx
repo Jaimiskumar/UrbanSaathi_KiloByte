@@ -37,8 +37,8 @@ export default function MobileV2VDashcam() {
   const navigate = useNavigate();
 
   // Camera & Stream State
-  const [sourceMode, setSourceMode] = useState('IPHONE_CAMERA'); // 'IPHONE_CAMERA' | 'WIFI_WEBCAM'
-  const [wifiWebcamUrl, setWifiWebcamUrl] = useState('http://192.168.0.100:8080/video');
+  const [sourceMode, setSourceMode] = useState('WIFI_WEBCAM'); // 'WIFI_WEBCAM' | 'IPHONE_CAMERA'
+  const [wifiWebcamUrl, setWifiWebcamUrl] = useState('/api/ml/dashcam-stream?stream_url=' + encodeURIComponent('rtsp://192.168.0.1:554/liveRTSP/av4_0'));
   const [wifiWebcamConnected, setWifiWebcamConnected] = useState(false);
   const [streamActive, setStreamActive] = useState(true);
   const [facingMode, setFacingMode] = useState('environment'); // 'environment' (iPhone back camera) | 'user'
@@ -549,12 +549,13 @@ export default function MobileV2VDashcam() {
 
             {/* Quick 1-Tap Viidure & Dashcam Presets */}
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
-              <span className="text-[10px] text-purple-300 font-bold uppercase shrink-0">Viidure:</span>
+              <span className="text-[10px] text-purple-300 font-bold uppercase shrink-0">Presets:</span>
               {[
-                { label: '🔥 Viidure 8192 (0.1)', url: 'http://192.168.0.1:8192', ip: '192.168.0.1' },
-                { label: '🔥 Viidure 8192 (100)', url: 'http://192.168.0.100:8192', ip: '192.168.0.100' },
-                { label: '🔥 Viidure MJPEG CGI', url: 'http://192.168.0.1/cgi-bin/mjpg/video.cgi', ip: '192.168.0.1' },
-                { label: '🔥 Viidure 8020', url: 'http://192.168.0.1:8020/video', ip: '192.168.0.1' },
+                { label: '🔥 Dashcam Wi-Fi Live Feed', url: '/api/ml/dashcam-stream?stream_url=' + encodeURIComponent('rtsp://192.168.0.1:554/liveRTSP/av4_0'), ip: '192.168.0.1' },
+                { label: '⚡ Auto-Detect Stream', url: '/api/ml/dashcam-stream?stream_url=auto', ip: '192.168.0.1' },
+                { label: 'Viidure 8192 (0.1)', url: 'http://192.168.0.1:8192', ip: '192.168.0.1' },
+                { label: 'Viidure 8192 (100)', url: 'http://192.168.0.100:8192', ip: '192.168.0.100' },
+                { label: 'Viidure MJPEG CGI', url: 'http://192.168.0.1/cgi-bin/mjpg/video.cgi', ip: '192.168.0.1' },
                 { label: '⭐ 100:8080/video', url: 'http://192.168.0.100:8080/video', ip: '192.168.0.100' }
               ].map((p, idx) => (
                 <button

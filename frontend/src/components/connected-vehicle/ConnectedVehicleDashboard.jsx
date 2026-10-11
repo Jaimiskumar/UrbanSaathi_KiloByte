@@ -64,10 +64,10 @@ export default function ConnectedVehicleDashboard() {
   const [demoStage, setDemoStage] = useState('');
   const [demoProgress, setDemoProgress] = useState(0);
 
-  // Video Source & Live Dashcam State (Primary: iPhone USB / Cam | Secondary: IP URL)
-  const [videoSourceMode, setVideoSourceMode] = useState('WEBCAM'); // 'WEBCAM' (Primary) | 'WIFI_STREAM' (Secondary) | 'IPHONE_RELAY' | 'SIMULATION'
-  const [wifiStreamUrl, setWifiStreamUrl] = useState('http://admin:admin@jaimiss-iphone.local:8081/video');
-  const [wifiProxyUrl, setWifiProxyUrl] = useState('http://127.0.0.1:8000/api/ml/dashcam-stream?stream_url=' + encodeURIComponent('http://admin:admin@jaimiss-iphone.local:8081/video'));
+  // Video Source & Live Dashcam State (Primary: Wi-Fi Dashcam / USB / Cam | Secondary: IP URL)
+  const [videoSourceMode, setVideoSourceMode] = useState('WIFI_STREAM'); // 'WIFI_STREAM' (Wi-Fi Dashcam) | 'WEBCAM' | 'IPHONE_RELAY' | 'SIMULATION'
+  const [wifiStreamUrl, setWifiStreamUrl] = useState('rtsp://192.168.0.1:554/liveRTSP/av4_0');
+  const [wifiProxyUrl, setWifiProxyUrl] = useState('/api/ml/dashcam-stream?stream_url=' + encodeURIComponent('rtsp://192.168.0.1:554/liveRTSP/av4_0'));
   const [wifiStreamConnected, setWifiStreamConnected] = useState(false);
   const [cameraDevices, setCameraDevices] = useState([]);
   const [selectedCameraDeviceId, setSelectedCameraDeviceId] = useState('');
@@ -93,10 +93,8 @@ export default function ConnectedVehicleDashboard() {
   // Dashcam Canvas Simulation & Live Rendering State
   const canvasRef = useRef(null);
   const [cameraMode, setCameraMode] = useState('NORMAL'); // 'NORMAL' | 'AI_OVERLAY' | 'NIGHT_VISION'
-  const [detectedObjects, setDetectedObjects] = useState([
-    { id: 1, type: 'POTHOLE', x: 260, y: 340, w: 120, h: 70, depth_cm: 11.5, conf: 0.97, severity: 'HIGH' },
-    { id: 2, type: 'PEDESTRIAN', x: 490, y: 220, w: 45, h: 110, conf: 0.94, severity: 'MEDIUM' }
-  ]);
+  const [detectedObjects, setDetectedObjects] = useState([]);
+  const [isLiveAiScanning, setIsLiveAiScanning] = useState(true);
   const animationFrameRef = useRef(null);
 
   // 0. Fetch community cloud, vehicles, work orders & feed
@@ -315,7 +313,7 @@ export default function ConnectedVehicleDashboard() {
   // 2. SECONDARY: Switch to Wi-Fi IP Stream Mode
   const startWifiStream = (url) => {
     if (!url || !url.trim()) {
-      toast.error('Please enter a valid IP stream URL (e.g. http://admin:admin@jaimiss-iphone.local:8081/video)');
+      toast.error('Please enter a valid IP stream URL (e.g. rtsp://192.168.0.1:554/liveRTSP/av4_0)');
       return;
     }
     if (videoRef.current && videoRef.current.srcObject) {
@@ -324,12 +322,12 @@ export default function ConnectedVehicleDashboard() {
     }
     const cleanUrl = url.trim();
     setWifiStreamUrl(cleanUrl);
-    const proxy = `http://127.0.0.1:8000/api/ml/dashcam-stream?stream_url=${encodeURIComponent(cleanUrl)}`;
+    const proxy = `/api/ml/dashcam-stream?stream_url=${encodeURIComponent(cleanUrl)}`;
     setWifiProxyUrl(proxy);
     setVideoSourceMode('WIFI_STREAM');
     setIsLiveStreaming(true);
     setWifiStreamConnected(true);
-    toast.success('📡 Connecting to IP Stream: ' + cleanUrl, { duration: 4000 });
+    toast.success('📡 Connecting to Dashcam Stream: ' + cleanUrl, { duration: 4000 });
   };
 
   // 3. IPHONE RELAY: Wireless Socket.IO Stream
@@ -361,13 +359,47 @@ export default function ConnectedVehicleDashboard() {
     toast('🚗 Switched to Noida Dashcam Simulation Engine', { icon: '🚗' });
   };
 
+  const isAnalyzingRef = useRef(false);
+
   // Run Real-Time YOLO-v11 ML Vision Analysis on Current Frame
-  const analyzeCurrentLiveFrame = async () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    setIsAnalyzingFrame(true);
+  const analyzeCurrentLiveFrame = async (silent = false) => {
+    if (isAnalyzingRef.current) return;
+
+    let dataUrl = null;
     try {
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+      // 1. Grab clean 640x360 frame from webcam or canvas (instant 50ms capture)
+      if (videoSourceMode === 'WEBCAM' && videoRef.current && videoRef.current.readyState >= 2) {
+        const offscreen = document.createElement('canvas');
+        offscreen.width = 640;
+        offscreen.height = 360;
+        const oCtx = offscreen.getContext('2d');
+        oCtx.drawImage(videoRef.current, 0, 0, 640, 360);
+        dataUrl = offscreen.toDataURL('image/jpeg', 0.85);
+      } else if (videoSourceMode === 'WIFI_STREAM') {
+        const streamImg = document.querySelector('img[alt="Live Dashcam Stream"]');
+        if (streamImg && (streamImg.naturalWidth > 0 || streamImg.complete)) {
+          try {
+            const offscreen = document.createElement('canvas');
+            offscreen.width = 640;
+            offscreen.height = 360;
+            const oCtx = offscreen.getContext('2d');
+            oCtx.drawImage(streamImg, 0, 0, 640, 360);
+            dataUrl = offscreen.toDataURL('image/jpeg', 0.85);
+          } catch (e) {
+            dataUrl = canvasRef.current ? canvasRef.current.toDataURL('image/jpeg', 0.85) : null;
+          }
+        } else if (canvasRef.current) {
+          dataUrl = canvasRef.current.toDataURL('image/jpeg', 0.85);
+        }
+      } else if (canvasRef.current) {
+        dataUrl = canvasRef.current.toDataURL('image/jpeg', 0.85);
+      }
+
+      if (!dataUrl) return;
+
+      isAnalyzingRef.current = true;
+      setIsAnalyzingFrame(true);
+
       // Run detection against backend ML service
       const res = await axios.post('/api/ml-detection/detect', {
         image: dataUrl,
@@ -375,24 +407,44 @@ export default function ConnectedVehicleDashboard() {
         source: 'PHYSICAL_DASHCAM'
       });
 
-      if (res.data?.detections) {
-        setRealYoloDetections(res.data.detections);
-        if (res.data.degraded) {
-          toast.warning('ML service is in degraded mode; no live model result was available.');
-        } else {
-          toast.success(`AI detected ${res.data.detections.length} objects in the live stream.`);
+      if (res.data?.detections && res.data.detections.length > 0) {
+        const filtered = res.data.detections.filter(d => (d.confidence || 0.9) >= 0.65);
+        const enriched = filtered.map(d => ({
+          ...d,
+          frameWidth: res.data.frame_dimensions?.width || 640,
+          frameHeight: res.data.frame_dimensions?.height || 360
+        }));
+        setRealYoloDetections(enriched);
+        if (enriched.length > 0) {
+          const labels = enriched.map(d => d.label).join(', ');
+          toast.success(`🎯 Detected: ${labels}`, { id: 'hazard-detected', duration: 2500 });
         }
       } else {
         setRealYoloDetections([]);
-        toast.warning('ML service returned no detections.');
+        if (!silent) {
+          toast('🔍 No hazards or objects detected in view', { icon: '🔍' });
+        }
       }
     } catch (err) {
-      setRealYoloDetections([]);
-      toast.error('Live ML inference is unavailable.');
+      if (!silent) {
+        toast.error('Live ML inference is unavailable: ' + (err.response?.data?.error || err.message));
+      }
     } finally {
+      isAnalyzingRef.current = false;
       setIsAnalyzingFrame(false);
     }
   };
+
+  // Continuous Live AI Scanning Loop when camera is active
+  useEffect(() => {
+    if (!isLiveStreaming || !isLiveAiScanning || videoSourceMode === 'SIMULATION') return;
+
+    const interval = setInterval(() => {
+      analyzeCurrentLiveFrame(true); // Continuous live scan
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isLiveStreaming, isLiveAiScanning, videoSourceMode]);
 
   // Broadcast Real Live Hazard to Community Cloud
   const broadcastRealDashcamHazard = async () => {
@@ -517,25 +569,121 @@ export default function ConnectedVehicleDashboard() {
       // 1. Draw Real-Time YOLO Detections if available
       if (realYoloDetections.length > 0) {
         realYoloDetections.forEach((det) => {
-          const [bx, by, bw, bh] = det.bbox || [200, 200, 100, 80];
-          ctx.strokeStyle = det.label === 'POTHOLE' ? '#ef4444' : '#10b981';
-          ctx.lineWidth = 2.5;
-          ctx.strokeRect(bx, by, bw, bh);
+          let bx = 0, by = 0, bw = 0, bh = 0;
+          if (det.bbox) {
+            if (typeof det.bbox === 'object' && !Array.isArray(det.bbox)) {
+              bx = det.bbox.x1 ?? det.bbox.x ?? 0;
+              by = det.bbox.y1 ?? det.bbox.y ?? 0;
+              bw = (det.bbox.x2 !== undefined ? (det.bbox.x2 - bx) : det.bbox.w) ?? 100;
+              bh = (det.bbox.y2 !== undefined ? (det.bbox.y2 - by) : det.bbox.h) ?? 80;
+            } else if (Array.isArray(det.bbox) && det.bbox.length >= 4) {
+              if (det.bbox[2] > det.bbox[0]) {
+                bx = det.bbox[0];
+                by = det.bbox[1];
+                bw = det.bbox[2] - det.bbox[0];
+                bh = det.bbox[3] - det.bbox[1];
+              } else {
+                [bx, by, bw, bh] = det.bbox;
+              }
+            }
+          }
 
-          ctx.fillStyle = det.label === 'POTHOLE' ? 'rgba(239, 68, 68, 0.9)' : 'rgba(16, 185, 129, 0.9)';
-          ctx.fillRect(bx, by - 22, 140, 20);
+          const frameW = det.frameWidth || 640;
+          const frameH = det.frameHeight || 360;
+          const scaleX = width / frameW;
+          const scaleY = height / frameH;
+          const origX = bx * scaleX;
+          const origY = by * scaleY;
+          const rawW = bw * scaleX;
+          const rawH = bh * scaleY;
+
+          // Limit detection box to sleek Small / Medium size (prevent oversized full-screen boxes)
+          const maxW = width * 0.28;   // Max 28% of canvas width (~179px on 640px)
+          const maxH = height * 0.32;  // Max 32% of canvas height (~115px on 360px)
+          const minW = 42;
+          const minH = 34;
+
+          const drawW = Math.max(minW, Math.min(rawW, maxW));
+          const drawH = Math.max(minH, Math.min(rawH, maxH));
+
+          // Center the small/medium box over the detected object's center
+          const centerX = origX + rawW / 2;
+          const centerY = origY + rawH / 2;
+          let drawX = Math.round(centerX - drawW / 2);
+          let drawY = Math.round(centerY - drawH / 2);
+
+          // Boundary clamp to canvas
+          drawX = Math.max(6, Math.min(width - drawW - 6, drawX));
+          drawY = Math.max(24, Math.min(height - drawH - 6, drawY));
+
+          let boxColor = '#10b981';
+          let tagBg = 'rgba(16, 185, 129, 0.95)';
+          let icon = '🚗';
+          const lbl = (det.label || '').toUpperCase();
+
+          if (lbl.includes('POTHOLE') || det.type === 'pothole') {
+            boxColor = '#ef4444';
+            tagBg = 'rgba(239, 68, 68, 0.95)';
+            icon = '🕳️';
+          } else if (lbl.includes('ACCIDENT') || det.type === 'accident') {
+            boxColor = '#dc2626';
+            tagBg = 'rgba(220, 38, 38, 0.95)';
+            icon = '🚨';
+          } else if (lbl.includes('PEDESTRIAN') || lbl.includes('PERSON') || det.type === 'pedestrian') {
+            boxColor = '#38bdf8';
+            tagBg = 'rgba(56, 189, 248, 0.95)';
+            icon = '🚶';
+          } else if (det.type === 'hazard') {
+            boxColor = '#f59e0b';
+            tagBg = 'rgba(245, 158, 11, 0.95)';
+            icon = '⚠️';
+          } else if (lbl.includes('MOTORCYCLE') || lbl.includes('2-WHEELER')) {
+            boxColor = '#a855f7';
+            tagBg = 'rgba(168, 85, 247, 0.95)';
+            icon = '🏍️';
+          } else if (det.type === 'encroachment') {
+            boxColor = '#ec4899';
+            tagBg = 'rgba(236, 72, 153, 0.95)';
+            icon = '🛒';
+          }
+
+          ctx.strokeStyle = boxColor;
+          ctx.lineWidth = 2.5;
+          ctx.strokeRect(drawX, drawY, drawW, drawH);
+
+          // Corner brackets
+          const cLen = Math.min(10, drawW / 4, drawH / 4);
+          ctx.lineWidth = 3.5;
+          ctx.beginPath();
+          ctx.moveTo(drawX, drawY + cLen); ctx.lineTo(drawX, drawY); ctx.lineTo(drawX + cLen, drawY);
+          ctx.moveTo(drawX + drawW - cLen, drawY); ctx.lineTo(drawX + drawW, drawY); ctx.lineTo(drawX + drawW, drawY + cLen);
+          ctx.moveTo(drawX, drawY + drawH - cLen); ctx.lineTo(drawX, drawY + drawH); ctx.lineTo(drawX + cLen, drawY + drawH);
+          ctx.moveTo(drawX + drawW - cLen, drawY + drawH); ctx.lineTo(drawX + drawW, drawY + drawH); ctx.lineTo(drawX + drawW, drawY + drawH - cLen);
+          ctx.stroke();
+
+          // Tag Pill
+          const conf = Math.round((det.confidence || 0.9) * 100);
+          const tagText = `${icon} ${lbl} ${conf}%`;
+          ctx.font = 'bold 11px Inter, monospace, sans-serif';
+          const textWidth = ctx.measureText(tagText).width;
+          const pillW = textWidth + 14;
+          const pillH = 20;
+          const pillY = Math.max(2, drawY - pillH - 2);
+
+          ctx.fillStyle = tagBg;
+          ctx.fillRect(drawX, pillY, pillW, pillH);
           ctx.fillStyle = '#ffffff';
-          ctx.font = 'bold 10px monospace';
-          ctx.fillText(`${det.label} ${(det.confidence * 100).toFixed(0)}%`, bx + 4, by - 8);
+          ctx.fillText(tagText, drawX + 6, pillY + 14);
         });
       } else {
-        // Default Pothole Tracking Box Overlay
-        const potX = width * 0.32;
-        const potY = height * 0.72;
-        const potW = 140;
-        const potH = 50;
-
+        // NO DETECTIONS:
         if (videoSourceMode === 'SIMULATION') {
+          // Default Simulation Pothole & Pedestrian Tracking Boxes for cartoon demo
+          const potX = width * 0.32;
+          const potY = height * 0.72;
+          const potW = 140;
+          const potH = 50;
+
           ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
           ctx.beginPath();
           ctx.ellipse(potX + potW / 2, potY + potH / 2, potW / 2, potH / 2, 0, 0, Math.PI * 2);
@@ -543,55 +691,40 @@ export default function ConnectedVehicleDashboard() {
           ctx.strokeStyle = '#475569';
           ctx.lineWidth = 2;
           ctx.stroke();
+
+          ctx.strokeStyle = '#ef4444';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(potX - 8, potY - 8, potW + 16, potH + 16);
+
+          ctx.fillStyle = 'rgba(239, 68, 68, 0.9)';
+          ctx.fillRect(potX - 8, potY - 32, 160, 22);
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 11px Inter, sans-serif';
+          ctx.fillText('🕳️ POTHOLE (11.5cm) 97%', potX - 4, potY - 17);
+
+          const pedX = width * 0.75;
+          const pedY = height * 0.48;
+          ctx.strokeStyle = '#38bdf8';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(pedX, pedY, 38, 85);
+          ctx.fillStyle = 'rgba(56, 189, 248, 0.9)';
+          ctx.fillRect(pedX, pedY - 22, 120, 20);
+          ctx.fillStyle = '#0f172a';
+          ctx.font = 'bold 10px Inter, sans-serif';
+          ctx.fillText('PEDESTRIAN 94%', pedX + 4, pedY - 8);
+        } else {
+          // REAL CAMERA MODE: DO NOT DRAW ANY FAKE BOXES!
+          if (isLiveStreaming) {
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
+            ctx.fillRect(width - 270, height - 32, 258, 22);
+            ctx.strokeStyle = 'rgba(16, 185, 129, 0.4)';
+            ctx.strokeRect(width - 270, height - 32, 258, 22);
+            ctx.fillStyle = '#10b981';
+            ctx.font = 'bold 9px monospace';
+            ctx.fillText('● LIVE AI SCAN ACTIVE • NO HAZARDS IN VIEW', width - 262, height - 17);
+          }
         }
-
-        // Pothole AI Target Box
-        ctx.strokeStyle = '#ef4444';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(potX - 8, potY - 8, potW + 16, potH + 16);
-
-        // AI Tag Pill
-        ctx.fillStyle = 'rgba(239, 68, 68, 0.9)';
-        ctx.fillRect(potX - 8, potY - 32, 160, 22);
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 11px Inter, sans-serif';
-        ctx.fillText('🕳️ POTHOLE (11.5cm) 97%', potX - 4, potY - 17);
-
-        // Pedestrian Target Box
-        const pedX = width * 0.75;
-        const pedY = height * 0.48;
-        ctx.strokeStyle = '#38bdf8';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(pedX, pedY, 38, 85);
-        ctx.fillStyle = 'rgba(56, 189, 248, 0.9)';
-        ctx.fillRect(pedX, pedY - 22, 120, 20);
-        ctx.fillStyle = '#0f172a';
-        ctx.font = 'bold 10px Inter, sans-serif';
-        ctx.fillText('PEDESTRIAN 94%', pedX + 4, pedY - 8);
       }
-
-      // ── C. TOP TELEMETRY HUD BAR ──
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
-      ctx.fillRect(12, 12, 340, 56);
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
-      ctx.strokeRect(12, 12, 340, 56);
-
-      ctx.fillStyle = '#10b981';
-      ctx.font = 'bold 11px monospace';
-      const sourceLabel = videoSourceMode === 'WEBCAM'
-        ? (isIPhoneConnected ? 'LIVE IPHONE USB DASHCAM' : 'LIVE USB/MAC DASHCAM')
-        : (videoSourceMode === 'WIFI_STREAM'
-          ? 'LIVE IP CAMERA STREAM'
-          : (videoSourceMode === 'IPHONE_RELAY'
-            ? 'LIVE IPHONE WIRELESS RELAY'
-            : 'SIMULATED NOIDA FEED'));
-      ctx.fillText(`● REC 1080P • ${sourceLabel}`, 22, 30);
-      ctx.fillStyle = '#cbd5e1';
-      ctx.font = '10px monospace';
-      const currentSpeed = mobileLiveFrame?.speed || 48;
-      const currentLoc = mobileLiveFrame?.location || 'Noida Expressway / Amity Gate';
-      ctx.fillText(`GPS: 28.5449° N, 77.3331° E | SPD: ${currentSpeed} km/h`, 22, 45);
-      ctx.fillText(`V2V NODE: ${selectedVehicleId} | ${currentLoc}`, 22, 59);
 
       animationFrameRef.current = requestAnimationFrame(render);
     };
@@ -799,8 +932,8 @@ export default function ConnectedVehicleDashboard() {
           <div className="lg:col-span-2 space-y-4">
             
             {/* Hidden Video & Image Elements for Feeds */}
-            <video ref={videoRef} playsInline muted className="hidden" />
-            <img ref={wifiImgRef} src={videoSourceMode === 'WIFI_STREAM' ? wifiStreamUrl : ''} alt="" className="hidden" crossOrigin="anonymous" />
+            <video ref={videoRef} playsInline muted style={{ position: 'fixed', top: -9999, left: -9999, width: 640, height: 360, opacity: 0, pointerEvents: 'none' }} />
+            <img ref={wifiImgRef} src={videoSourceMode === 'WIFI_STREAM' ? wifiProxyUrl : ''} alt="" className="hidden" crossOrigin="anonymous" />
             <img ref={mobileImgRef} src="" alt="" className="hidden" />
 
             <div className="bg-slate-900 rounded-3xl p-5 shadow-xl border border-slate-800 relative overflow-hidden space-y-4">
@@ -993,10 +1126,9 @@ export default function ConnectedVehicleDashboard() {
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <span className="text-[10px] text-slate-400 font-bold uppercase">Presets:</span>
                     {[
-                      { label: '⭐ jaimiss-iphone:8081', url: 'http://admin:admin@jaimiss-iphone.local:8081/video' },
-                      { label: '⭐ 192.168.0.100:8080', url: 'http://192.168.0.100:8080/video' },
-                      { label: '⭐ 192.0.0.2:8080', url: 'http://192.0.0.2:8080/video' },
-                      { label: 'Novatek 8192', url: 'http://192.168.0.1:8192' },
+                      { label: '🔥 Dashcam Main (av4_0)', url: 'rtsp://192.168.0.1:554/liveRTSP/av4_0' },
+                      { label: '⚡ Ultra-Smooth Sub (av4_1)', url: 'rtsp://192.168.0.1:554/liveRTSP/av4_1' },
+                      { label: '⭐ Auto Probe', url: 'auto' },
                       { label: 'RTSP Live 554', url: 'rtsp://192.168.0.1:554/live' }
                     ].map((p, idx) => (
                       <button
@@ -1100,12 +1232,28 @@ export default function ConnectedVehicleDashboard() {
                 {/* Floating Action Buttons over Video */}
                 <div className="absolute bottom-3 right-3 flex items-center gap-2 z-20">
                   <button
-                    onClick={analyzeCurrentLiveFrame}
+                    onClick={() => {
+                      const next = !isLiveAiScanning;
+                      setIsLiveAiScanning(next);
+                      toast(next ? '⚡ Continuous AI Live Scan Active' : '⏸️ AI Live Scan Paused', { icon: next ? '⚡' : '⏸️' });
+                    }}
+                    className={`px-3 py-1.5 backdrop-blur-md text-[10px] font-black uppercase tracking-wider rounded-xl border shadow-lg flex items-center gap-1.5 transition active:scale-95 pointer-events-auto ${
+                      isLiveAiScanning
+                        ? 'bg-emerald-600/90 hover:bg-emerald-500 border-emerald-400 text-white'
+                        : 'bg-slate-850/90 hover:bg-slate-800 border-slate-600 text-slate-300'
+                    }`}
+                  >
+                    <Sparkles className={`w-3.5 h-3.5 ${isLiveAiScanning ? 'text-amber-300 animate-pulse' : 'text-slate-400'}`} />
+                    {isLiveAiScanning ? 'Live AI Scan: ACTIVE' : 'Live AI Scan: PAUSED'}
+                  </button>
+
+                  <button
+                    onClick={() => analyzeCurrentLiveFrame(false)}
                     disabled={isAnalyzingFrame}
                     className="px-3 py-1.5 bg-indigo-600/90 hover:bg-indigo-500 backdrop-blur-md text-white text-[10px] font-black uppercase tracking-wider rounded-xl border border-indigo-400 shadow-lg flex items-center gap-1.5 transition active:scale-95 disabled:opacity-50 pointer-events-auto"
                   >
                     <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                    {isAnalyzingFrame ? 'Scanning Frame...' : 'YOLO-v11 Vision Scan'}
+                    {isAnalyzingFrame ? 'Scanning...' : 'Scan Now'}
                   </button>
 
                   <button
@@ -1128,16 +1276,24 @@ export default function ConnectedVehicleDashboard() {
                   <p className="text-[9px] text-slate-500 font-mono">1080p • 60 FPS</p>
                 </div>
                 <div className="p-2.5 bg-slate-800/80 rounded-xl border border-slate-700">
-                  <p className="text-[10px] text-slate-400">AI Confidence</p>
-                  <p className="text-sm font-extrabold text-emerald-400 font-mono">98.2%</p>
-                  <p className="text-[9px] text-slate-500">YOLO-v11 + Depth</p>
+                  <p className="text-[10px] text-slate-400">AI Detection Status</p>
+                  <p className={`text-sm font-extrabold font-mono ${realYoloDetections.length > 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                    {realYoloDetections.length > 0 
+                      ? `${realYoloDetections.length} Detected` 
+                      : (isLiveAiScanning ? 'Clear / Scanning' : 'Idle')}
+                  </p>
+                  <p className="text-[9px] text-slate-400 truncate">
+                    {realYoloDetections.length > 0 
+                      ? `${realYoloDetections[0].label} (${Math.round((realYoloDetections[0].confidence || 0.9) * 100)}%)` 
+                      : 'YOLOv8 + ResNet18'}
+                  </p>
                 </div>
                 <div className="p-2.5 bg-slate-800/80 rounded-xl border border-slate-700">
-                  <p className="text-[10px] text-slate-400">Active Mode</p>
+                  <p className="text-[10px] text-slate-400">Active Source</p>
                   <p className="text-sm font-extrabold text-indigo-400 font-mono">
-                    {videoSourceMode === 'WEBCAM' ? (isIPhoneConnected ? 'IPHONE_USB' : 'USB_CAM') : videoSourceMode}
+                    {videoSourceMode === 'WEBCAM' ? (isIPhoneConnected ? 'IPHONE_USB' : 'USB/WEBCAM') : videoSourceMode}
                   </p>
-                  <p className="text-[9px] text-slate-500">Auto Target Locked</p>
+                  <p className="text-[9px] text-slate-500 truncate">{selectedCameraLabel || 'Camera Input'}</p>
                 </div>
                 <div className="p-2.5 bg-slate-800/80 rounded-xl border border-slate-700">
                   <p className="text-[10px] text-slate-400">V2V Cloud Sync</p>

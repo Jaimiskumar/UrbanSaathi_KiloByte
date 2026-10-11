@@ -5,6 +5,7 @@ Accident Detection, Congestion Indexing, Violation Classification, and Auto E-Ch
 """
 
 import os
+import time
 VEHICLE_INFERENCE_SIZE = int(os.getenv("URBANSAATHI_VEHICLE_IMAGE_SIZE", "480"))
 import ssl
 os.environ['PYTORCH_ENABLE_MPS_FALLBACK'] = '1'
@@ -411,7 +412,7 @@ def run_vehicle_detector(image: np.ndarray) -> List[Dict[str, Any]]:
     detections = []
     try:
         if models.vehicle_detector_backend == "ultralytics":
-            results = models.vehicle_detector.predict(image, conf=0.30, imgsz=VEHICLE_INFERENCE_SIZE, verbose=False)
+            results = models.vehicle_detector.predict(image, conf=0.65, imgsz=VEHICLE_INFERENCE_SIZE, verbose=False)
             for result in results:
                 names = result.names or getattr(models.vehicle_detector, "names", {})
                 masks = getattr(result, "masks", None)
@@ -442,7 +443,7 @@ def run_vehicle_detector(image: np.ndarray) -> List[Dict[str, Any]]:
                         "segmentation_polygon": polygons[idx] if idx < len(polygons) else None
                     })
         else:
-            models.vehicle_detector.conf = 0.30
+            models.vehicle_detector.conf = 0.65
             results = models.vehicle_detector(image)
             raw_rows = results.pandas().xyxy[0]
             for _, row in raw_rows.iterrows():
@@ -2554,86 +2555,152 @@ async def process_full_video_endpoint(request: VideoProcessRequest, background_t
             except Exception: pass
         raise HTTPException(status_code=500, detail=f"Video processing failed: {str(e)}")
 
+import threading
+import asyncio
+import time
 from fastapi.responses import StreamingResponse
+
+class DashcamStreamManager:
+    """
+    High-Performance, Zero-Latency Threaded RTSP Streamer for Novatek / Dashcams.
+    Continuously drains the camera RTSP buffer in a background daemon thread,
+    guaranteeing fresh frames, zero frame backlog, and smooth 30 FPS playback.
+    """
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.current_url = "rtsp://192.168.0.1:554/liveRTSP/av4_0"
+        self.cap = None
+        self.latest_jpeg = None
+        self.latest_frame = None
+        self.running = True
+        self.thread = None
+        self._ensure_worker_started()
+
+    def _ensure_worker_started(self):
+        if self.thread is None or not self.thread.is_alive():
+            self.running = True
+            self.thread = threading.Thread(target=self._capture_worker, daemon=True)
+            self.thread.start()
+
+    def set_stream_url(self, url: str):
+        if not url or url == "auto":
+            url = "rtsp://192.168.0.1:554/liveRTSP/av4_0"
+        with self.lock:
+            if self.current_url != url:
+                logger.info(f"🔄 Switching Dashcam Stream URL to: {url}")
+                self.current_url = url
+                # Do not release cap from here (causes SIGSEGV in OpenCV C++ thread).
+                # The worker thread will safely break out and release on its own thread.
+
+    def _capture_worker(self):
+        import os
+        os.environ['OPENCV_FFMPEG_CAPTURE_OPTIONS'] = (
+            'rtsp_transport;udp|'
+            'fflags;nobuffer|'
+            'flags;low_delay|'
+            'probesize;32|'
+            'analyzeduration;0|'
+            'max_delay;50000'
+        )
+        logger.info("🎬 [DashcamStreamManager] Background RTSP Capture Thread Active")
+
+        encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 72]
+
+        while self.running:
+            with self.lock:
+                target_url = self.current_url
+
+            cap = cv2.VideoCapture(target_url, cv2.CAP_FFMPEG)
+            cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+
+            if not cap.isOpened():
+                time.sleep(0.5)
+                continue
+
+            logger.info(f"⚡ [DashcamStreamManager] Connected and streaming: {target_url}")
+            with self.lock:
+                self.cap = cap
+
+            consecutive_failures = 0
+            while self.running:
+                with self.lock:
+                    if self.current_url != target_url:
+                        break
+
+                ret, frame = cap.read()
+                if not ret or frame is None:
+                    consecutive_failures += 1
+                    if consecutive_failures > 20:
+                        logger.warning("RTSP stream stalled, reconnecting...")
+                        break
+                    time.sleep(0.01)
+                    continue
+
+                consecutive_failures = 0
+
+                # Downscale for optimal bandwidth & smooth 30 FPS display
+                h, w = frame.shape[:2]
+                if w > 960:
+                    scale = 960.0 / w
+                    frame_disp = cv2.resize(frame, (960, int(h * scale)), interpolation=cv2.INTER_LINEAR)
+                else:
+                    frame_disp = frame
+
+                ret_enc, buf = cv2.imencode('.jpg', frame_disp, encode_param)
+                if ret_enc:
+                    jpeg_bytes = buf.tobytes()
+                    with self.lock:
+                        self.latest_frame = frame
+                        self.latest_jpeg = jpeg_bytes
+
+                # Short yield to ensure smooth capture thread cadence
+                time.sleep(0.005)
+
+            try:
+                cap.release()
+            except Exception:
+                pass
+            with self.lock:
+                self.cap = None
+            time.sleep(0.2)
+
+    def get_latest_jpeg(self):
+        with self.lock:
+            return self.latest_jpeg
+
+    def get_latest_frame(self):
+        with self.lock:
+            return self.latest_frame
+
+dashcam_manager = DashcamStreamManager()
 
 @app.get("/api/ml/dashcam-stream")
 async def stream_dashcam_video_feed(stream_url: str = "auto"):
     """
-    Connects to physical Wi-Fi Dashcam (VW-100G / Novatek / RTSP / HTTP stream) 
-    and automatically probes candidate endpoints, streaming live MJPEG to browser
+    Zero-latency, smooth 30 FPS MJPEG stream powered by Threaded DashcamStreamManager
     """
-    def generate_frames():
-        candidate_urls = []
-        if stream_url and stream_url != "auto":
-            candidate_urls.append(stream_url)
-        
-        # Send Viidure / Novatek / HiSilicon activation wake-up commands
-        for base_ip in ["192.168.0.100", "192.168.0.1", "192.168.1.1"]:
+    target = "rtsp://192.168.0.1:554/liveRTSP/av4_0" if (not stream_url or stream_url == "auto") else stream_url
+    dashcam_manager.set_stream_url(target)
+
+    async def generate_frames():
+        while True:
             try:
-                import urllib.request
-                req = urllib.request.Request(f"http://{base_ip}/?custom=1&cmd=2001", headers={'User-Agent': 'Viidure/1.0'})
-                urllib.request.urlopen(req, timeout=1.2)
-                req_hb = urllib.request.Request(f"http://{base_ip}/?custom=1&cmd=3001", headers={'User-Agent': 'Viidure/1.0'})
-                urllib.request.urlopen(req_hb, timeout=1.2)
-            except Exception:
-                pass
+                jpeg = dashcam_manager.get_latest_jpeg()
+                if jpeg is not None:
+                    yield (b'--frame\r\n'
+                           b'Content-Type: image/jpeg\r\n\r\n' + jpeg + b'\r\n')
+                else:
+                    blank = np.zeros((360, 640, 3), dtype=np.uint8)
+                    cv2.putText(blank, "CONNECTING TO DASHCAM...", (120, 180), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 200), 2)
+                    _, buf = cv2.imencode('.jpg', blank)
+                    yield (b'--frame\r\n'
+                           b'Content-Type: image/jpeg\r\n\r\n' + buf.tobytes() + b'\r\n')
 
-        # Populate candidate URLs for Viidure (Novatek / HiSilicon chipsets)
-        candidate_urls.extend([
-            "http://192.168.0.100:8192",
-            "http://192.168.0.1:8192",
-            "http://192.168.0.100/cgi-bin/mjpg/video.cgi",
-            "http://192.168.0.1/cgi-bin/mjpg/video.cgi",
-            "rtsp://192.168.0.100:554/liveRTSP/av4_0",
-            "rtsp://192.168.0.1:554/liveRTSP/av4_0",
-            "rtsp://192.168.0.100:554/live",
-            "rtsp://192.168.0.1:554/live",
-            "http://192.168.0.100:8020/video",
-            "http://192.168.0.1:8020/video",
-            "http://192.168.0.100:8080/video",
-            "http://192.168.0.1:8080/video",
-            "rtsp://192.168.0.1:2001/live"
-        ])
-
-        cap = None
-        for u in candidate_urls:
-            try:
-                test_cap = cv2.VideoCapture(u)
-                if test_cap.isOpened():
-                    ret, test_frame = test_cap.read()
-                    if ret and test_frame is not None:
-                        logger.info(f"🎉 Locked onto Dashcam Stream on: {u}")
-                        cap = test_cap
-                        break
-                test_cap.release()
-            except Exception:
-                pass
-
-        if cap is None:
-            # Generate animated active radar feed if camera is still handshake-buffering
-            logger.warning("Dashcam buffering or searching active frame...")
-            while True:
-                blank = np.zeros((360, 640, 3), dtype=np.uint8)
-                cv2.putText(blank, "SEARCHING VW-100G STREAM (192.168.0.1)...", (50, 180), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (0, 255, 200), 2)
-                ret, buffer = cv2.imencode('.jpg', blank)
-                yield (b'--frame\r\n'
-                       b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
-                import time
-                time.sleep(0.5)
-
-        while cap and cap.isOpened():
-            success, frame = cap.read()
-            if not success or frame is None:
+                await asyncio.sleep(0.033)
+            except (asyncio.CancelledError, GeneratorExit):
                 break
-            ret, buffer = cv2.imencode('.jpg', frame, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
-            if not ret:
-                continue
-            frame_bytes = buffer.tobytes()
-            yield (b'--frame\r\n'
-                   b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
-        
-        if cap:
-            cap.release()
+            except Exception:
+                break
 
     return StreamingResponse(generate_frames(), media_type="multipart/x-mixed-replace; boundary=frame")
 

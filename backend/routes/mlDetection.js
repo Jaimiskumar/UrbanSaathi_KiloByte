@@ -46,26 +46,108 @@ router.post('/detect', async (req, res) => {
       source: req.body.source || 'DASHCAM'
     });
 
-    const detections = [
-      ...(result.vehicles || []).map(vehicle => ({
-        id: vehicle.id,
-        label: vehicle.class_name || vehicle.class || 'vehicle',
-        type: 'vehicle',
-        confidence: vehicle.confidence,
-        bbox: vehicle.bbox
-      })),
-      ...(result.pedestrians || []).map(pedestrian => ({
-        id: pedestrian.id,
-        label: 'person',
-        type: 'pedestrian',
-        confidence: pedestrian.confidence,
-        bbox: pedestrian.bbox
-      }))
-    ];
+    const detections = [];
+
+    // 1. Potholes (from trained pothole_detector best.pt)
+    if (Array.isArray(result.potholes)) {
+      result.potholes.forEach((pot, idx) => {
+        detections.push({
+          id: `pot-${idx}-${Date.now()}`,
+          label: 'POTHOLE',
+          type: 'pothole',
+          confidence: pot.confidence || 0.95,
+          severity: pot.severity || 'HIGH',
+          bbox: pot.bbox
+        });
+      });
+    }
+
+    // 2. Accident / Collision
+    if (result.accident_detection?.accident_detected || result.events?.accident?.detected) {
+      const details = result.accident_detection?.details || {};
+      detections.push({
+        id: details.accident_id || `acc-${Date.now()}`,
+        label: 'ACCIDENT',
+        type: 'accident',
+        confidence: details.confidence || details.collision_probability || 0.94,
+        severity: details.severity || 'CRITICAL',
+        bbox: details.bbox || (result.vehicles?.[0]?.bbox) || { x1: 150, y1: 100, x2: 490, y2: 300 }
+      });
+    }
+
+    // 3. Vehicles
+    if (Array.isArray(result.vehicles)) {
+      result.vehicles.forEach(vehicle => {
+        detections.push({
+          id: vehicle.id || `veh-${Math.random()}`,
+          label: (vehicle.class_name || vehicle.class || 'vehicle').toUpperCase(),
+          type: 'vehicle',
+          confidence: vehicle.confidence || 0.9,
+          speed: vehicle.speed,
+          bbox: vehicle.bbox
+        });
+      });
+    }
+
+    // 4. Pedestrians
+    if (Array.isArray(result.pedestrians)) {
+      result.pedestrians.forEach(ped => {
+        detections.push({
+          id: ped.id || `ped-${Math.random()}`,
+          label: 'PEDESTRIAN',
+          type: 'pedestrian',
+          confidence: ped.confidence || 0.9,
+          bbox: ped.bbox
+        });
+      });
+    }
+
+    // 5. Urban Issues / Road Hazards
+    if (Array.isArray(result.urban_issues)) {
+      result.urban_issues.forEach((issue, idx) => {
+        detections.push({
+          id: `issue-${idx}`,
+          label: (issue.label || 'ROAD_HAZARD').toUpperCase(),
+          type: 'hazard',
+          confidence: issue.confidence || 0.88,
+          bbox: issue.bbox
+        });
+      });
+    }
+
+    // 6. Street Encroachment / Vendors
+    if (Array.isArray(result.vendors)) {
+      result.vendors.forEach((vendor, idx) => {
+        detections.push({
+          id: `vendor-${idx}`,
+          label: 'ENCROACHMENT',
+          type: 'encroachment',
+          confidence: vendor.confidence || 0.89,
+          bbox: vendor.bbox
+        });
+      });
+    }
+
+    // 7. License Plate Detections
+    if (Array.isArray(result.plate_detections)) {
+      result.plate_detections.forEach((plate, idx) => {
+        const pText = (plate.plate_text || '').trim();
+        if (pText && pText !== 'UNREADABLE') {
+          detections.push({
+            id: `plate-${idx}`,
+            label: pText,
+            type: 'plate',
+            confidence: plate.confidence || 0.92,
+            bbox: plate.bbox
+          });
+        }
+      });
+    }
 
     return res.json({
       success: result.success !== false,
       detections,
+      frame_dimensions: result.frame_dimensions || null,
       model: result.model,
       degraded: result.model?.source !== 'real'
     });
