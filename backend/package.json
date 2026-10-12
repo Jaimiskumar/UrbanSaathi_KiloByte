@@ -8,7 +8,8 @@
     "start": "node server.js",
     "seed": "node scripts/seed.js",
     "agents:test": "node scripts/test_agents.js",
-    "agents:allocation:test": "node --test test/agentAllocation.test.js"
+    "agents:allocation:test": "node --test test/agentAllocation.test.js",
+    "test": "node --test test/*.test.js"
   },
   "dependencies": {
     "@langchain/core": "^1.2.9",

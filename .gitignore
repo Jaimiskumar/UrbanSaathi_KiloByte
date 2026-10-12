@@ -74,3 +74,4 @@ scratch_benchmark.py
 
 # Generated Green AI benchmark report; keep raw measurements local by default.
 /reports/green_ai/latest.json
+/reports/green_ai/history.json

@@ -14,6 +14,12 @@ import { communityCloudService } from '../services/communityCloudService.js';
 import { orchestratorAgent, featurePolicySummary } from '../services/agents/index.js';
 import { evaluateWorkload } from '../services/agents/contextAwareWorkload.js';
 import { getGreenAiStatus } from '../services/greenAiStatusService.js';
+import {
+  GREEN_AI_SCENARIOS,
+  runGreenAiExperiment,
+  getExperimentHistory,
+  getLatestExperiment
+} from '../services/greenAiExperimentService.js';
 
 const getEventBus = async () => (await import('../services/agents/index.js')).eventBus;
 
@@ -125,6 +131,94 @@ router.get('/green-ai/status', (req, res) => {
     console.error('Green AI status collection failed:', error);
     res.status(500).json({ error: 'GREEN_AI_STATUS_UNAVAILABLE', message: error.message });
   }
+});
+
+/**
+ * GET /api/urbanflow/green-ai/scenarios
+ * Returns predefined real-world traffic scenarios for benchmark execution
+ */
+router.get('/green-ai/scenarios', (req, res) => {
+  res.json({ scenarios: GREEN_AI_SCENARIOS });
+});
+
+/**
+ * POST /api/urbanflow/green-ai/experiment/run
+ * Runs live end-to-end 3-layer experiment with real detector, agents, and context cadence
+ */
+router.post('/green-ai/experiment/run', async (req, res) => {
+  try {
+    const { scenarioId, mode, customFrameBase64, customContext } = req.body || {};
+    const result = await runGreenAiExperiment({
+      scenarioId: scenarioId || 'stable',
+      mode: mode || 'compare',
+      customFrameBase64,
+      customContext
+    });
+    res.json({ success: true, ...result });
+  } catch (error) {
+    console.error('Green AI experiment execution failed:', error);
+    res.status(500).json({
+      success: false,
+      error: 'EXPERIMENT_EXECUTION_FAILED',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/urbanflow/green-ai/experiments
+ * Returns history of completed benchmark runs
+ */
+router.get('/green-ai/experiments', (req, res) => {
+  res.json({ history: getExperimentHistory() });
+});
+
+/**
+ * GET /api/urbanflow/green-ai/experiments/latest
+ * Returns the most recent completed benchmark run
+ */
+router.get('/green-ai/experiments/latest', (req, res) => {
+  const latest = getLatestExperiment();
+  if (!latest) {
+    return res.status(404).json({ error: 'NO_BENCHMARK_AVAILABLE' });
+  }
+  res.json(latest);
+});
+
+/**
+ * GET /api/urbanflow/green-ai/experiments/:runId/export
+ * Exports benchmark results as JSON or CSV
+ */
+router.get('/green-ai/experiments/:runId/export', (req, res) => {
+  const latest = getLatestExperiment();
+  const format = String(req.query.format || 'json').toLowerCase();
+  
+  if (!latest) {
+    return res.status(404).send('No experiment data found to export');
+  }
+
+  if (format === 'csv') {
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename=green_ai_experiment_${latest.runId || 'run'}.csv`);
+    const csvContent = [
+      'Metric,Baseline,Optimized,Unit,Difference',
+      `Energy Per Inference,${latest.summaryMetrics?.baselineEnergyJoules || '–'},${latest.summaryMetrics?.optimizedEnergyJoules || '–'},Joules,-${latest.summaryMetrics?.energyReductionPct || 0}%`,
+      `Inference Latency Mean,${latest.summaryMetrics?.baselineLatencyMs || '–'},${latest.summaryMetrics?.optimizedLatencyMs || '–'},ms,${(latest.summaryMetrics?.baselineLatencyMs - latest.summaryMetrics?.optimizedLatencyMs).toFixed(1)}ms faster`,
+      `Accuracy / mAP,${latest.summaryMetrics?.baselineAccuracy || '–'},${latest.summaryMetrics?.optimizedAccuracy || '–'},mAP50-95,${latest.summaryMetrics?.accuracyChangePct || 0}%`,
+      `Sampling Cadence,${latest.summaryMetrics?.baselineSamplingCadenceSec || '–'},${latest.summaryMetrics?.adaptedSamplingCadenceSec || '–'},seconds,Adaptive`,
+      `Agent Calls Avoided,0,${latest.summaryMetrics?.agentCallsAvoided || '–'},count,Saved compute`,
+      `Token Usage Per Event,${latest.summaryMetrics?.tokens?.baselineTokens || 11520},${latest.summaryMetrics?.tokens?.optimizedTokens || '–'},tokens,-${latest.summaryMetrics?.tokens?.tokenReductionPct || 0}%`,
+      `Tokens Saved By Pruning,0,${latest.summaryMetrics?.tokens?.tokensSavedByPruning || '–'},tokens,Layer 2 skipped agents`,
+      `Cost Per 1k Inferences,$${latest.summaryMetrics?.costs?.baselineTotalCostPer1kUsd || '–'},$${latest.summaryMetrics?.costs?.optimizedTotalCostPer1kUsd || '–'},USD,-${latest.summaryMetrics?.costs?.costReductionPct || 0}%`,
+      `Annual Cost Saved (100 Cams),0,$${latest.summaryMetrics?.costs?.annualCostSavedUsd || '–'} (₹${latest.summaryMetrics?.costs?.annualCostSavedInr || '–'}),USD / INR,Annualized projection`,
+      `Annual CO2e Saved,0,${latest.summaryMetrics?.annualCo2eSavedKg || '–'},kg CO2e,100 cameras grid`
+    ].join('\n');
+    return res.send(csvContent);
+  }
+
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Content-Disposition', `attachment; filename=green_ai_experiment_${latest.runId || 'run'}.json`);
+  return res.json(latest);
 });
 
 router.post('/agents/plan', (req, res) => {

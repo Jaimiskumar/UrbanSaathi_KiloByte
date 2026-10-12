@@ -29,6 +29,7 @@ import urbanflowRoutes from './routes/urbanflow.js';
 import bangaloreRoutes from './routes/bangaloreRoutes.js';
 import roadIntelligenceRoutes from './routes/roadIntelligence.js';
 import sentinelRoutes, { vehicleRouter } from './routes/sentinel.js';
+import aiEnergyLabRoutes from './routes/aiEnergyLabRoutes.js';
 import { initializeTrafficSimulation } from './services/trafficSimulator.js';
 import User from './models/User.js';
 import { env } from './config/env.js';
@@ -145,6 +146,7 @@ app.use('/api/bangalore', bangaloreRoutes);
 app.use('/api/road-intelligence', roadIntelligenceRoutes);
 app.use('/api/sentinel', sentinelRoutes);
 app.use('/api/vehicles', vehicleRouter);
+app.use('/api/ai-energy-lab', aiEnergyLabRoutes);
 
 io.on('connection', (socket) => {
   console.log('Client connected:', socket.id);

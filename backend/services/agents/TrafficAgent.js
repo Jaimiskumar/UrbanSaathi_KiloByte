@@ -1,4 +1,5 @@
 import { BaseAgent } from './BaseAgent.js';
+import mongoose from 'mongoose';
 import TrafficSignal from '../../models/TrafficSignal.js';
 import { UrbanFlowService } from '../urbanflowService.js';
 
@@ -129,12 +130,14 @@ export class TrafficAgent extends BaseAgent {
 
     let signals = [];
     try {
-      const query = {};
-      const signalIds = [...new Set(areas.map((area) => area.signalId).filter(Boolean))];
-      if (signalIds.length) query.signalId = { $in: signalIds.map((id) => String(id).toUpperCase()) };
-      else if (location.zone) query.syncedZone = String(location.zone).toUpperCase();
-      else if (location.name) query['location.name'] = new RegExp(location.name, 'i');
-      signals = await TrafficSignal.find(query).limit(50).lean();
+      if (mongoose.connection?.readyState === 1) {
+        const query = {};
+        const signalIds = [...new Set(areas.map((area) => area.signalId).filter(Boolean))];
+        if (signalIds.length) query.signalId = { $in: signalIds.map((id) => String(id).toUpperCase()) };
+        else if (location.zone) query.syncedZone = String(location.zone).toUpperCase();
+        else if (location.name) query['location.name'] = new RegExp(location.name, 'i');
+        signals = await TrafficSignal.find(query).limit(50).lean();
+      }
     } catch (error) {
       console.warn(`[TrafficAgent] Signal context unavailable: ${error.message}`);
     }
@@ -233,13 +236,15 @@ export class TrafficAgent extends BaseAgent {
       for (const recommendation of decision.signalRecommendation) {
         if (!recommendation.signalId) continue;
         try {
-          const signal = await TrafficSignal.findOne({ signalId: recommendation.signalId });
-          if (!signal || signal.mode !== 'auto' || !signal.isActive) continue;
-          signal.timings.green = recommendation.recommendedGreenSeconds;
-          signal.currentTimer = recommendation.recommendedGreenSeconds;
-          signal.lastUpdated = new Date();
-          await signal.save();
-          appliedSignals.push({ signalId: signal.signalId, greenSeconds: signal.timings.green });
+          if (mongoose.connection?.readyState === 1) {
+            const signal = await TrafficSignal.findOne({ signalId: recommendation.signalId });
+            if (!signal || signal.mode !== 'auto' || !signal.isActive) continue;
+            signal.timings.green = recommendation.recommendedGreenSeconds;
+            signal.currentTimer = recommendation.recommendedGreenSeconds;
+            signal.lastUpdated = new Date();
+            await signal.save();
+            appliedSignals.push({ signalId: signal.signalId, greenSeconds: signal.timings.green });
+          }
         } catch (error) {
           console.warn(`[TrafficAgent] Could not apply signal ${recommendation.signalId}: ${error.message}`);
         }

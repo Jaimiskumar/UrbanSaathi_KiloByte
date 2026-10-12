@@ -10,6 +10,7 @@ import EncroachmentMonitoring from '../components/admin/EncroachmentMonitoring';
 import IllegalParkingDetection from '../components/admin/IllegalParkingDetection';
 import AIAgentCenter from '../components/admin/AIAgentCenter';
 import GreenAIDashboard from '../components/admin/GreenAIDashboard';
+import AIEnergyLabDashboard from '../components/admin/AIEnergyLabDashboard';
 import MLDetectionUpload from '../components/admin/MLDetectionUpload';
 import DailyReports from '../components/admin/DailyReports';
 import BangaloreTrafficMap from '../components/admin/BangaloreTrafficMap';
@@ -41,6 +42,7 @@ export default function AdminDashboard({ user, onLogout }) {
     { id: 'v2v-safety', label: 'Connected Vehicle & Safety', icon: Radio, path: '/admin/v2v-safety', color: 'blue' },
     { id: 'bangalore-map', label: 'Noida - NCR Traffic Map', icon: MapIcon, path: '/admin/bangalore-map', color: 'blue' },
     { id: 'agents', label: 'AI Agent Center', icon: Bot, path: '/admin/agents', color: 'indigo' },
+    { id: 'ai-energy-lab', label: 'AI Energy Lab · Control Center', icon: Zap, path: '/admin/ai-energy-lab', color: 'emerald' },
     { id: 'green-ai', label: 'Green AI · 3 Layers', icon: Sparkles, path: '/admin/green-ai', color: 'emerald' },
     { id: 'traffic', label: 'Traffic Monitoring', icon: Car, path: '/admin/traffic', color: 'blue' },
     { id: 'parking', label: 'Parking Management', icon: ParkingCircle, path: '/admin/parking', color: 'green' },
@@ -210,6 +212,7 @@ export default function AdminDashboard({ user, onLogout }) {
               <Route path="/encroachment" element={<EncroachmentMonitoring />} />
               <Route path="/emergency" element={<EmergencyControl />} />
               <Route path="/agents" element={<AIAgentCenter />} />
+              <Route path="/ai-energy-lab" element={<AIEnergyLabDashboard />} />
               <Route path="/green-ai" element={<GreenAIDashboard />} />
               <Route path="/analytics" element={<Analytics />} />
               <Route path="/reports" element={<DailyReports />} />
