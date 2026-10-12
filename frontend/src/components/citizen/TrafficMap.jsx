@@ -28,14 +28,74 @@ import {
   Activity
 } from 'lucide-react';
 import axios from 'axios';
+import toast from 'react-hot-toast';
 
 const NoidaUltimateGoogleMap = ({ zones }) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [zoom, setZoom] = useState(15);
+  const [mapType, setMapType] = useState('m'); // 'm' = Roadmap, 'k' = Satellite, 'h' = Hybrid, 'p' = Terrain
+  const [locating, setLocating] = useState(false);
+
+  const mapTypeLabels = {
+    m: 'Roadmap View',
+    k: 'Satellite Imagery',
+    h: 'Hybrid View',
+    p: 'Terrain View'
+  };
+
+  const handleZoomIn = () => {
+    setZoom((prev) => Math.min(prev + 1, 21));
+  };
+
+  const handleZoomOut = () => {
+    setZoom((prev) => Math.max(prev - 1, 8));
+  };
+
+  const handleToggleLayer = () => {
+    setMapType((prev) => {
+      let next = 'k';
+      if (prev === 'm') next = 'k';
+      else if (prev === 'k') next = 'h';
+      else if (prev === 'h') next = 'p';
+      else next = 'm';
+      toast.success(`Map Layer: ${mapTypeLabels[next]}`, { id: 'map-layer', icon: '🗺️' });
+      return next;
+    });
+  };
+
+  const handleMyLocation = () => {
+    if (!navigator.geolocation) {
+      setSearchQuery('Amity University Sector 125 Noida');
+      setZoom(16);
+      toast.success('Centered on Amity University Campus', { id: 'geo-center' });
+      return;
+    }
+
+    setLocating(true);
+    toast.loading('Acquiring live GPS position...', { id: 'geo-center' });
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLocating(false);
+        const coords = `${pos.coords.latitude.toFixed(5)},${pos.coords.longitude.toFixed(5)}`;
+        setSearchQuery(coords);
+        setZoom(17);
+        toast.success(`Centered on your GPS coordinates`, { id: 'geo-center' });
+      },
+      () => {
+        setLocating(false);
+        setSearchQuery('Amity University Sector 125 Noida');
+        setZoom(16);
+        toast.success('Centered on Amity University Sector 125 Noida', { id: 'geo-center' });
+      },
+      { enableHighAccuracy: true, timeout: 6000 }
+    );
+  };
   
   const getMapUrl = () => {
     const base = "https://maps.google.com/maps";
     const q = searchQuery ? `${searchQuery} Noida Uttar Pradesh` : "Amity University Sector 125 Noida Uttar Pradesh India";
-    return `${base}?q=${encodeURIComponent(q)}&t=m&z=14&output=embed&iwloc=near`;
+    return `${base}?q=${encodeURIComponent(q)}&t=${mapType}&z=${zoom}&output=embed&iwloc=near`;
   };
 
   const handleDirections = () => {
@@ -127,21 +187,54 @@ const NoidaUltimateGoogleMap = ({ zones }) => {
 
       {/* 🧭 NAVIGATION TIER CONTROLS - MOBILE RE-POSITIONED */}
       <div className="absolute bottom-32 md:top-48 right-4 md:right-6 flex flex-col gap-2 md:gap-3 z-[40]">
-         <div className="flex flex-col bg-white/90 backdrop-blur-md rounded-2xl md:rounded-[1.8rem] shadow-2xl border border-white overflow-hidden">
-            <button className="p-3 md:p-4 text-gray-600 hover:bg-blue-50 border-b border-gray-100 transition-all"><Plus className="w-5 h-5" /></button>
-            <button className="p-3 md:p-4 text-gray-600 hover:bg-blue-50 transition-all"><Minus className="w-5 h-5" /></button>
+         <div className="flex flex-col bg-white/95 backdrop-blur-md rounded-2xl md:rounded-[1.8rem] shadow-2xl border border-white overflow-hidden">
+            <button 
+              type="button"
+              onClick={handleZoomIn}
+              title={`Zoom In (Level: ${zoom})`}
+              className="p-3 md:p-4 text-gray-600 hover:bg-blue-50 hover:text-blue-600 active:scale-90 border-b border-gray-100 transition-all flex items-center justify-center"
+            >
+              <Plus className="w-5 h-5" />
+            </button>
+            <button 
+              type="button"
+              onClick={handleZoomOut}
+              title={`Zoom Out (Level: ${zoom})`}
+              className="p-3 md:p-4 text-gray-600 hover:bg-blue-50 hover:text-blue-600 active:scale-90 transition-all flex items-center justify-center"
+            >
+              <Minus className="w-5 h-5" />
+            </button>
          </div>
-         <button className="p-3 md:p-4 bg-white/90 backdrop-blur-md rounded-2xl md:rounded-[1.8rem] shadow-2xl text-gray-700 hover:text-blue-600 transition-all active:scale-90 flex items-center justify-center">
+         <button 
+           type="button"
+           onClick={handleToggleLayer}
+           title={`Switch Layer: Current ${mapTypeLabels[mapType]}`}
+           className={`p-3 md:p-4 bg-white/95 backdrop-blur-md rounded-2xl md:rounded-[1.8rem] shadow-2xl transition-all active:scale-90 flex items-center justify-center relative group/layer ${
+             mapType !== 'm' ? 'text-blue-600 border-2 border-blue-500 bg-blue-50' : 'text-gray-700 hover:text-blue-600'
+           }`}
+         >
             <LayersIcon className="w-6 h-6" />
+            <span className="hidden group-hover/layer:block absolute right-full mr-3 whitespace-nowrap bg-slate-900 text-white text-[10px] font-bold py-1 px-2.5 rounded-lg shadow-lg pointer-events-none">
+              {mapTypeLabels[mapType]}
+            </span>
          </button>
-         <button className="p-3 md:p-4 bg-white/90 backdrop-blur-md rounded-2xl md:rounded-[1.8rem] shadow-2xl text-blue-600 hover:bg-blue-50 transition-all active:scale-90 flex items-center justify-center">
-            <Crosshair className="w-6 h-6" />
+         <button 
+           type="button"
+           onClick={handleMyLocation}
+           title="Center on Live Location / Amity Campus"
+           className="p-3 md:p-4 bg-white/95 backdrop-blur-md rounded-2xl md:rounded-[1.8rem] shadow-2xl text-blue-600 hover:bg-blue-50 transition-all active:scale-90 flex items-center justify-center relative group/gps"
+         >
+            <Crosshair className={`w-6 h-6 ${locating ? 'animate-spin text-emerald-500' : ''}`} />
+            <span className="hidden group-hover/gps:block absolute right-full mr-3 whitespace-nowrap bg-slate-900 text-white text-[10px] font-bold py-1 px-2.5 rounded-lg shadow-lg pointer-events-none">
+              Live Location
+            </span>
          </button>
       </div>
 
       {/* 🗺️ THE NATIVE GOOGLE MAPS IFRAME ENGINE */}
       <div className="w-full h-full relative z-0">
          <iframe
+            key={`${mapType}-${zoom}-${searchQuery}`}
             src={getMapUrl()}
             width="100%"
             height="100%"
@@ -158,7 +251,7 @@ const NoidaUltimateGoogleMap = ({ zones }) => {
             <div className="w-3.5 h-3.5 bg-red-600 rounded-full animate-ping"></div>
             <div className="flex flex-col">
                <p className="text-[10px] font-black text-red-600 uppercase tracking-[0.3em]">Live Feed Active</p>
-               <h4 className="text-sm font-black text-slate-900 tracking-tight leading-none">Amity Noida NCR Grid Sync</h4>
+               <h4 className="text-sm font-black text-slate-900 tracking-tight leading-none">Amity Noida NCR Grid Sync · {mapTypeLabels[mapType]} (Zoom {zoom})</h4>
             </div>
          </div>
       </div>
