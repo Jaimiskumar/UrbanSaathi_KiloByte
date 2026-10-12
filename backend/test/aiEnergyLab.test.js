@@ -30,7 +30,9 @@ import {
   getLiveVerificationMatrix
 } from '../services/provenanceBenchmarkService.js';
 import {
-  computeFrameDeltaMetrics
+  computeFrameDeltaMetrics,
+  computeDomainRoiComparison,
+  getAllDomainRoiComparisons
 } from '../services/videoDeltaProcessingService.js';
 
 test('Hardware Telemetry: calculates energy via trapezoidal numerical integration', () => {
@@ -225,5 +227,46 @@ test('Precision Tradeoffs: FP16 halves VRAM bandwidth and retains >98% accuracy 
   assert.ok(tradeoffs.latencySpeedupFactor >= 2.0);
   assert.ok(tradeoffs.accuracyRetentionPct > 98.0);
   assert.ok(tradeoffs.relativeAccuracyLossPct < 2.0);
+});
+
+test('Region of Interest (ROI): Accident detection prunes peripheral scene and retains 100% target accuracy', () => {
+  const comp = computeDomainRoiComparison('accident_detection');
+  assert.equal(comp.domainId, 'accident_detection');
+  assert.equal(comp.domainName, 'Accident Collision & Conflict Corridor');
+  assert.ok(comp.roiGeometry.roiAreaPct <= 50.0);
+  assert.ok(comp.roiGeometry.bypassedAreaPct >= 50.0);
+  assert.ok(comp.comparison.fpsSpeedupPct > 80.0);
+  assert.equal(comp.comparison.accuracyRetentionPct, 100.0);
+  assert.ok(comp.baselineModel.latencyMs > comp.updatedModel.latencyMs);
+  assert.ok(comp.baselineModel.energyPerInferenceJoules > comp.updatedModel.energyPerInferenceJoules);
+});
+
+test('Region of Interest (ROI): Pothole detection focuses on road asphalt plane, bypassing empty sky and trees', () => {
+  const comp = computeDomainRoiComparison('pothole_detection');
+  assert.equal(comp.domainId, 'pothole_detection');
+  assert.equal(comp.domainName, 'Pothole & Asphalt Road Plane');
+  assert.ok(comp.roiGeometry.roiAreaPct <= 50.0);
+  assert.ok(comp.roiGeometry.bypassedAreaPct >= 50.0);
+  assert.ok(comp.comparison.computeWorkloadReductionPct >= 50.0);
+  assert.ok(comp.comparison.accuracyRetentionPct >= 99.0);
+  assert.ok(comp.comparison.energyReductionPct > 70.0);
+});
+
+test('Region of Interest (ROI): Road detection focuses on carriageway lane corridor', () => {
+  const comp = computeDomainRoiComparison('road_detection');
+  assert.equal(comp.domainId, 'road_detection');
+  assert.equal(comp.domainName, 'Road Carriageway & Vehicle Corridor');
+  assert.ok(comp.roiGeometry.bypassedAreaPct >= 45.0);
+  assert.ok(comp.comparison.roiSpeedupFactor >= 1.8);
+  assert.ok(comp.comparison.accuracyRetentionPct >= 99.0);
+});
+
+test('Region of Interest (ROI): getAllDomainRoiComparisons returns complete dataset across all 3 domains', () => {
+  const all = getAllDomainRoiComparisons();
+  assert.ok(all.accident_detection);
+  assert.ok(all.pothole_detection);
+  assert.ok(all.road_detection);
+  assert.equal(all.accident_detection.baselineModel.mode, 'Full-Frame Dense Scan (100% Frame Area)');
+  assert.equal(all.accident_detection.updatedModel.mode, 'Region of Interest (ROI) Focused Computation');
 });
 

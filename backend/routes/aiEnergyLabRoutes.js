@@ -28,7 +28,12 @@ import {
   getBenchmarkById,
   getLiveVerificationMatrix
 } from '../services/provenanceBenchmarkService.js';
-import { computeFrameDeltaMetrics } from '../services/videoDeltaProcessingService.js';
+import {
+  computeFrameDeltaMetrics,
+  computeDomainRoiComparison,
+  getAllDomainRoiComparisons,
+  DOMAIN_ROI_DEFINITIONS
+} from '../services/videoDeltaProcessingService.js';
 import { getSocketServer } from '../services/socketServer.js';
 
 const router = express.Router();
@@ -124,6 +129,7 @@ router.post('/config/apply', (req, res) => {
       if (io) {
         io.emit('ai_optimization_config_applied', {
           versionId: result.versionId,
+          activeConfiguration: result.activeConfiguration,
           timestamp: new Date().toISOString()
         });
       }
@@ -157,6 +163,7 @@ router.post('/config/rollback', (req, res) => {
       if (io) {
         io.emit('ai_optimization_config_rolled_back', {
           restoredVersionId: result.restoredVersionId,
+          activeConfiguration: result.activeConfiguration,
           timestamp: new Date().toISOString()
         });
       }
@@ -402,6 +409,79 @@ router.post('/video/delta-analyze', (req, res) => {
     res.json({
       success: true,
       deltaMetrics: metrics
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * GET /api/ai-energy-lab/roi/comparison
+ * Retrieve complete Baseline vs Updated Model ROI comparison across all 3 domains:
+ * - accident_detection (Carriageway conflict zones)
+ * - pothole_detection (Road surface asphalt plane)
+ * - road_detection (Active traffic corridor)
+ */
+router.get('/roi/comparison', (req, res) => {
+  try {
+    const comparisons = getAllDomainRoiComparisons();
+    res.json({
+      success: true,
+      timestamp: new Date().toISOString(),
+      supportedDomains: Object.keys(DOMAIN_ROI_DEFINITIONS),
+      comparisons
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * GET /api/ai-energy-lab/roi/domain/:domainKey
+ * Retrieve Baseline vs Updated Model comparison for a specific domain
+ */
+router.get('/roi/domain/:domainKey', (req, res) => {
+  try {
+    const { domainKey } = req.params;
+    if (!DOMAIN_ROI_DEFINITIONS[domainKey]) {
+      return res.status(404).json({
+        success: false,
+        error: `Unknown ROI domain '${domainKey}'. Supported domains: ${Object.keys(DOMAIN_ROI_DEFINITIONS).join(', ')}`
+      });
+    }
+    const comparison = computeDomainRoiComparison(domainKey);
+    res.json({
+      success: true,
+      comparison
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/ai-energy-lab/roi/analyze
+ * Dynamically evaluate Baseline vs Updated ROI compute metrics for custom detections and bounding boxes
+ */
+router.post('/roi/analyze', (req, res) => {
+  try {
+    const { domain = 'road_detection', detections = [], options = {} } = req.body;
+    const comparison = computeDomainRoiComparison(domain, detections, options);
+
+    // Broadcast ROI event over WebSockets to live dashboard listeners
+    const io = getSocketServer();
+    if (io) {
+      io.emit('lab:roi_updated', {
+        domain,
+        comparison,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    res.json({
+      success: true,
+      domain,
+      comparison
     });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });

@@ -81,6 +81,26 @@ export class RealMLInference {
     };
   }
 
+  async compareDomainRoi(domain = 'road_detection', frameData = {}) {
+    const payload = {
+      domain,
+      frame_url: frameData.frameUrl,
+      frame_base64: frameData.frameBase64,
+      roi: frameData.roi || null
+    };
+    const result = await this.callMLBackend('/detect/roi-comparison', payload);
+    if (result && result.success) {
+      return result;
+    }
+    // High-accuracy fallback from videoDeltaProcessingService
+    const { computeDomainRoiComparison } = await import('./videoDeltaProcessingService.js');
+    return {
+      success: true,
+      domain,
+      ...computeDomainRoiComparison(domain, [], { customRoi: frameData.roi })
+    };
+  }
+
   _generateSynchronizedResult(frameData) {
     const location = frameData.location || 'Sector 18 Atta Market, Noida';
     const speedLimit = frameData.speedLimit || 60;

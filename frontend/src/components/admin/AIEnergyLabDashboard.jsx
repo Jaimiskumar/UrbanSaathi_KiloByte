@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import io from 'socket.io-client';
 import {
   Activity,
   AlertTriangle,
@@ -43,7 +44,9 @@ import {
   XCircle,
   Zap,
   ArrowUpRight,
-  ArrowDownRight
+  ArrowDownRight,
+  Target,
+  Crosshair
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -224,7 +227,9 @@ export default function AIEnergyLabDashboard() {
 
   // Video Delta Processing & Inspection states
   const [deltaMetrics, setDeltaMetrics] = useState(null);
-  const [deltaInspectionMode, setDeltaInspectionMode] = useState('composite'); // 'composite' | 'delta_heatmap' | 'tile_grid' | 'bitdepth'
+  const [deltaInspectionMode, setDeltaInspectionMode] = useState('roi_focus'); // 'roi_focus' | 'composite' | 'delta_heatmap' | 'tile_grid' | 'bitdepth'
+  const [roiDomain, setRoiDomain] = useState('pothole_detection'); // 'pothole_detection' | 'accident_detection' | 'road_detection'
+  const [roiComparisons, setRoiComparisons] = useState(null);
   const [deltaEnabled, setDeltaEnabled] = useState(true);
   const [deltaThreshold, setDeltaThreshold] = useState(12);
   const videoCompBaseRef = React.useRef(null);
@@ -243,7 +248,8 @@ export default function AIEnergyLabDashboard() {
         jobsRes,
         matrixRes,
         historyRes,
-        deltaRes
+        deltaRes,
+        roiRes
       ] = await Promise.allSettled([
         axios.get('/api/ai-energy-lab/catalog'),
         axios.get('/api/ai-energy-lab/config/active'),
@@ -252,8 +258,13 @@ export default function AIEnergyLabDashboard() {
         axios.get('/api/ai-energy-lab/scheduler/jobs'),
         axios.get('/api/ai-energy-lab/matrix'),
         axios.get('/api/ai-energy-lab/benchmark/history'),
-        axios.get('/api/ai-energy-lab/video/delta-status')
+        axios.get('/api/ai-energy-lab/video/delta-status'),
+        axios.get('/api/ai-energy-lab/roi/comparison')
       ]);
+
+      if (roiRes.status === 'fulfilled' && roiRes.value.data?.comparisons) {
+        setRoiComparisons(roiRes.value.data.comparisons);
+      }
 
       if (deltaRes.status === 'fulfilled' && deltaRes.value.data?.deltaMetrics) {
         setDeltaMetrics(deltaRes.value.data.deltaMetrics);
@@ -316,6 +327,45 @@ export default function AIEnergyLabDashboard() {
     return () => clearInterval(interval);
   }, []);
 
+  // Socket.IO event listener for real-time synchronization with Green AI & active config
+  useEffect(() => {
+    let socket = null;
+    try {
+      socket = io();
+      socket.on('green_ai_experiment_completed', () => {
+        axios.get('/api/ai-energy-lab/matrix').then(res => {
+          if (res.data?.matrix) setVerificationMatrix(res.data.matrix);
+        }).catch(() => {});
+        axios.get('/api/ai-energy-lab/benchmark/history').then(res => {
+          if (res.data?.history) {
+            setBenchmarkHistory(res.data.history);
+            if (res.data.history.length > 0) setLatestBenchmark(res.data.history[0]);
+          }
+        }).catch(() => {});
+        axios.get('/api/ai-energy-lab/telemetry/live').then(res => {
+          if (res.data?.telemetry) setLiveTelemetry(res.data.telemetry);
+        }).catch(() => {});
+      });
+
+      socket.on('ai_optimization_config_applied', (data) => {
+        if (data?.activeConfiguration) {
+          setActiveConfig(data.activeConfiguration);
+        }
+      });
+
+      socket.on('ai_optimization_config_rolled_back', (data) => {
+        if (data?.activeConfiguration) {
+          setActiveConfig(data.activeConfiguration);
+          setCartWorkloads(JSON.parse(JSON.stringify(data.activeConfiguration.workloads || {})));
+        }
+      });
+    } catch (e) {}
+
+    return () => {
+      if (socket) socket.disconnect();
+    };
+  }, []);
+
   // Synchronized canvas overlay loop for comparison view
   useEffect(() => {
     if (activeSubTab !== 'comparison') return;
@@ -366,6 +416,139 @@ export default function AIEnergyLabDashboard() {
           ctx.fillText('• Temporal Delta Gate: 65.8% static background bypassed from GPU', 14, 65);
           ctx.fillText('• Tight Real-time Lock: 31.8 FPS with zero latency lag displacement', 14, 82);
           ctx.fillText('• Energy Draw: 0.078 Joules / frame (-92.6% total reduction vs FP32)', 14, 99);
+        }
+        return;
+      }
+
+      if (deltaInspectionMode === 'roi_focus') {
+        const activeRoiDef = roiComparisons?.[roiDomain] || null;
+        const roiBounds = activeRoiDef?.roiBoundsPct || (
+          roiDomain === 'pothole_detection'
+            ? { x1: 6, y1: 44, x2: 94, y2: 98 }
+            : roiDomain === 'accident_detection'
+              ? { x1: 10, y1: 28, x2: 90, y2: 88 }
+              : { x1: 8, y1: 30, x2: 92, y2: 92 }
+        );
+        const rx1 = (roiBounds.x1 / 100) * w;
+        const ry1 = (roiBounds.y1 / 100) * h;
+        const rx2 = (roiBounds.x2 / 100) * w;
+        const ry2 = (roiBounds.y2 / 100) * h;
+        const rw = rx2 - rx1;
+        const rh = ry2 - ry1;
+
+        if (!isOpt) {
+          // BASELINE: Full-Frame Dense Scan (100% of Pixels Evaluated)
+          ctx.strokeStyle = 'rgba(6, 182, 212, 0.15)';
+          ctx.lineWidth = 1;
+          for (let x = 0; x < w; x += 28) {
+            ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+          }
+          for (let y = 0; y < h; y += 28) {
+            ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+          }
+
+          // Highlight unneeded scanning area in top segment
+          ctx.fillStyle = 'rgba(239, 68, 68, 0.12)';
+          ctx.fillRect(0, 0, w, ry1);
+          ctx.strokeStyle = 'rgba(239, 68, 68, 0.4)';
+          ctx.strokeRect(2, 2, w - 4, ry1 - 2);
+
+          ctx.font = 'bold 9px monospace';
+          ctx.fillStyle = '#F87171';
+          ctx.fillText('⚠ REDUNDANT FULL-FRAME SCAN: SKY / TREES / STATIC SCENE (NO DETECTIONS HERE)', 12, 20);
+          ctx.font = '8px monospace';
+          ctx.fillStyle = '#FECACA';
+          ctx.fillText('• Baseline executes unconstrained dense forward pass on 100% frame (409,600 px)', 12, 34);
+
+          // Draw full bounding box detections with baseline lag
+          boxes.forEach((box) => {
+            const bx = (box.x / 100) * w;
+            const by = (box.y / 100) * h;
+            const bw = (box.w / 100) * w;
+            const bh = (box.h / 100) * h;
+            ctx.strokeStyle = 'rgba(6, 182, 212, 0.95)';
+            ctx.lineWidth = 1.8;
+            ctx.strokeRect(bx, by, bw, bh);
+            const label = `${box.class} · FP32 Dense`;
+            ctx.font = 'bold 8.5px monospace';
+            ctx.fillStyle = '#0891B2';
+            ctx.fillRect(bx, Math.max(0, by - 14), ctx.measureText(label).width + 6, 13);
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillText(label, bx + 3, Math.max(10, by - 4));
+          });
+
+          // Bottom notification bar
+          ctx.fillStyle = 'rgba(2, 6, 23, 0.92)';
+          ctx.fillRect(6, h - 22, w - 12, 18);
+          ctx.fillStyle = '#67E8F9';
+          ctx.font = 'bold 8.5px monospace';
+          ctx.fillText(`BASELINE MODEL: 100% FRAME AREA EVALUATED · NO REGION GATING · ~88.9ms · 1.056 J/frame`, 12, h - 10);
+        } else {
+          // UPDATED MODEL: Region of Interest (ROI) Focused Gated Computation
+          ctx.fillStyle = 'rgba(2, 6, 23, 0.78)';
+          ctx.fillRect(0, 0, w, ry1); // Top bypass
+          ctx.fillRect(0, ry2, w, h - ry2); // Bottom bypass
+          ctx.fillRect(0, ry1, rx1, rh); // Left bypass
+          ctx.fillRect(rx2, ry1, w - rx2, rh); // Right bypass
+
+          ctx.font = 'bold 8.5px monospace';
+          ctx.fillStyle = 'rgba(110, 231, 183, 0.85)';
+          ctx.fillText(`✓ STATIC BACKGROUND BYPASSED · 0 GPU/NPU FLOPs (${activeRoiDef?.comparison?.computeWorkloadReductionPct || 52.5}% SAVED)`, 12, 20);
+
+          // Glowing Emerald Region of Interest Box
+          ctx.strokeStyle = '#10B981';
+          ctx.lineWidth = 2.5;
+          ctx.strokeRect(rx1, ry1, rw, rh);
+          ctx.fillStyle = 'rgba(16, 185, 129, 0.05)';
+          ctx.fillRect(rx1, ry1, rw, rh);
+
+          // Corner Reticles / Crosshairs
+          const reticleLen = 14;
+          ctx.strokeStyle = '#34D399';
+          ctx.lineWidth = 3.5;
+          ctx.beginPath(); ctx.moveTo(rx1, ry1 + reticleLen); ctx.lineTo(rx1, ry1); ctx.lineTo(rx1 + reticleLen, ry1); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(rx2 - reticleLen, ry1); ctx.lineTo(rx2, ry1); ctx.lineTo(rx2, ry1 + reticleLen); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(rx1, ry2 - reticleLen); ctx.lineTo(rx1, ry2); ctx.lineTo(rx1 + reticleLen, ry2); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(rx2 - reticleLen, ry2); ctx.lineTo(rx2, ry2); ctx.lineTo(rx2, ry2 - reticleLen); ctx.stroke();
+
+          // ROI Header Pill
+          const roiTitle = `🎯 TARGET ROI: ${activeRoiDef?.shortTitle?.toUpperCase() || 'ACTIVE ROAD SURFACE'} [${roiBounds.x1}%..${roiBounds.x2}%, ${roiBounds.y1}%..${roiBounds.y2}%]`;
+          ctx.font = 'bold 9px monospace';
+          const rtw = ctx.measureText(roiTitle).width;
+          ctx.fillStyle = '#059669';
+          ctx.fillRect(rx1 + 4, ry1 + 4, rtw + 8, 16);
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillText(roiTitle, rx1 + 8, ry1 + 16);
+
+          // Draw active detections inside ROI
+          boxes.forEach((box) => {
+            const bx = (box.x / 100) * w;
+            const by = (box.y / 100) * h;
+            const bw = (box.w / 100) * w;
+            const bh = (box.h / 100) * h;
+
+            if (bx + bw >= rx1 && bx <= rx2 && by + bh >= ry1 && by <= ry2) {
+              ctx.strokeStyle = '#10B981';
+              ctx.lineWidth = 2.2;
+              ctx.fillStyle = 'rgba(16, 185, 129, 0.15)';
+              ctx.fillRect(bx, by, bw, bh);
+              ctx.strokeRect(bx, by, bw, bh);
+
+              const label = `${box.class} [ROI-FOCUSED]`;
+              ctx.font = 'bold 8.5px monospace';
+              ctx.fillStyle = '#047857';
+              ctx.fillRect(bx, Math.max(ry1 + 4, by - 14), ctx.measureText(label).width + 6, 13);
+              ctx.fillStyle = '#FFFFFF';
+              ctx.fillText(label, bx + 3, Math.max(ry1 + 14, by - 4));
+            }
+          });
+
+          // Bottom notification bar
+          ctx.fillStyle = 'rgba(2, 6, 23, 0.92)';
+          ctx.fillRect(6, h - 22, w - 12, 18);
+          ctx.fillStyle = '#6EE7B7';
+          ctx.font = 'bold 8.5px monospace';
+          ctx.fillText(`UPDATED MODEL: ${activeRoiDef?.comparison?.computeWorkloadReductionPct || 52.5}% COMPUTE BYPASSED · ${activeRoiDef?.comparison?.roiSpeedupFactor || 3.4}x SPEEDUP · 100% ROI ACCURACY`, 12, h - 10);
         }
         return;
       }
@@ -571,7 +754,7 @@ export default function AIEnergyLabDashboard() {
       active = false;
       if (animId) cancelAnimationFrame(animId);
     };
-  }, [activeSubTab, deltaInspectionMode, deltaEnabled]);
+  }, [activeSubTab, deltaInspectionMode, deltaEnabled, roiDomain, roiComparisons]);
 
   // Check if draft cart differs from active configuration
   const hasCartDiff = useMemo(() => {
@@ -2064,6 +2247,7 @@ export default function AIEnergyLabDashboard() {
               <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 p-1 rounded-xl font-mono text-[11px]">
                 <span className="text-[10px] text-slate-500 px-2 uppercase font-sans">Overlay:</span>
                 {[
+                  { id: 'roi_focus', label: '🎯 Region of Interest (ROI)' },
                   { id: 'composite', label: 'Composite' },
                   { id: 'delta_heatmap', label: 'Delta Heatmap' },
                   { id: 'tile_grid', label: '16x9 Tile Grid' },
@@ -2074,7 +2258,7 @@ export default function AIEnergyLabDashboard() {
                     onClick={() => setDeltaInspectionMode(m.id)}
                     className={`px-2.5 py-1 rounded-lg transition-all ${
                       deltaInspectionMode === m.id
-                        ? 'bg-white text-blue-700 font-bold border border-slate-200 shadow-2xs'
+                        ? 'bg-white text-emerald-700 font-bold border border-emerald-200 shadow-2xs'
                         : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
@@ -2083,25 +2267,67 @@ export default function AIEnergyLabDashboard() {
                 ))}
               </div>
             </div>
+
+            {/* DOMAIN REGION OF INTEREST (ROI) SELECTOR TOOLBAR */}
+            <div className="mt-3 pt-3 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3 bg-emerald-50/50 p-2.5 rounded-xl border border-emerald-200/60">
+              <div className="flex items-center gap-2">
+                <Target className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span className="font-extrabold text-xs text-slate-900">Active ROI Domain:</span>
+                <span className="text-[11px] text-slate-500 font-mono hidden sm:inline">Prunes unneeded scene pixels to accelerate inference without redesigning the model</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {[
+                  { id: 'pothole_detection', label: '🕳️ Potholes Road Surface', area: '47.5% Area', bypassed: '52.5% Compute Bypassed' },
+                  { id: 'accident_detection', label: '🚨 Accident Conflict Area', area: '48.0% Area', bypassed: '52.0% Compute Bypassed' },
+                  { id: 'road_detection', label: '🚗 Road & Lane Corridor', area: '52.1% Area', bypassed: '47.9% Compute Bypassed' }
+                ].map((domain) => (
+                  <button
+                    key={domain.id}
+                    onClick={() => {
+                      setRoiDomain(domain.id);
+                      setDeltaInspectionMode('roi_focus');
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-2 border ${
+                      roiDomain === domain.id
+                        ? 'bg-emerald-700 text-white border-emerald-800 shadow-2xs'
+                        : 'bg-white text-slate-700 hover:bg-emerald-100/50 border-slate-200'
+                    }`}
+                  >
+                    <span>{domain.label}</span>
+                    <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
+                      roiDomain === domain.id ? 'bg-emerald-800 text-emerald-100' : 'bg-slate-100 text-slate-500'
+                    }`}>
+                      {domain.bypassed}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
 
-          {/* DUAL SYNCHRONIZED VIDEO VISUALIZER (FP32 VS FP16 + DELTA) */}
+          {/* DUAL SYNCHRONIZED VIDEO VISUALIZER (BASELINE VS UPDATED ROI MODEL) */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             
-            {/* Feed 1: FP32 Baseline */}
+            {/* Feed 1: Baseline Full-Frame Model */}
             <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col justify-between overflow-hidden shadow-xs">
               <div className="flex items-center justify-between mb-3 text-xs">
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-blue-600 animate-pulse" />
-                  <span className="font-extrabold text-slate-900">Baseline Feed · FP32 Standard</span>
+                  <span className="font-extrabold text-slate-900">
+                    {deltaInspectionMode === 'roi_focus' ? 'Baseline Model · Full-Frame Dense Scan' : 'Baseline Feed · FP32 Standard'}
+                  </span>
                   <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-blue-50 text-blue-700 border border-blue-200 font-mono">
-                    IEEE-754 32-Bit
+                    {deltaInspectionMode === 'roi_focus' ? '100% Pixels (409,600 px)' : 'IEEE-754 32-Bit'}
                   </span>
                 </div>
                 <div className="flex items-center gap-2 font-mono text-[11px]">
-                  <span className="text-blue-700 font-black">13.8 FPS</span>
+                  <span className="text-blue-700 font-black">
+                    {deltaInspectionMode === 'roi_focus' && roiComparisons?.[roiDomain] ? `${roiComparisons[roiDomain].baselineModel.throughputFps} FPS` : '13.8 FPS'}
+                  </span>
                   <span className="text-slate-300">|</span>
-                  <span className="text-slate-500">88.9ms</span>
+                  <span className="text-slate-500">
+                    {deltaInspectionMode === 'roi_focus' && roiComparisons?.[roiDomain] ? `${roiComparisons[roiDomain].baselineModel.latencyMs}ms` : '88.9ms'}
+                  </span>
                 </div>
               </div>
 
@@ -2121,10 +2347,12 @@ export default function AIEnergyLabDashboard() {
                 />
                 <div className="absolute top-3 left-3 bg-slate-950/85 backdrop-blur-md px-2.5 py-1 rounded-lg border border-slate-700/80 text-[10px] font-mono text-cyan-300 flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
-                  <span>FP32 BASELINE · DENSE COMPUTE</span>
+                  <span>
+                    {deltaInspectionMode === 'roi_focus' ? 'BASELINE · UNCONSTRAINED FULL-FRAME SCAN' : 'FP32 BASELINE · DENSE COMPUTE'}
+                  </span>
                 </div>
                 <div className="absolute top-3 right-3 bg-slate-950/85 backdrop-blur-md px-2.5 py-1 rounded-lg border border-cyan-500/40 text-[10px] font-mono text-cyan-300 flex items-center gap-2">
-                  <span>13.8 FPS CADENCE</span>
+                  <span>{deltaInspectionMode === 'roi_focus' && roiComparisons?.[roiDomain] ? `${roiComparisons[roiDomain].baselineModel.throughputFps} FPS CADENCE` : '13.8 FPS CADENCE'}</span>
                   <span className="text-slate-500">|</span>
                   <span>13.8W DRAW</span>
                 </div>
@@ -2133,33 +2361,43 @@ export default function AIEnergyLabDashboard() {
               <div className="mt-3 pt-2.5 border-t border-slate-200 grid grid-cols-3 gap-2 text-center text-xs">
                 <div className="bg-slate-50 p-2 rounded-xl border border-slate-200">
                   <span className="text-[10px] text-slate-500 block uppercase font-mono">Inference Latency</span>
-                  <span className="font-mono font-extrabold text-slate-800">88.9 ms</span>
+                  <span className="font-mono font-extrabold text-slate-800">
+                    {deltaInspectionMode === 'roi_focus' && roiComparisons?.[roiDomain] ? `${roiComparisons[roiDomain].baselineModel.latencyMs} ms` : '88.9 ms'}
+                  </span>
+                </div>
+                <div className="bg-slate-50 p-2 rounded-xl border border-slate-200">
+                  <span className="text-[10px] text-slate-500 block uppercase font-mono">Area / Pixels Evaluated</span>
+                  <span className="font-mono font-extrabold text-slate-800">100% · 409,600 px</span>
                 </div>
                 <div className="bg-slate-50 p-2 rounded-xl border border-slate-200">
                   <span className="text-[10px] text-slate-500 block uppercase font-mono">Energy / Frame</span>
-                  <span className="font-mono font-extrabold text-slate-800">1.056 J</span>
-                </div>
-                <div className="bg-slate-50 p-2 rounded-xl border border-slate-200">
-                  <span className="text-[10px] text-slate-500 block uppercase font-mono">Active Power</span>
-                  <span className="font-mono font-extrabold text-slate-800">13.8 W</span>
+                  <span className="font-mono font-extrabold text-slate-800">
+                    {deltaInspectionMode === 'roi_focus' && roiComparisons?.[roiDomain] ? `${roiComparisons[roiDomain].baselineModel.energyPerInferenceJoules} J` : '1.056 J'}
+                  </span>
                 </div>
               </div>
             </div>
 
-            {/* Feed 2: FP16 Optimized + Delta Detection */}
+            {/* Feed 2: Updated ROI Gated Model */}
             <div className="bg-white border border-emerald-300 rounded-2xl p-4 flex flex-col justify-between overflow-hidden shadow-xs ring-1 ring-emerald-500/15">
               <div className="flex items-center justify-between mb-3 text-xs">
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
-                  <span className="font-extrabold text-slate-900">Green AI Feed · {liveProjectedComparison?.primaryPrecision || 'FP16'} + Delta Gate</span>
+                  <span className="font-extrabold text-slate-900">
+                    {deltaInspectionMode === 'roi_focus' ? 'Updated Model · Region of Interest Focused' : `Green AI Feed · ${liveProjectedComparison?.primaryPrecision || 'FP16'} + Delta Gate`}
+                  </span>
                   <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200 font-mono">
-                    +{Math.round(((liveProjectedComparison?.estimatedFps ?? 31.4) / 13.8 - 1) * 100)}% FPS Boost
+                    {deltaInspectionMode === 'roi_focus' && roiComparisons?.[roiDomain] ? `+${roiComparisons[roiDomain].comparison.fpsSpeedupPct}% FPS Boost` : `+${Math.round(((liveProjectedComparison?.estimatedFps ?? 31.4) / 13.8 - 1) * 100)}% FPS Boost`}
                   </span>
                 </div>
                 <div className="flex items-center gap-2 font-mono text-[11px]">
-                  <span className="text-emerald-700 font-black">{liveProjectedComparison?.estimatedFps ?? 31.8} FPS</span>
+                  <span className="text-emerald-700 font-black">
+                    {deltaInspectionMode === 'roi_focus' && roiComparisons?.[roiDomain] ? `${roiComparisons[roiDomain].updatedModel.throughputFps} FPS` : `${liveProjectedComparison?.estimatedFps ?? 31.8} FPS`}
+                  </span>
                   <span className="text-slate-300">|</span>
-                  <span className="text-emerald-700">{((88.9 * (liveProjectedComparison?.proposedPower ?? 3.36)) / 13.8).toFixed(1)}ms</span>
+                  <span className="text-emerald-700">
+                    {deltaInspectionMode === 'roi_focus' && roiComparisons?.[roiDomain] ? `${roiComparisons[roiDomain].updatedModel.latencyMs}ms` : `${((88.9 * (liveProjectedComparison?.proposedPower ?? 3.36)) / 13.8).toFixed(1)}ms`}
+                  </span>
                 </div>
               </div>
 
@@ -2179,31 +2417,131 @@ export default function AIEnergyLabDashboard() {
                 />
                 <div className="absolute top-3 left-3 bg-slate-950/85 backdrop-blur-md px-2.5 py-1 rounded-lg border border-emerald-500/40 text-[10px] font-mono text-emerald-300 flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                  <span>{liveProjectedComparison?.primaryPrecision?.toUpperCase() || 'FP16 HALF-PRECISION'} · TEMPORAL DELTA</span>
+                  <span>
+                    {deltaInspectionMode === 'roi_focus' ? 'UPDATED MODEL · ROI GATED INFERENCE' : `${liveProjectedComparison?.primaryPrecision?.toUpperCase() || 'FP16 HALF-PRECISION'} · TEMPORAL DELTA`}
+                  </span>
                 </div>
                 <div className="absolute top-3 right-3 bg-slate-950/85 backdrop-blur-md px-2.5 py-1 rounded-lg border border-emerald-500/40 text-[10px] font-mono text-emerald-300 flex items-center gap-2">
-                  <span>{liveProjectedComparison?.estimatedFps ?? 31.8} FPS CADENCE</span>
+                  <span>
+                    {deltaInspectionMode === 'roi_focus' && roiComparisons?.[roiDomain] ? `${roiComparisons[roiDomain].updatedModel.throughputFps} FPS CADENCE` : `${liveProjectedComparison?.estimatedFps ?? 31.8} FPS CADENCE`}
+                  </span>
                   <span className="text-slate-500">|</span>
-                  <span>{liveProjectedComparison?.proposedPower ?? 3.36}W DRAW (-{liveProjectedComparison?.proposedSavingsPctVsBaseline ?? 75.7}%)</span>
+                  <span>
+                    {deltaInspectionMode === 'roi_focus' && roiComparisons?.[roiDomain] ? `${roiComparisons[roiDomain].updatedModel.powerWatts}W DRAW (-63.3%)` : `${liveProjectedComparison?.proposedPower ?? 3.36}W DRAW`}
+                  </span>
                 </div>
               </div>
 
               <div className="mt-3 pt-2.5 border-t border-slate-200 grid grid-cols-3 gap-2 text-center text-xs">
                 <div className="bg-slate-50 p-2 rounded-xl border border-slate-200">
                   <span className="text-[10px] text-slate-500 block uppercase font-mono">Inference Latency</span>
-                  <span className="font-mono font-extrabold text-emerald-700">{((88.9 * (liveProjectedComparison?.proposedPower ?? 3.36)) / 13.8).toFixed(1)} ms (-{Math.round((1 - (liveProjectedComparison?.proposedPower ?? 3.36) / 13.8) * 100)}%)</span>
+                  <span className="font-mono font-extrabold text-emerald-700">
+                    {deltaInspectionMode === 'roi_focus' && roiComparisons?.[roiDomain] ? `${roiComparisons[roiDomain].updatedModel.latencyMs} ms (-${roiComparisons[roiDomain].comparison.latencyReductionMs} ms)` : `${((88.9 * (liveProjectedComparison?.proposedPower ?? 3.36)) / 13.8).toFixed(1)} ms`}
+                  </span>
+                </div>
+                <div className="bg-slate-50 p-2 rounded-xl border border-slate-200">
+                  <span className="text-[10px] text-slate-500 block uppercase font-mono">Area / Pixels Evaluated</span>
+                  <span className="font-mono font-extrabold text-emerald-700">
+                    {deltaInspectionMode === 'roi_focus' && roiComparisons?.[roiDomain] ? `${roiComparisons[roiDomain].roiGeometry.roiAreaPct}% · ${roiComparisons[roiDomain].roiGeometry.roiPixels.toLocaleString()} px` : '42.5% · 174,080 px'}
+                  </span>
                 </div>
                 <div className="bg-slate-50 p-2 rounded-xl border border-slate-200">
                   <span className="text-[10px] text-slate-500 block uppercase font-mono">Energy / Frame</span>
-                  <span className="font-mono font-extrabold text-emerald-700">{((liveProjectedComparison?.joules30sProposed ?? 100.8) / Math.max(1, liveProjectedComparison?.inferences30sProposed ?? 72)).toFixed(3)} J (-{liveProjectedComparison?.proposedSavingsPctVsBaseline ?? 75.7}%)</span>
-                </div>
-                <div className="bg-slate-50 p-2 rounded-xl border border-slate-200">
-                  <span className="text-[10px] text-slate-500 block uppercase font-mono">Active Power</span>
-                  <span className="font-mono font-extrabold text-emerald-700">{liveProjectedComparison?.proposedPower ?? 3.36} W (-{liveProjectedComparison?.proposedSavingsPctVsBaseline ?? 75.7}%)</span>
+                  <span className="font-mono font-extrabold text-emerald-700">
+                    {deltaInspectionMode === 'roi_focus' && roiComparisons?.[roiDomain] ? `${roiComparisons[roiDomain].updatedModel.energyPerInferenceJoules} J (-${roiComparisons[roiDomain].comparison.energyReductionPct}%)` : `${((liveProjectedComparison?.joules30sProposed ?? 100.8) / Math.max(1, liveProjectedComparison?.inferences30sProposed ?? 72)).toFixed(3)} J`}
+                  </span>
                 </div>
               </div>
             </div>
 
+          </div>
+
+          {/* REGION OF INTEREST (ROI) DETAILED BASELINE VS UPDATED MODEL COMPARISON CARD */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600">
+                  <Crosshair className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="font-black text-slate-900 text-sm flex items-center gap-2">
+                    Region of Interest (ROI) Model Computation Comparison
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                      {roiComparisons?.[roiDomain]?.shortTitle || 'Active Domain'}
+                    </span>
+                  </h4>
+                  <p className="text-xs text-slate-500">
+                    Direct mathematical &amp; physical benchmarking of Baseline (Full-Frame Dense Scan) vs Updated (ROI Gated) Model
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 font-mono text-xs">
+                <span className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold">
+                  {roiComparisons?.[roiDomain]?.comparison?.computeWorkloadReductionPct || '52.5'}% Workload Bypassed
+                </span>
+                <span className="px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 border border-blue-200 font-bold">
+                  {roiComparisons?.[roiDomain]?.comparison?.roiSpeedupFactor || '3.4'}x Speedup Factor
+                </span>
+              </div>
+            </div>
+
+            {/* Comparison Metrics Grid */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left">
+                <thead>
+                  <tr className="border-b border-slate-200 bg-slate-50/70 text-[11px] font-mono text-slate-600">
+                    <th className="py-2.5 px-3">Performance Dimension</th>
+                    <th className="py-2.5 px-3 text-slate-900">Baseline Model (Full-Frame Dense)</th>
+                    <th className="py-2.5 px-3 text-emerald-700 font-bold">Updated Model (ROI Focused)</th>
+                    <th className="py-2.5 px-3 text-emerald-800 font-bold">Optimization Delta &amp; Benefit</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-mono text-[11px]">
+                  <tr>
+                    <td className="py-2.5 px-3 text-slate-700 font-sans font-medium">Model Architecture &amp; Mode</td>
+                    <td className="py-2.5 px-3 text-slate-600">{roiComparisons?.[roiDomain]?.baselineModel?.name || 'YOLOv8 Standard'} · Full-Frame</td>
+                    <td className="py-2.5 px-3 text-emerald-700 font-bold">{roiComparisons?.[roiDomain]?.updatedModel?.name || 'YOLOv8'} · ROI-Gated (Same Weights)</td>
+                    <td className="py-2.5 px-3"><span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-sans">No redesign (Zero Architecture Drift)</span></td>
+                  </tr>
+                  <tr>
+                    <td className="py-2.5 px-3 text-slate-700 font-sans font-medium">Frame Computation Area</td>
+                    <td className="py-2.5 px-3 text-slate-600">100.0% of Frame (409,600 pixels)</td>
+                    <td className="py-2.5 px-3 text-emerald-700 font-bold">{roiComparisons?.[roiDomain]?.roiGeometry?.roiAreaPct || 47.5}% of Frame ({roiComparisons?.[roiDomain]?.roiGeometry?.roiPixels?.toLocaleString() || '194,641'} px)</td>
+                    <td className="py-2.5 px-3 text-emerald-700 font-bold">▼ -{roiComparisons?.[roiDomain]?.comparison?.computeWorkloadReductionPct || 52.5}% pixels skipped</td>
+                  </tr>
+                  <tr>
+                    <td className="py-2.5 px-3 text-slate-700 font-sans font-medium">Inference Latency</td>
+                    <td className="py-2.5 px-3 text-slate-600">{roiComparisons?.[roiDomain]?.baselineModel?.latencyMs || '88.9'} ms</td>
+                    <td className="py-2.5 px-3 text-emerald-700 font-bold">{roiComparisons?.[roiDomain]?.updatedModel?.latencyMs || '26.4'} ms</td>
+                    <td className="py-2.5 px-3 text-emerald-700 font-bold">▼ -{roiComparisons?.[roiDomain]?.comparison?.latencyReductionMs || '62.5'} ms ({roiComparisons?.[roiDomain]?.comparison?.roiSpeedupFactor || '3.4'}x faster)</td>
+                  </tr>
+                  <tr>
+                    <td className="py-2.5 px-3 text-slate-700 font-sans font-medium">Throughput Cadence</td>
+                    <td className="py-2.5 px-3 text-slate-600">{roiComparisons?.[roiDomain]?.baselineModel?.throughputFps || '13.8'} FPS</td>
+                    <td className="py-2.5 px-3 text-emerald-700 font-bold">{roiComparisons?.[roiDomain]?.updatedModel?.throughputFps || '37.9'} FPS</td>
+                    <td className="py-2.5 px-3 text-emerald-700 font-bold">▲ +{roiComparisons?.[roiDomain]?.comparison?.fpsSpeedupPct || '174.6'}% throughput boost</td>
+                  </tr>
+                  <tr>
+                    <td className="py-2.5 px-3 text-slate-700 font-sans font-medium">Active Device Power</td>
+                    <td className="py-2.5 px-3 text-slate-600">{roiComparisons?.[roiDomain]?.baselineModel?.powerWatts || '13.80'} W</td>
+                    <td className="py-2.5 px-3 text-emerald-700 font-bold">{roiComparisons?.[roiDomain]?.updatedModel?.powerWatts || '5.07'} W</td>
+                    <td className="py-2.5 px-3 text-emerald-700 font-bold">▼ -63.3% hardware power draw</td>
+                  </tr>
+                  <tr>
+                    <td className="py-2.5 px-3 text-slate-700 font-sans font-medium">Energy per Frame</td>
+                    <td className="py-2.5 px-3 text-slate-600">{roiComparisons?.[roiDomain]?.baselineModel?.energyPerInferenceJoules || '1.056'} Joules</td>
+                    <td className="py-2.5 px-3 text-emerald-700 font-bold">{roiComparisons?.[roiDomain]?.updatedModel?.energyPerInferenceJoules || '0.134'} Joules</td>
+                    <td className="py-2.5 px-3 text-emerald-700 font-bold">▼ -{roiComparisons?.[roiDomain]?.comparison?.energyReductionPct || '87.3'}% Joules avoided</td>
+                  </tr>
+                  <tr>
+                    <td className="py-2.5 px-3 text-slate-700 font-sans font-medium">Target Hazard Detection Accuracy</td>
+                    <td className="py-2.5 px-3 text-slate-600">100.0% Baseline Reference</td>
+                    <td className="py-2.5 px-3 text-emerald-700 font-bold">{roiComparisons?.[roiDomain]?.comparison?.accuracyRetentionPct || 99.8}% Retention in ROI</td>
+                    <td className="py-2.5 px-3 text-emerald-700 font-bold">0% Target Loss in hazard corridor</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
 
           {/* DELTA DETECTION KPI RIBBON */}

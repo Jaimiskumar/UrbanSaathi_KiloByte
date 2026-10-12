@@ -6,6 +6,7 @@ import { realMLInference } from './realMLInference.js';
 import { orchestratorAgent, featurePolicySummary } from './agents/index.js';
 import { evaluateWorkload, recordWorkloadDecision, getLatestWorkloadDecision } from './agents/contextAwareWorkload.js';
 import { getSocketServer } from './socketServer.js';
+import { getActiveConfiguration } from './optimizationCartService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -236,8 +237,30 @@ export async function runGreenAiExperiment({
     source: 'GREEN_AI_BENCHMARK'
   };
 
-  // Plan via Orchestrator Agent
-  const plan = orchestratorAgent.planEvent(eventPayload);
+  // Synchronize with AI Energy Lab Control Center: retrieve active configuration
+  const activeConfig = getActiveConfiguration();
+  const activeWorkloads = activeConfig?.workloads || {};
+
+  // Check which agents are excluded by active AI Energy Lab Control Center configuration
+  const excludedByControlCenter = [];
+  if (activeWorkloads.pothole_detection?.enabled === false && activeWorkloads.waterlogging_monitoring?.enabled === false) {
+    excludedByControlCenter.push('CivicAndRoadHealthAgent');
+  }
+  if (activeWorkloads.encroachment_detection?.enabled === false) {
+    excludedByControlCenter.push('EncroachmentAgent');
+  }
+  if (activeWorkloads.helmet_violation?.enabled === false) {
+    excludedByControlCenter.push('EnforcementAgent');
+  }
+  if (activeWorkloads.number_plate_ocr?.enabled === false) {
+    excludedByControlCenter.push('EChallanAgent');
+  }
+  if (activeWorkloads.vehicle_detection?.enabled === false && activeWorkloads.traffic_forecasting?.enabled === false && scenario.id !== 'incident') {
+    excludedByControlCenter.push('TrafficAgent');
+  }
+
+  // Plan via Orchestrator Agent with Control Center exclusions applied
+  const plan = orchestratorAgent.planEvent(eventPayload, { excludedAgents: excludedByControlCenter });
   const allKnownAgents = orchestratorAgent.getAgentRegistry();
   const selectedAgentNames = plan.selectedAgents || [];
   const avoidedAgentNames = plan.skippedAgents.map((s) => s.agent) || [];
@@ -261,6 +284,7 @@ export async function runGreenAiExperiment({
   const agentNodes = allKnownAgents.map((agent) => {
     const isSelected = selectedAgentNames.includes(agent.name);
     const isMandatory = agent.name === 'AccidentEmergencyAgent' || agent.name === 'GreenCorridorAgent';
+    const isPrunedByControlCenter = excludedByControlCenter.includes(agent.name);
     let status = 'SKIPPED';
     let latencyMs = 0;
 
@@ -275,7 +299,9 @@ export async function runGreenAiExperiment({
         reason: plan.activationReasons?.[agent.name] || 'Selected by feature policy'
       });
     } else {
-      const skipReason = plan.skippedAgents.find((s) => s.agent === agent.name)?.reason || 'Excluded: feature unrequested';
+      const skipReason = isPrunedByControlCenter
+        ? 'Disabled by AI Energy Lab Control Center (Operator Checklist)'
+        : (plan.skippedAgents.find((s) => s.agent === agent.name)?.reason || 'Excluded: feature unrequested');
       executionTrace.push({
         agent: agent.name,
         stage: 'PRUNED',
@@ -290,13 +316,18 @@ export async function runGreenAiExperiment({
       role: agent.role,
       status,
       isMandatory: isMandatory && scenario.id === 'incident',
+      isPrunedByControlCenter,
       latencyMs,
       activationReason: plan.activationReasons?.[agent.name] || null,
-      skippedReason: status === 'SKIPPED' ? (plan.skippedAgents.find((s) => s.agent === agent.name)?.reason || 'Policy excluded') : null
+      skippedReason: status === 'SKIPPED'
+        ? (isPrunedByControlCenter
+            ? 'Disabled by AI Energy Lab Control Center (Operator Checklist)'
+            : (plan.skippedAgents.find((s) => s.agent === agent.name)?.reason || 'Policy excluded'))
+        : null
     };
   });
 
-  addLog('LAYER_2_DONE', `Layer 2 complete: Selected ${selectedAgentNames.length} agents, safely avoided ${avoidedAgentNames.length} agent calls.`);
+  addLog('LAYER_2_DONE', `Layer 2 complete: Selected ${selectedAgentNames.length} agents, safely avoided ${avoidedAgentNames.length} agent calls (${excludedByControlCenter.length} pruned by Control Center).`);
 
   // -------------------------------------------------------------
   // Layer 3: Context-Aware Workload Cadence Adaptation
@@ -544,6 +575,13 @@ export async function runGreenAiExperiment({
       reasons: workload.reasons,
       context,
       resourcePressure: workload.resourcePressure
+    },
+    controlCenterSync: {
+      versionId: activeConfig.versionId,
+      appliedAt: activeConfig.appliedAt,
+      excludedAgents: excludedByControlCenter,
+      activeWorkloadsCount: Object.values(activeWorkloads).filter(w => w.enabled).length,
+      totalWorkloadsCount: Object.keys(activeWorkloads).length
     },
     executionLogs: logs
   };
