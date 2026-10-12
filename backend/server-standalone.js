@@ -728,6 +728,21 @@ app.post('/api/ml-detection/process-video', videoUpload.single('video'), async (
 });
 
 // Keep ML frame analysis available when running the MongoDB-free server.
+app.get('/api/ml-detection/status', async (req, res) => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 2500);
+  try {
+    const response = await fetch('http://127.0.0.1:8000/health', { signal: controller.signal });
+    if (!response.ok) throw new Error(`ML backend returned ${response.status}`);
+    return res.json({ available: true, ...(await response.json()) });
+  } catch (error) {
+    console.error('ML model health check failed:', error.message);
+    return res.status(503).json({ available: false, status: 'offline', error: 'ML model service is unavailable' });
+  } finally {
+    clearTimeout(timeout);
+  }
+});
+
 app.post('/api/ml-detection/process-frame', async (req, res) => {
   try {
     const { frameUrl, frameBase64, location, speedLimit, signalStatus, fileType } = req.body;
@@ -753,11 +768,15 @@ app.post('/api/ml-detection/process-frame', async (req, res) => {
         result = await response.json();
       }
     } catch (error) {
-      console.warn('Python ML backend unavailable, using synchronized fallback detection:', error.message);
+      console.error('Python ML backend unavailable:', error.message);
     }
 
-    if (!result || !result.success) {
-      result = generateFallbackDetection({ ...req.body, location: location || 'Silk Board Junction, Bengaluru' });
+    if (!result?.success || !['real', 'ITD'].includes(result.model?.source)) {
+      return res.status(503).json({
+        success: false,
+        error: result?.model?.warning || 'A real ML model is unavailable; no workflow actions were created.',
+        model: result?.model || null
+      });
     }
 
     const { generatedFines } = syncMlOutputs(result, result.location || location || 'Silk Board Junction, Bengaluru', frameUrl);
@@ -800,9 +819,7 @@ app.post('/api/ml-detection/process-frame', async (req, res) => {
     });
   } catch (error) {
     console.error('ML detection route failed:', error);
-    const fallback = generateFallbackDetection(req.body || {});
-    await syncFallbackEvents(fallback, fallback.location);
-    return res.status(200).json({ success: true, data: fallback, message: `Fallback detection used: ${error.message}` });
+    return res.status(500).json({ success: false, error: 'ML detection processing failed' });
   }
 });
 
@@ -2063,4 +2080,3 @@ httpServer.listen(PORT, '127.0.0.1', () => {
   console.log(`🚦 Server running on port ${PORT}`);
   console.log('✅ Using in-memory storage (no MongoDB required)');
 });
-

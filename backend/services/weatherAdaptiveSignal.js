@@ -12,7 +12,7 @@ import { io } from '../server.js';
 export class WeatherAdaptiveSignal {
   constructor() {
     this.weatherApiUrl = process.env.WEATHER_API_URL || 'https://api.openweathermap.org/data/2.5/weather';
-    this.weatherApiKey = process.env.WEATHER_API_KEY || 'demo';
+    this.weatherApiKey = process.env.WEATHER_API_KEY || '';
     this.updateInterval = 60000; // 1 minute
     this.zoneWeatherCache = new Map();
   }
@@ -30,12 +30,12 @@ export class WeatherAdaptiveSignal {
         return cached.data;
       }
 
-      // Fetch from API (or use demo data if API key is 'demo')
       let weatherData;
       
       if (this.weatherApiKey === 'demo') {
-        // Demo data for testing
-        weatherData = this._generateDemoWeather(lat, lng);
+        weatherData = { ...this._generateDemoWeather(lat, lng), _dataSource: 'simulated' };
+      } else if (!this.weatherApiKey) {
+        throw new Error('Weather is unavailable because WEATHER_API_KEY is not configured.');
       } else {
         const response = await fetch(
           `${this.weatherApiUrl}?lat=${lat}&lon=${lng}&appid=${this.weatherApiKey}&units=metric`
@@ -45,7 +45,7 @@ export class WeatherAdaptiveSignal {
           throw new Error(`Weather API error: ${response.statusText}`);
         }
         
-        weatherData = await response.json();
+        weatherData = { ...(await response.json()), _dataSource: 'weather_api' };
       }
 
       // Cache the result
@@ -57,7 +57,7 @@ export class WeatherAdaptiveSignal {
       return weatherData;
     } catch (error) {
       console.error('Weather data fetch error:', error);
-      return this._generateDemoWeather(lat, lng);
+      throw error;
     }
   }
 
@@ -258,7 +258,7 @@ export class WeatherAdaptiveSignal {
       return forecast;
     } catch (error) {
       console.error('Weather forecast error:', error);
-      return null;
+      throw error;
     }
   }
 

@@ -1,13 +1,14 @@
 """Prepare and train the supplied Urban Issues YOLO dataset."""
 
 import argparse
+import os
 import shutil
 from pathlib import Path
 
 from ultralytics import YOLO
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT.parent / "dataset" / "urban issues"
+SOURCE = Path(os.getenv("URBANSAATHI_DATASET_ROOT", ROOT.parent / "dataset")).expanduser().resolve() / "urban issues"
 DATA = ROOT / "data" / "urban_issues_real"
 MODEL = ROOT / "models" / "real" / "urban_issues_yolov8n.pt"
 
@@ -20,11 +21,12 @@ GROUPS = {
     "DeadAnimalsPollution": 5,
     "Damaged concrete structures": 6,
     "DamagedElectricalPoles": 7,
+    "Potholes and RoadCracks": 8,
 }
 NAMES = [
     "Illegal Parking Issues", "Broken Road Sign Issues", "Fallen trees",
     "Littering/Garbage on Public Places", "Vandalism Issues", "Dead Animal Pollution",
-    "Damaged concrete structures", "Damaged Electric wires and poles",
+    "Damaged concrete structures", "Damaged Electric wires and poles", "Pothole Issues",
 ]
 
 

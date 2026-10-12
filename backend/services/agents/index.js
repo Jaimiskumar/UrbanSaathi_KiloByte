@@ -9,6 +9,8 @@ import { AccidentEmergencyAgent } from './AccidentEmergencyAgent.js';
 import { GreenCorridorAgent } from './GreenCorridorAgent.js';
 import { VerificationAgent } from './VerificationAgent.js';
 import { eventBus } from './EventBus.js';
+import { AGENT_REGISTRY, FEATURE_AGENT_POLICY } from './AgentRegistry.js';
+import { featurePolicySummary } from './featureDrivenAllocation.js';
 
 // Instantiate all agents
 const agents = {
@@ -26,4 +28,10 @@ const agents = {
 // Register agents with the Orchestrator
 orchestratorAgent.registerAgents(agents);
 
-export { orchestratorAgent, eventBus };
+export {
+  orchestratorAgent,
+  eventBus,
+  AGENT_REGISTRY,
+  FEATURE_AGENT_POLICY,
+  featurePolicySummary
+};

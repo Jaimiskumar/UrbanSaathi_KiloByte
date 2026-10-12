@@ -16,14 +16,68 @@ import StreetEncroachment from '../models/StreetEncroachment.js';
 import Camera from '../models/Camera.js';
 import IllegalParking from '../models/IllegalParking.js';
 import { realMLInference } from '../services/realMLInference.js';
+import { resolveCameraLocation } from '../services/cameraLocationService.js';
 import { createChallanFromViolation } from '../services/challanGenerationService.js';
 import { authMiddleware, optionalAuth } from '../middleware/auth.js';
 import { processEnforcementDetections, processEncroachmentDetections } from '../services/enforcementWorkflowService.js';
 import { processAgentDetections } from '../services/agentWorkflowService.js';
 import { getSocketServer } from '../services/socketServer.js';
+import {
+  evaluateWorkload,
+  recordWorkloadDecision
+} from '../services/agents/contextAwareWorkload.js';
 
 const router = express.Router();
 const io = { emit: (...args) => getSocketServer().emit(...args) };
+const liveWorkflowCooldownMs = 5 * 60 * 1000;
+const liveWorkflowRuns = new Map();
+
+function getLiveWorkflowKey(cameraId, workflowType, eventType, detection) {
+  const identity = (
+    detection.workflowIdentity
+    ||
+    detection.licensePlate
+    || detection.plateNumber
+    || detection.vehicle_number
+    || detection.vehicleId
+    || detection.id
+    || detection.label
+    || detection.class_name
+    || detection.type
+    || workflowType
+  );
+  return `${cameraId}:${workflowType}:${eventType}:${String(identity).toLowerCase()}`;
+}
+
+function claimLiveWorkflow(key) {
+  const now = Date.now();
+  for (const [existingKey, expiresAt] of liveWorkflowRuns) {
+    if (expiresAt <= now) liveWorkflowRuns.delete(existingKey);
+  }
+  if (liveWorkflowRuns.has(key)) return false;
+  liveWorkflowRuns.set(key, Number.POSITIVE_INFINITY);
+  return true;
+}
+
+function finishLiveWorkflow(key, succeeded) {
+  if (succeeded) {
+    liveWorkflowRuns.set(key, Date.now() + liveWorkflowCooldownMs);
+  } else {
+    liveWorkflowRuns.delete(key);
+  }
+}
+
+async function getModelHealth() {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 2500);
+  try {
+    const response = await fetch(`${realMLInference.mlBackendUrl}/health`, { signal: controller.signal });
+    if (!response.ok) throw new Error(`ML backend returned ${response.status}`);
+    return await response.json();
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 const uploadDirectory = path.resolve(process.cwd(), 'uploads', 'evidence');
 fs.mkdirSync(uploadDirectory, { recursive: true });
@@ -32,21 +86,79 @@ const uploadMiddleware = multer({
   limits: { fileSize: 500 * 1024 * 1024 }
 });
 
-router.post('/detect', async (req, res) => {
+router.get('/status', async (req, res) => {
+  try {
+    const health = await getModelHealth();
+    return res.json({ available: true, ...health });
+  } catch (error) {
+    console.error('ML model health check failed:', error.message);
+    return res.status(503).json({
+      available: false,
+      status: 'offline',
+      error: 'ML model service is unavailable'
+    });
+  }
+});
+
+router.post('/detect', authMiddleware, async (req, res) => {
   try {
     const image = req.body.image || req.body.frameBase64 || req.body.frameUrl;
-    if (!image) {
+    if (typeof image !== 'string' || !image) {
       return res.status(400).json({ success: false, error: 'image is required' });
     }
 
+    const speedLimit = Number(req.body.speedLimit ?? 60);
+    const confidenceThreshold = Number(req.body.confidenceThreshold ?? 0.75);
+    if (
+      !Number.isFinite(speedLimit) || speedLimit <= 0
+      || !Number.isFinite(confidenceThreshold) || confidenceThreshold < 0 || confidenceThreshold > 1
+    ) {
+      return res.status(400).json({ success: false, error: 'Invalid speed limit or confidence threshold' });
+    }
+    const cameraId = req.body.cameraId || 'CONNECTED-VEHICLE-LIVE';
+    const cameraLocation = await resolveCameraLocation({
+      cameraId,
+      latitude: req.body.latitude,
+      longitude: req.body.longitude,
+      locationName: req.body.location,
+      accuracyMeters: req.body.locationAccuracyMeters
+    });
+    if (cameraLocation.status === 'invalid') {
+      return res.status(400).json({ success: false, error: cameraLocation.error });
+    }
+
+    const isDataUrl = image.startsWith('data:');
+    const isHttpUrl = /^https?:\/\//i.test(image);
+    const dataUrlSeparator = image.indexOf(',');
+    if (isDataUrl && dataUrlSeparator < 0) {
+      return res.status(400).json({ success: false, error: 'Image data URL is malformed' });
+    }
     const result = await realMLInference.processFrame({
-      frameBase64: image,
-      frameUrl: image.startsWith('data:') ? undefined : image,
-      location: req.body.location || 'Live dashcam',
+      frameBase64: isHttpUrl ? undefined : isDataUrl ? image.slice(dataUrlSeparator + 1) : image,
+      frameUrl: isHttpUrl ? image : undefined,
+      location: cameraLocation.name,
+      latitude: cameraLocation.coordinates?.latitude,
+      longitude: cameraLocation.coordinates?.longitude,
+      locationAccuracyMeters: cameraLocation.accuracyMeters,
+      speedLimit,
+      signalStatus: req.body.signalStatus || 'green',
       source: req.body.source || 'DASHCAM'
     });
 
+    if (!result.success || !result.model || result.model.source === 'unavailable') {
+      return res.status(503).json({
+        success: false,
+        error: result.model?.warning || 'ML model inference is unavailable',
+        model: result.model || null,
+        degraded: true
+      });
+    }
+
     const detections = [];
+    const confidenceOf = (detection) => {
+      const value = detection.confidence ?? detection.detection_confidence ?? detection.collision_probability;
+      return Number.isFinite(Number(value)) ? Number(value) : null;
+    };
 
     // 1. Potholes (from trained pothole_detector best.pt)
     if (Array.isArray(result.potholes)) {
@@ -55,7 +167,7 @@ router.post('/detect', async (req, res) => {
           id: `pot-${idx}-${Date.now()}`,
           label: 'POTHOLE',
           type: 'pothole',
-          confidence: pot.confidence || 0.95,
+          confidence: confidenceOf(pot),
           severity: pot.severity || 'HIGH',
           bbox: pot.bbox
         });
@@ -69,9 +181,9 @@ router.post('/detect', async (req, res) => {
         id: details.accident_id || `acc-${Date.now()}`,
         label: 'ACCIDENT',
         type: 'accident',
-        confidence: details.confidence || details.collision_probability || 0.94,
+        confidence: confidenceOf(details) ?? confidenceOf(result.accident_detection),
         severity: details.severity || 'CRITICAL',
-        bbox: details.bbox || (result.vehicles?.[0]?.bbox) || { x1: 150, y1: 100, x2: 490, y2: 300 }
+        bbox: details.bbox || result.vehicles?.[0]?.bbox
       });
     }
 
@@ -82,7 +194,7 @@ router.post('/detect', async (req, res) => {
           id: vehicle.id || `veh-${Math.random()}`,
           label: (vehicle.class_name || vehicle.class || 'vehicle').toUpperCase(),
           type: 'vehicle',
-          confidence: vehicle.confidence || 0.9,
+          confidence: confidenceOf(vehicle),
           speed: vehicle.speed,
           bbox: vehicle.bbox
         });
@@ -96,7 +208,7 @@ router.post('/detect', async (req, res) => {
           id: ped.id || `ped-${Math.random()}`,
           label: 'PEDESTRIAN',
           type: 'pedestrian',
-          confidence: ped.confidence || 0.9,
+          confidence: confidenceOf(ped),
           bbox: ped.bbox
         });
       });
@@ -109,9 +221,29 @@ router.post('/detect', async (req, res) => {
           id: `issue-${idx}`,
           label: (issue.label || 'ROAD_HAZARD').toUpperCase(),
           type: 'hazard',
-          confidence: issue.confidence || 0.88,
+          confidence: confidenceOf(issue),
           bbox: issue.bbox
         });
+      });
+    }
+
+    const waterLogging = result.events?.water_logging || result.water_logging;
+    if (waterLogging?.detected) {
+      detections.push({
+        id: 'water-logging',
+        label: 'WATER LOGGING',
+        type: 'water_logging',
+        confidence: confidenceOf(waterLogging),
+        bbox: waterLogging.bbox
+      });
+    }
+    if (result.fallen_tree?.label) {
+      detections.push({
+        id: 'fallen-tree',
+        label: result.fallen_tree.label,
+        type: 'fallen_tree',
+        confidence: confidenceOf(result.fallen_tree),
+        bbox: result.fallen_tree.bbox
       });
     }
 
@@ -122,38 +254,384 @@ router.post('/detect', async (req, res) => {
           id: `vendor-${idx}`,
           label: 'ENCROACHMENT',
           type: 'encroachment',
-          confidence: vendor.confidence || 0.89,
+          confidence: confidenceOf(vendor),
           bbox: vendor.bbox
         });
       });
     }
 
+    for (const [idx, helmet] of (result.helmets || []).entries()) {
+      detections.push({
+        id: `helmet-${idx}`,
+        label: helmet.helmetDetected === false ? 'NO HELMET' : 'HELMET',
+        type: 'helmet',
+        confidence: confidenceOf(helmet),
+        vehicleId: helmet.vehicleId
+      });
+    }
+
+    for (const [idx, speed] of (result.speeds || []).entries()) {
+      if (!Number.isFinite(Number(speed.speed))) continue;
+      detections.push({
+        id: `speed-${idx}`,
+        label: speed.isSpeeding ? 'SPEEDING' : 'SPEED',
+        type: 'speed',
+        confidence: confidenceOf(speed),
+        speed: Number(speed.speed),
+        bbox: speed.bbox
+      });
+    }
+    for (const [idx, speed] of (result.speed_tracking_detections || []).entries()) {
+      if (!Number.isFinite(Number(speed.speed_kmh ?? speed.speed))) continue;
+      detections.push({
+        id: `tracked-speed-${idx}`,
+        label: speed.isSpeeding || speed.rashDriving ? 'SPEEDING' : 'SPEED',
+        type: 'speed',
+        confidence: confidenceOf(speed),
+        speed: Number(speed.speed_kmh ?? speed.speed),
+        bbox: speed.bbox
+      });
+    }
+
+    for (const [idx, violation] of (result.signalViolations || []).entries()) {
+      detections.push({
+        id: `signal-${idx}`,
+        label: 'SIGNAL VIOLATION',
+        type: 'signal_violation',
+        confidence: confidenceOf(violation),
+        vehicleId: violation.vehicleId,
+        bbox: violation.bbox
+      });
+    }
+
+    for (const [idx, parking] of (result.illegalParkings || []).entries()) {
+      detections.push({
+        id: `parking-${idx}`,
+        label: 'ILLEGAL PARKING',
+        type: 'illegal_parking',
+        confidence: confidenceOf(parking),
+        vehicleId: parking.vehicleId,
+        bbox: parking.bbox
+      });
+    }
+
+    for (const [idx, crowd] of (result.crowd_detections || []).entries()) {
+      detections.push({
+        id: `crowd-${idx}`,
+        label: crowd.label || 'CROWD',
+        type: 'crowd',
+        confidence: confidenceOf(crowd),
+        bbox: crowd.bbox
+      });
+    }
+    if (result.hawkers?.hawkersDetected) {
+      detections.push({
+        id: 'hawkers',
+        label: 'STREET VENDOR',
+        type: 'encroachment',
+        confidence: confidenceOf(result.hawkers),
+        bbox: result.hawkers.bbox
+      });
+    }
+
     // 7. License Plate Detections
-    if (Array.isArray(result.plate_detections)) {
-      result.plate_detections.forEach((plate, idx) => {
+    const plateDetections = result.plate_detections || result.plates || [];
+    if (Array.isArray(plateDetections)) {
+      plateDetections.forEach((plate, idx) => {
         const pText = (plate.plate_text || '').trim();
         if (pText && pText !== 'UNREADABLE') {
           detections.push({
             id: `plate-${idx}`,
             label: pText,
             type: 'plate',
-            confidence: plate.confidence || 0.92,
+            confidence: confidenceOf(plate),
             bbox: plate.bbox
           });
         }
       });
     }
 
+    const location = cameraLocation.name;
+    const frame = {
+      cameraId,
+      location,
+      latitude: cameraLocation.coordinates?.latitude,
+      longitude: cameraLocation.coordinates?.longitude,
+      locationSource: cameraLocation.source,
+      context: req.body.context || {},
+      speedLimit,
+      signalStatus: req.body.signalStatus || 'green',
+      imageUrl: image,
+      source: 'camera_ml'
+    };
+    const meetsThreshold = (detection) => {
+      const confidence = confidenceOf(detection);
+      return confidence !== null && confidence >= confidenceThreshold;
+    };
+    const actionableResult = {
+      ...result,
+      potholes: (result.potholes || []).filter(meetsThreshold),
+      urban_issues: (result.urban_issues || []).filter(meetsThreshold),
+      helmets: (result.helmets || []).filter(meetsThreshold),
+      speeds: (result.speeds || []).filter(meetsThreshold),
+      speed_tracking_detections: (result.speed_tracking_detections || []).filter(meetsThreshold),
+      signalViolations: (result.signalViolations || []).filter(meetsThreshold),
+      illegalParkings: (result.illegalParkings || []).filter(meetsThreshold),
+      vendors: (result.vendors || []).filter(meetsThreshold),
+      events: {
+        ...result.events,
+        water_logging: meetsThreshold(result.events?.water_logging || result.water_logging || {})
+          ? (result.events?.water_logging || result.water_logging)
+          : { detected: false }
+      },
+      accident_detection: result.accident_detection?.accident_detected
+        && meetsThreshold(result.accident_detection.details || result.accident_detection)
+        ? result.accident_detection
+        : { ...result.accident_detection, accident_detected: false },
+      water_logging: meetsThreshold(result.events?.water_logging || result.water_logging || {})
+        ? result.water_logging
+        : { ...result.water_logging, detected: false },
+      fallen_tree: meetsThreshold(result.fallen_tree || {}) ? result.fallen_tree : {},
+      hawkers: meetsThreshold(result.hawkers || {}) ? result.hawkers : { ...result.hawkers, hawkersDetected: false }
+    };
+    let workflowResults = {
+      agentWorkflows: [],
+      enforcementWorkflows: [],
+      encroachmentWorkflows: [],
+      workflowStatus: 'no_actionable_detections'
+    };
+
+    const eventClaims = new Map();
+    const claimItems = (items, workflowType, eventType, identify = (item) => item) => {
+      const claimed = eventClaims.get(workflowType) || [];
+      const freshItems = items.filter((item) => {
+        const identity = identify(item);
+        if (!identity) return false;
+        const key = getLiveWorkflowKey(cameraId, workflowType, eventType, identity);
+        if (!claimLiveWorkflow(key)) return false;
+        claimed.push(key);
+        return true;
+      });
+      eventClaims.set(workflowType, claimed);
+      return freshItems;
+    };
+    const finishClaims = (keys, succeeded) => keys.forEach((key) => finishLiveWorkflow(key, succeeded));
+    const normalizedRoadIssue = (item) => {
+      const label = String(item.label || item.class_name || item.type || '').toLowerCase();
+      if (label.includes('pothole')) return { workflowIdentity: 'pothole' };
+      if (label.includes('water')) return { workflowIdentity: 'waterlogging' };
+      if (label.includes('tree')) return { workflowIdentity: 'fallen-tree' };
+      if (label.includes('accident') || label.includes('collision')) return { workflowIdentity: 'accident' };
+      if (label.includes('encroach') || label.includes('hawker') || label.includes('vendor')) return { workflowIdentity: 'encroachment' };
+      return null;
+    };
+
+    const agentResult = {
+      ...actionableResult,
+      potholes: claimItems(actionableResult.potholes, 'agents', 'road-issue', normalizedRoadIssue),
+      urban_issues: claimItems(actionableResult.urban_issues, 'agents', 'road-issue', normalizedRoadIssue)
+    };
+    const waterDetection = actionableResult.events.water_logging;
+    if (waterDetection?.detected) {
+      const waterClaim = claimItems([waterDetection], 'agents', 'road-issue', () => ({ workflowIdentity: 'waterlogging' }));
+      agentResult.events = { ...agentResult.events, water_logging: waterClaim[0] || { detected: false } };
+      agentResult.water_logging = waterClaim[0] || { detected: false };
+    }
+    if (actionableResult.fallen_tree?.label) {
+      agentResult.fallen_tree = claimItems(
+        [actionableResult.fallen_tree],
+        'agents',
+        'road-issue',
+        () => ({ workflowIdentity: 'fallen-tree' })
+      )[0] || {};
+    }
+    if (actionableResult.accident_detection?.accident_detected) {
+      const accident = claimItems(
+        [actionableResult.accident_detection],
+        'agents',
+        'road-issue',
+        () => ({ workflowIdentity: 'accident' })
+      );
+      agentResult.accident_detection = accident[0] || { accident_detected: false };
+    }
+    if (actionableResult.hawkers?.hawkersDetected) {
+      const hawkers = claimItems(
+        [actionableResult.hawkers],
+        'agents',
+        'road-issue',
+        () => ({ workflowIdentity: 'encroachment' })
+      );
+      agentResult.hawkers = hawkers[0] || { hawkersDetected: false };
+    }
+
+    const enforcementResult = {
+      ...actionableResult,
+      helmets: claimItems(
+        actionableResult.helmets.filter((item) => item.helmetDetected === false),
+        'enforcement',
+        'helmet'
+      ),
+      speeds: claimItems(
+        actionableResult.speeds.filter((item) => item.isSpeeding || item.rashDriving),
+        'enforcement',
+        'speed'
+      ),
+      speed_tracking_detections: claimItems(
+        actionableResult.speed_tracking_detections.filter((item) => item.isSpeeding || item.rashDriving),
+        'enforcement',
+        'tracked-speed'
+      ),
+      signalViolations: claimItems(actionableResult.signalViolations, 'enforcement', 'signal'),
+      illegalParkings: claimItems(actionableResult.illegalParkings, 'enforcement', 'illegal-parking')
+    };
+    const encroachmentResult = {
+      ...actionableResult,
+      illegalParkings: claimItems(actionableResult.illegalParkings, 'encroachment', 'illegal-parking'),
+      vendors: claimItems(actionableResult.vendors, 'encroachment', 'vendor'),
+      urban_issues: claimItems(
+        actionableResult.urban_issues.filter((item) => /vendor|hawker|encroach|stall/i.test(item.label || item.class_name || item.type || '')),
+        'encroachment',
+        'urban-encroachment'
+      ),
+      hawkers: actionableResult.hawkers?.hawkersDetected
+        ? claimItems([actionableResult.hawkers], 'encroachment', 'hawker')[0] || { hawkersDetected: false }
+        : actionableResult.hawkers
+    };
+
+    const hasAgentEvents = agentResult.potholes.length
+      || agentResult.urban_issues.length
+      || agentResult.events.water_logging?.detected
+      || agentResult.fallen_tree?.label
+      || agentResult.accident_detection?.accident_detected
+      || agentResult.hawkers?.hawkersDetected;
+    const hasEnforcementEvents = enforcementResult.helmets.length
+      || enforcementResult.speeds.length
+      || enforcementResult.speed_tracking_detections.length
+      || enforcementResult.signalViolations.length
+      || enforcementResult.illegalParkings.length;
+    const hasEncroachmentEvents = encroachmentResult.illegalParkings.length
+      || encroachmentResult.vendors.length
+      || encroachmentResult.urban_issues.length
+      || encroachmentResult.hawkers?.hawkersDetected;
+    const hasActionableEvents = actionableResult.potholes.length
+      || actionableResult.urban_issues.length
+      || actionableResult.helmets.some((item) => item.helmetDetected === false)
+      || actionableResult.speeds.some((item) => item.isSpeeding || item.rashDriving)
+      || actionableResult.speed_tracking_detections.some((item) => item.isSpeeding || item.rashDriving)
+      || actionableResult.signalViolations.length
+      || actionableResult.illegalParkings.length
+      || actionableResult.vendors.length
+      || actionableResult.events.water_logging?.detected
+      || actionableResult.fallen_tree?.label
+      || actionableResult.hawkers?.hawkersDetected
+      || actionableResult.accident_detection?.accident_detected;
+
+    if (hasActionableEvents && ['real', 'ITD'].includes(result.model.source)) {
+      const runClaimedWorkflow = async (workflowType, hasEvents, callback) => {
+        if (!hasEvents) return [];
+        const keys = eventClaims.get(workflowType) || [];
+        try {
+          const workflows = await callback();
+          finishClaims(keys, true);
+          return workflows;
+        } catch (workflowError) {
+          finishClaims(keys, false);
+          throw workflowError;
+        }
+      };
+      const roadIssueWorkflows = await runClaimedWorkflow(
+        'agents',
+        hasAgentEvents,
+        async () => processAgentDetections(agentResult, frame, req.user.userId)
+      );
+      const enforcementWorkflows = await runClaimedWorkflow(
+        'enforcement',
+        hasEnforcementEvents,
+        async () => processEnforcementDetections(enforcementResult, frame)
+      );
+      const encroachmentWorkflows = await runClaimedWorkflow(
+        'encroachment',
+        hasEncroachmentEvents,
+        async () => processEncroachmentDetections(encroachmentResult, frame)
+      );
+      workflowResults = {
+        agentWorkflows: [
+          ...roadIssueWorkflows.map(({ issue, eventType, persistenceStatus, workflow }) => ({
+            issueId: issue?._id || null,
+            issueType: issue?.issueType || eventType,
+            status: issue?.status || persistenceStatus || 'workflow_completed',
+            agentWorkflow: issue?.agentWorkflow || workflow.allocation,
+            persistenceStatus: persistenceStatus || 'persisted',
+            workflow
+          })),
+          ...enforcementWorkflows,
+          ...encroachmentWorkflows
+        ],
+        enforcementWorkflows,
+        encroachmentWorkflows,
+        workflowStatus: roadIssueWorkflows.some((item) => item.persistenceStatus === 'location_required')
+          ? 'completed_location_required'
+          : roadIssueWorkflows.length || enforcementWorkflows.length || encroachmentWorkflows.length
+            ? 'completed'
+          : 'duplicate_suppressed'
+      };
+    } else if (hasActionableEvents) {
+      workflowResults.workflowStatus = 'skipped_degraded_model';
+    }
+
+    const safetyDetection = detections.find((detection) => (
+      ['accident', 'emergency', 'hazard', 'pothole'].includes(String(detection.type).toLowerCase())
+    ));
+    const workloadEvent = {
+      eventId: req.body.eventId,
+      eventType: safetyDetection?.type || req.body.eventType || 'CAMERA_FRAME',
+      requestedFeature: 'camera_monitoring',
+      detection: safetyDetection
+        ? {
+            type: safetyDetection.type,
+            severity: safetyDetection.severity,
+            confidence: safetyDetection.confidence
+          }
+        : {},
+      context: req.body.context || {},
+      location: req.body.location
+    };
+    const workload = evaluateWorkload(workloadEvent);
+    if (!(workflowResults.agentWorkflows || []).length) {
+      recordWorkloadDecision(workloadEvent, workload, 'camera_monitoring', null, {
+        status: 'MONITORING',
+        modelUsage: result.model?.name
+          ? [{
+              model: result.model.name,
+              precision: typeof result.model.precision === 'string'
+                ? result.model.precision
+                : result.model.selected_precision || 'not-reported-by-inference-source',
+              runtime: result.model.runtime || 'not-reported-by-inference-source'
+            }]
+          : [],
+        measurements: {
+          sampling: workload.sampling,
+          energy: {
+            status: 'unavailable',
+            reason: 'Camera monitoring has no per-frame power telemetry or energy attribution.'
+          }
+        }
+      });
+    }
+
     return res.json({
-      success: result.success !== false,
+      success: true,
       detections,
       frame_dimensions: result.frame_dimensions || null,
       model: result.model,
-      degraded: result.model?.source !== 'real'
+      degraded: !['real', 'ITD'].includes(result.model.source),
+      location: cameraLocation,
+      workload,
+      ...workflowResults
     });
   } catch (error) {
-    console.error('Live ML detection failed:', error);
-    return res.status(503).json({ success: false, error: 'ML inference unavailable' });
+    console.error('Live ML detection workflow failed:', error);
+    return res.status(500).json({ success: false, error: 'Live ML detection workflow failed', details: error.message });
   }
 });
 
@@ -167,12 +645,22 @@ router.post('/process-frame', authMiddleware, async (req, res) => {
     const {
       cameraId = 'SIM-CAM-001',
       frameUrl,
-      location = 'Default Location',
-      latitude = 37.7749,
-      longitude = -122.4194,
       signalStatus = 'green',
       speedLimit = 60
     } = req.body;
+    const cameraLocation = await resolveCameraLocation({
+      cameraId,
+      latitude: req.body.latitude,
+      longitude: req.body.longitude,
+      locationName: req.body.location,
+      accuracyMeters: req.body.locationAccuracyMeters
+    });
+    if (cameraLocation.status === 'invalid') {
+      return res.status(400).json({ success: false, error: cameraLocation.error });
+    }
+    const location = cameraLocation.name;
+    const latitude = cameraLocation.coordinates?.latitude;
+    const longitude = cameraLocation.coordinates?.longitude;
 
     console.log(`\n🎥 Processing frame from ${cameraId}`);
 
@@ -193,6 +681,8 @@ router.post('/process-frame', authMiddleware, async (req, res) => {
       location,
       latitude,
       longitude,
+      locationAccuracyMeters: cameraLocation.accuracyMeters,
+      locationSource: cameraLocation.source,
       signalStatus,
       speedLimit,
       fps: 30,
@@ -203,6 +693,14 @@ router.post('/process-frame', authMiddleware, async (req, res) => {
 
     // Run REAL ML inference
     const detectionResult = await realMLInference.processFrame(frameData);
+    if (!detectionResult.success || !['real', 'ITD'].includes(detectionResult.model?.source)) {
+      return res.status(503).json({
+        success: false,
+        message: detectionResult.model?.warning || 'A real ML model is unavailable; no workflow actions were created.',
+        model: detectionResult.model || null
+      });
+    }
+
     const agentWorkflows = await processAgentDetections(detectionResult, {
       ...frameData,
       imageUrl: uploadedImageUrl,
@@ -521,6 +1019,7 @@ router.post('/process-frame', authMiddleware, async (req, res) => {
       message: 'Frame processed successfully with real-time AI E-Challan generation',
       timestamp: new Date(),
       cameraId,
+      location: cameraLocation,
       data: detectionResult,
       summary: {
         vehiclesDetected: detectionResult.vehicles?.length || 0,
@@ -535,11 +1034,12 @@ router.post('/process-frame', authMiddleware, async (req, res) => {
       challansCreated: challengesCreated,
       detectionLogId: detectionLog?._id || null,
       agentWorkflows: [
-        ...agentWorkflows.map(({ issue, workflow }) => ({
-        issueId: issue._id,
-        issueType: issue.issueType,
-        status: issue.status,
-        agentWorkflow: issue.agentWorkflow,
+        ...agentWorkflows.map(({ issue, eventType, persistenceStatus, workflow }) => ({
+        issueId: issue?._id || null,
+        issueType: issue?.issueType || eventType,
+        status: issue?.status || persistenceStatus || 'workflow_completed',
+        agentWorkflow: issue?.agentWorkflow || workflow.allocation,
+        persistenceStatus: persistenceStatus || 'persisted',
         workflow
         })),
         ...enforcementWorkflows,
@@ -596,7 +1096,7 @@ router.post('/upload-image', authMiddleware, uploadMiddleware.single('image'), a
  * POST /api/ml-detection/process-video
  * Full Video ML Pipeline Proxy (ITD Detection, ByteTrack, Segmentation, TMC & TTC)
  */
-router.post('/process-video', uploadMiddleware.single('video'), async (req, res) => {
+router.post('/process-video', authMiddleware, uploadMiddleware.single('video'), async (req, res) => {
   try {
     let videoUrl = req.body.videoUrl;
     let videoBase64 = req.body.videoBase64;

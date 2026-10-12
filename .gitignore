@@ -71,3 +71,6 @@ test_whatsapp_118.jpg
 india.jpg
 npimage*.jpg
 scratch_benchmark.py
+
+# Generated Green AI benchmark report; keep raw measurements local by default.
+/reports/green_ai/latest.json

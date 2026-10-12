@@ -34,16 +34,35 @@ export class VerificationAgent extends BaseAgent {
         passed: result?.status === 'SUCCESS' && result.actionResult !== null && result.actionResult !== undefined,
         error: result?.error || null
       }));
-    const failedAgents = checks.filter((check) => !check.passed);
+    const allocationFailures = event.allocationFailures || [];
+    checks.push(...allocationFailures.map((failure) => ({
+      agent: failure.agent,
+      status: 'MISSING_DEPENDENCY',
+      passed: false,
+      error: failure.reason || 'Required agent dependency is unavailable.'
+    })));
+    for (const traceEntry of event.executionTrace || []) {
+      if (!['ERROR', 'BLOCKED'].includes(traceEntry.status)) continue;
+      checks.push({
+        agent: traceEntry.agent,
+        status: traceEntry.status,
+        passed: false,
+        error: traceEntry.error || traceEntry.reason || 'Agent execution did not complete.'
+      });
+    }
+    const uniqueChecks = [...new Map(
+      checks.map((check) => [`${check.agent}:${check.status}`, check])
+    ).values()];
+    const failedAgents = uniqueChecks.filter((check) => !check.passed);
 
     return {
       action: 'VERIFY_WORKFLOW',
       eventId: event.eventId,
       trackedCount: context.trackedIssues.size,
       checkedAt: new Date().toISOString(),
-      overallStatus: checks.length > 0 && failedAgents.length === 0 ? 'VERIFIED' : 'FAILED',
-      checks,
-      passedAgents: checks.filter((check) => check.passed).map((check) => check.agent),
+      overallStatus: uniqueChecks.length > 0 && failedAgents.length === 0 ? 'VERIFIED' : 'FAILED',
+      checks: uniqueChecks,
+      passedAgents: uniqueChecks.filter((check) => check.passed).map((check) => check.agent),
       failedAgents: failedAgents.map((check) => check.agent),
       failureDetails: failedAgents
     };

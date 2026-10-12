@@ -74,19 +74,7 @@ export default function AIAgentCenter() {
   });
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
 
-  // 10 Agent Operational Status Matrix
-  const [agentStatuses, setAgentStatuses] = useState([
-    { id: 'perception', name: 'Traffic Perception Agent', type: 'Perception', status: 'ONLINE', port: 8001, icon: Eye },
-    { id: 'infrastructure', name: 'Infrastructure Agent', type: 'Perception / Work Orders', status: 'ONLINE', port: 8001, icon: Wrench },
-    { id: 'noise', name: 'Noise / Acoustic Agent', type: 'Perception / Environmental', status: 'ONLINE', port: 8001, icon: Volume2 },
-    { id: 'v2x', name: 'Emergency V2X Agent', type: 'Perception / Priority Wave', status: 'ONLINE', port: 8001, icon: Siren },
-    { id: 'prediction', name: 'Spillover Prediction Agent', type: 'Predictive Modeling', status: 'ONLINE', port: 8001, icon: Activity },
-    { id: 'intervention', name: 'Intervention Agent', type: 'Action Formulation', status: 'ONLINE', port: 8001, icon: Sliders },
-    { id: 'policy', name: 'Policy & Safety Compliance Agent', type: 'Guardrail & Rules', status: 'ONLINE', port: 8001, icon: Shield },
-    { id: 'digital_twin', name: 'Digital Twin Simulation Agent', type: 'Verification & Simulation', status: 'ONLINE', port: 8001, icon: Network },
-    { id: 'consensus', name: 'Consensus Engine', type: 'Multi-Objective Optimization', status: 'ONLINE', port: 8001, icon: PieChart },
-    { id: 'explainability', name: 'Explainability Agent', type: 'Human Reasoning & Auditing', status: 'ONLINE', port: 8001, icon: FileText }
-  ]);
+  const [agentStatuses, setAgentStatuses] = useState([]);
 
   // Synchronized Multi-Agent Pipeline State
   const [selectedDemoScenario, setSelectedDemoScenario] = useState('traffic'); // 'traffic' | 'infra' | 'acoustic' | 'v2x'
@@ -117,18 +105,23 @@ export default function AIAgentCenter() {
     try {
       const [sysRes, agentRes] = await Promise.allSettled([
         axios.get('/api/urbanflow/system-status'),
-        axios.get('/api/urbanflow/agents/status')
+        axios.get('/api/urbanflow/agents/registry')
       ]);
 
       if (sysRes.status === 'fulfilled' && sysRes.value.data?.services) {
         setSystemStatus(sysRes.value.data.services);
       }
 
-      if (agentRes.status === 'fulfilled' && agentRes.value.data?.agents) {
-        setAgentStatuses(prev => prev.map(a => {
-          const matched = agentRes.value.data.agents.find(ag => ag.id === a.id);
-          return matched ? { ...a, status: matched.status } : a;
-        }));
+      if (agentRes.status === 'fulfilled' && Array.isArray(agentRes.value.data?.agents)) {
+        setAgentStatuses(agentRes.value.data.agents.map((agent) => ({
+          ...agent,
+          name: agent.id.replace(/Agent$/, '').replace(/([a-z])([A-Z])/g, '$1 $2') + ' Agent',
+          type: agent.purpose,
+          status: agent.registered ? 'REGISTERED' : 'UNAVAILABLE',
+          icon: Bot
+        })));
+      } else {
+        setAgentStatuses([]);
       }
     } catch (err) {
       console.warn('Health check fallback:', err.message);
@@ -279,9 +272,6 @@ export default function AIAgentCenter() {
     setExecutionResult(null);
     setPipelineProgress(10);
     setCurrentActiveAgent('Multi-Modal Event Ingestion');
-
-    // Reset agent status visual indicators to PROCESSING/ONLINE
-    setAgentStatuses(prev => prev.map(a => ({ ...a, status: 'ONLINE' })));
 
     let payload = {};
     let toastMsg = 'Dispatching Event to Synchronized Multi-Agent Orchestrator...';
@@ -553,12 +543,12 @@ export default function AIAgentCenter() {
           <div className="flex gap-3 shrink-0">
             <div className="bg-slate-800/80 backdrop-blur-md p-5 rounded-3xl border border-slate-700 text-center min-w-[135px]">
               <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-1 flex items-center justify-center gap-1">
-                <Activity className="w-3 h-3 text-emerald-400" /> Active Agents
+                <Activity className="w-3 h-3 text-emerald-400" /> Registered Agents
               </p>
               <p className="text-2xl font-black text-emerald-400">
-                {agentStatuses.filter(a => a.status === 'ONLINE' || a.status === 'COMPLETED').length}/10
+                {agentStatuses.filter(a => a.status === 'REGISTERED').length}/{agentStatuses.length}
               </p>
-              <p className="text-[10px] text-slate-500 font-mono mt-0.5">Synchronized</p>
+              <p className="text-[10px] text-slate-500 font-mono mt-0.5">Local registry</p>
             </div>
 
             <div className="bg-slate-800/80 backdrop-blur-md p-5 rounded-3xl border border-slate-700 text-center min-w-[135px]">
@@ -574,7 +564,7 @@ export default function AIAgentCenter() {
 
       <div className="max-w-[1450px] mx-auto px-4 md:px-8 space-y-8">
         
-        {/* ── 1. 10 AGENT OPERATIONAL STATUS MATRIX ── */}
+        {/* ── 1. AGENT OPERATIONAL STATUS MATRIX ── */}
         <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200">
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-4">
             <div className="flex items-center gap-3">
@@ -583,10 +573,10 @@ export default function AIAgentCenter() {
               </div>
               <div>
                 <h3 className="text-base font-black text-slate-800 flex items-center gap-2">
-                  Cognitive Agent Operational Status Grid
-                  <span className="text-xs font-bold text-slate-400">(10 Synchronized Agents)</span>
+                  Registered Agent Capability Grid
+                  <span className="text-xs font-bold text-slate-400">({agentStatuses.length} Agents)</span>
                 </h3>
-                <p className="text-xs text-slate-500 font-medium">Real-time status tracking for every agent in the multi-agent cognitive loop</p>
+                <p className="text-xs text-slate-500 font-medium">Registered capabilities and model dependencies; registration is not a live health probe.</p>
               </div>
             </div>
 
@@ -596,7 +586,7 @@ export default function AIAgentCenter() {
               className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 disabled:opacity-50"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isCheckingStatus ? 'animate-spin text-blue-600' : ''}`} />
-              Probe Agents
+              Refresh Registry
             </button>
           </div>
 
@@ -605,17 +595,23 @@ export default function AIAgentCenter() {
               const isCompleted = agent.status === 'COMPLETED';
               const isProcessing = agent.status === 'PROCESSING';
               const isDegraded = agent.status === 'DEGRADED';
+              const isChecking = agent.status === 'CHECKING';
+              const isRegistered = agent.status === 'REGISTERED';
               const isOnline = agent.status === 'ONLINE' || isCompleted;
 
-              let statusBg = 'bg-emerald-100 text-emerald-700 border-emerald-300';
-              let dotBg = 'bg-emerald-500';
+              let statusBg = isChecking
+                ? 'bg-slate-100 text-slate-600 border-slate-300'
+                : isRegistered
+                  ? 'bg-cyan-100 text-cyan-800 border-cyan-300'
+                  : 'bg-emerald-100 text-emerald-700 border-emerald-300';
+              let dotBg = isChecking ? 'bg-slate-400' : isRegistered ? 'bg-cyan-500' : 'bg-emerald-500';
               if (isProcessing) {
                 statusBg = 'bg-blue-100 text-blue-700 border-blue-300 animate-pulse';
                 dotBg = 'bg-blue-500 animate-ping';
               } else if (isDegraded) {
                 statusBg = 'bg-amber-100 text-amber-700 border-amber-300';
                 dotBg = 'bg-amber-500';
-              } else if (!isOnline) {
+              } else if (!isOnline && !isRegistered) {
                 statusBg = 'bg-rose-100 text-rose-700 border-rose-300';
                 dotBg = 'bg-rose-500';
               }
@@ -875,7 +871,7 @@ export default function AIAgentCenter() {
                 Road Blockage & Spills
               </h3>
               <p className="text-xs text-slate-500 font-medium mb-4 leading-relaxed">
-                Zone 12 blockage: 145 vehicles, 18 km/h. Synchronizes 10 agents to forecast queues and optimize signal timing.
+                Zone 12 blockage: 145 vehicles, 18 km/h. Synchronizes the monitored agents to forecast queues and optimize signal timing.
               </p>
 
               <div className="bg-slate-900 text-slate-200 p-3 rounded-xl font-mono text-[11px] mb-4 overflow-x-auto">

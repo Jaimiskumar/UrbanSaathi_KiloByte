@@ -48,10 +48,11 @@ export default function ConnectedVehicleDashboard() {
   const [activeView, setActiveView] = useState('dashcam-hud'); // 'dashcam-hud' | 'community-map' | 'work-orders' | 'pipeline-feed'
   
   // Selected Vehicle State
-  const [selectedVehicleId, setSelectedVehicleId] = useState('ANON-VH-412');
+  const [selectedVehicleId, setSelectedVehicleId] = useState('');
   const [vehicles, setVehicles] = useState([]);
   const [hazards, setHazards] = useState([]);
   const [workOrders, setWorkOrders] = useState([]);
+  const [communityDataMode, setCommunityDataMode] = useState('unknown');
   const [pipelineFeed, setPipelineFeed] = useState([]);
   const [activeWarning, setActiveWarning] = useState(null);
   const [filterCategory, setFilterCategory] = useState('ALL');
@@ -77,6 +78,14 @@ export default function ConnectedVehicleDashboard() {
   const [isLiveStreaming, setIsLiveStreaming] = useState(false);
   const [isAnalyzingFrame, setIsAnalyzingFrame] = useState(false);
   const [realYoloDetections, setRealYoloDetections] = useState([]);
+  const [liveModelStatus, setLiveModelStatus] = useState(null);
+  const [liveAgentWorkflows, setLiveAgentWorkflows] = useState([]);
+  const [liveWorkflowStatus, setLiveWorkflowStatus] = useState('');
+  const [liveWorkload, setLiveWorkload] = useState(null);
+  const [liveLocation, setLiveLocation] = useState(null);
+  const [deviceGps, setDeviceGps] = useState(null);
+  const [socketConnected, setSocketConnected] = useState(false);
+  const [samplingIntervalMs, setSamplingIntervalMs] = useState(5000);
 
   // iPhone Mobile Wireless Live Stream Relay State
   const [mobileLiveFrame, setMobileLiveFrame] = useState(null);
@@ -89,6 +98,8 @@ export default function ConnectedVehicleDashboard() {
   const wifiImgRef = useRef(null);
   const mobileImgRef = useRef(null);
   const socketRef = useRef(null);
+  const samplingIntervalRef = useRef(5000);
+  const analyzeCurrentLiveFrameRef = useRef(null);
 
   // Dashcam Canvas Simulation & Live Rendering State
   const canvasRef = useRef(null);
@@ -109,6 +120,7 @@ export default function ConnectedVehicleDashboard() {
 
       if (vRes.status === 'fulfilled' && vRes.value.data?.vehicles) {
         setVehicles(vRes.value.data.vehicles);
+        setCommunityDataMode(vRes.value.data.mode || 'unknown');
       }
       if (hRes.status === 'fulfilled' && hRes.value.data?.hazards) {
         setHazards(hRes.value.data.hazards);
@@ -145,6 +157,10 @@ export default function ConnectedVehicleDashboard() {
   useEffect(() => {
     const socket = io({ reconnection: true });
     socketRef.current = socket;
+    const handleConnect = () => setSocketConnected(true);
+    const handleDisconnect = () => setSocketConnected(false);
+    socket.on('connect', handleConnect);
+    socket.on('disconnect', handleDisconnect);
 
     socket.on('v2v_mobile_frame_broadcast', (data) => {
       setMobileLiveFrame(data);
@@ -153,16 +169,27 @@ export default function ConnectedVehicleDashboard() {
         mobileImgRef.current.src = data.frame;
       }
       if (data.detectedHazards && data.detectedHazards.length > 0) {
-        setDetectedObjects(data.detectedHazards.map((d, idx) => ({
-          id: idx + 1,
-          type: d.label || 'POTHOLE',
-          x: d.bbox ? d.bbox[0] : 260,
-          y: d.bbox ? d.bbox[1] : 340,
-          w: d.bbox ? d.bbox[2] : 120,
-          h: d.bbox ? d.bbox[3] : 70,
-          conf: d.confidence || 0.96,
-          severity: d.severity || 'HIGH'
-        })));
+        setDetectedObjects(data.detectedHazards.flatMap((d, idx) => {
+          const bbox = Array.isArray(d.bbox)
+            ? d.bbox
+            : d.bbox
+              ? [d.bbox.x1, d.bbox.y1, d.bbox.x2, d.bbox.y2]
+              : [];
+          const confidence = Number(d.confidence);
+          if (bbox.length !== 4 || !bbox.every(Number.isFinite) || !Number.isFinite(confidence) || confidence < 0.65) {
+            return [];
+          }
+          return [{
+            id: idx + 1,
+            type: d.label || d.type || 'HAZARD',
+            x: bbox[0],
+            y: bbox[1],
+            w: bbox[2] - bbox[0],
+            h: bbox[3] - bbox[1],
+            conf: confidence,
+            severity: d.severity || 'HIGH'
+          }];
+        }));
       }
     });
 
@@ -179,6 +206,8 @@ export default function ConnectedVehicleDashboard() {
     });
 
     return () => {
+      socket.off('connect', handleConnect);
+      socket.off('disconnect', handleDisconnect);
       socket.disconnect();
     };
   }, []);
@@ -404,11 +433,29 @@ export default function ConnectedVehicleDashboard() {
       const res = await axios.post('/api/ml-detection/detect', {
         image: dataUrl,
         type: 'ALL',
-        source: 'PHYSICAL_DASHCAM'
+        source: 'PHYSICAL_DASHCAM',
+        context: selectedVehicle.context,
+        cameraId: `DASHCAM-${selectedCameraDeviceId || selectedVehicleId || videoSourceMode}`,
+        location: selectedVehicle.road || selectedVehicle.zone || undefined,
+        ...(deviceGps || {}),
+        speedLimit: 60,
+        confidenceThreshold: 0.75
       });
 
+      const nextInterval = Number(res.data?.workload?.sampling?.intervalMs);
+      if (Number.isFinite(nextInterval) && nextInterval > 0) {
+        samplingIntervalRef.current = nextInterval;
+        setSamplingIntervalMs(nextInterval);
+      }
+      setLiveWorkload(res.data?.workload || null);
+      setLiveModelStatus(res.data?.model || null);
+      setLiveLocation(res.data?.location || null);
+      setLiveAgentWorkflows(res.data?.agentWorkflows || []);
+      setLiveWorkflowStatus(res.data?.workflowStatus || '');
       if (res.data?.detections && res.data.detections.length > 0) {
-        const filtered = res.data.detections.filter(d => (d.confidence || 0.9) >= 0.65);
+        const filtered = res.data.detections.filter((d) => (
+          Number.isFinite(Number(d.confidence)) && Number(d.confidence) >= 0.65
+        ));
         const enriched = filtered.map(d => ({
           ...d,
           frameWidth: res.data.frame_dimensions?.width || 640,
@@ -426,6 +473,10 @@ export default function ConnectedVehicleDashboard() {
         }
       }
     } catch (err) {
+      setRealYoloDetections([]);
+      setLiveAgentWorkflows([]);
+      setLiveWorkflowStatus('unavailable');
+      setLiveModelStatus(err.response?.data?.model || null);
       if (!silent) {
         toast.error('Live ML inference is unavailable: ' + (err.response?.data?.error || err.message));
       }
@@ -435,40 +486,94 @@ export default function ConnectedVehicleDashboard() {
     }
   };
 
+  analyzeCurrentLiveFrameRef.current = analyzeCurrentLiveFrame;
+
   // Continuous Live AI Scanning Loop when camera is active
   useEffect(() => {
     if (!isLiveStreaming || !isLiveAiScanning || videoSourceMode === 'SIMULATION') return;
 
-    const interval = setInterval(() => {
-      analyzeCurrentLiveFrame(true); // Continuous live scan
-    }, 1000);
+    let timeoutId;
+    let active = true;
+    const scan = async () => {
+      if (!active) return;
+      await analyzeCurrentLiveFrameRef.current?.(true);
+      if (active) {
+        timeoutId = setTimeout(scan, samplingIntervalRef.current);
+      }
+    };
+    timeoutId = setTimeout(scan, samplingIntervalRef.current);
 
-    return () => clearInterval(interval);
+    return () => {
+      active = false;
+      clearTimeout(timeoutId);
+    };
   }, [isLiveStreaming, isLiveAiScanning, videoSourceMode]);
 
   // Broadcast Real Live Hazard to Community Cloud
+  const captureDeviceGps = () => {
+    if (!navigator.geolocation) {
+      toast.error('This browser does not provide device GPS.');
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        const nextGps = {
+          latitude: coords.latitude,
+          longitude: coords.longitude,
+          locationAccuracyMeters: coords.accuracy
+        };
+        setDeviceGps(nextGps);
+        toast.success('Device GPS captured. Registered camera coordinates will take precedence when available.');
+      },
+      (error) => {
+        toast.error(`Could not read device GPS: ${error.message}`);
+      },
+      { enableHighAccuracy: true, maximumAge: 30000, timeout: 10000 }
+    );
+  };
+
   const broadcastRealDashcamHazard = async () => {
+    const detection = realYoloDetections.find((item) => (
+      ['pothole', 'accident', 'hazard', 'encroachment'].includes(item.type)
+      || /pothole|accident|hazard|encroach/i.test(item.label || '')
+    ));
+    if (!detection || !['real', 'ITD'].includes(liveModelStatus?.source)) {
+      toast.error('Run a scan with a live ML model and confirm a hazard before broadcasting.');
+      return;
+    }
+    if (
+      liveLocation?.status !== 'available'
+      || !Number.isFinite(liveLocation.coordinates?.latitude)
+      || !Number.isFinite(liveLocation.coordinates?.longitude)
+    ) {
+      toast.error('Hazard broadcast needs device GPS or an active registered camera location. No location will be invented.');
+      return;
+    }
+
     try {
       const payload = {
-        hazard_id: 'HAZ-LIVE-' + Math.floor(1000 + Math.random() * 9000),
-        category: 'POTHOLE',
-        title: 'Deep Pothole Detected by Physical Dashcam',
-        location: 'Hosur Road / Silk Board Corridor',
-        latitude: 12.9176,
-        longitude: 77.6238,
-        severity: 'CRITICAL',
-        confidence: 0.98,
-        sensorSource: 'Physical Connected Wi-Fi Dashcam',
+        hazard_id: `HAZ-LIVE-${Date.now()}`,
+        category: detection.type.toUpperCase(),
+        camera_id: `DASHCAM-${selectedCameraDeviceId || selectedVehicleId || videoSourceMode}`,
+        title: `${detection.label} detected by connected dashcam`,
+        location: liveLocation.name || selectedVehicle.road || selectedVehicle.zone,
+        latitude: liveLocation.coordinates.latitude,
+        longitude: liveLocation.coordinates.longitude,
+        location_accuracy_meters: liveLocation.accuracyMeters,
+        severity: detection.severity || (detection.type === 'accident' ? 'CRITICAL' : 'HIGH'),
+        confidence: detection.confidence,
+        sensorSource: selectedCameraLabel || 'Connected dashcam',
         speed_advisory_kmh: 25
       };
 
       await axios.post('/api/urbanflow/connected-vehicle/report-hazard', payload);
-      toast.success('🚨 Live Dashcam Hazard Published to Community Cloud & V2V Room!', { duration: 6000 });
+      toast.success(`🚨 ${detection.label} published to Community Cloud & V2V Room!`, { duration: 6000 });
       fetchData();
     } catch (err) {
-      toast.success('🚨 Live Dashcam Hazard Broadcasted to Nearby Connected Vehicles!');
+      toast.error('Hazard broadcast failed: ' + (err.response?.data?.message || err.message));
     }
   };
+  const liveModelIsDegraded = Boolean(liveModelStatus && !['real', 'ITD'].includes(liveModelStatus.source));
 
   // 3. Combined Canvas Dashcam Render Loop (Live Stream + AI Overlays)
   useEffect(() => {
@@ -662,8 +767,8 @@ export default function ConnectedVehicleDashboard() {
           ctx.stroke();
 
           // Tag Pill
-          const conf = Math.round((det.confidence || 0.9) * 100);
-          const tagText = `${icon} ${lbl} ${conf}%`;
+          const confidence = Number.isFinite(Number(det.confidence)) ? `${Math.round(Number(det.confidence) * 100)}%` : 'N/A';
+          const tagText = `${icon} ${lbl} ${confidence}`;
           ctx.font = 'bold 11px Inter, monospace, sans-serif';
           const textWidth = ctx.measureText(tagText).width;
           const pillW = textWidth + 14;
@@ -770,14 +875,13 @@ export default function ConnectedVehicleDashboard() {
   };
 
   const selectedVehicle = vehicles.find((v) => v.id === selectedVehicleId) || vehicles[0] || {
-    id: 'ANON-VH-412',
-    speed: 48,
-    heading: 175,
-    road: 'Hosur Road / Silk Board Corridor',
-    zone: 'Silk Board Junction',
-    comm_mode: 'DSRC + C-V2V'
+    id: 'NO_VEHICLE_SELECTED',
+    speed: null,
+    heading: null,
+    road: null,
+    zone: null,
+    comm_mode: 'No connected vehicle telemetry'
   };
-
   const filteredHazards = hazards.filter((h) => {
     if (filterCategory !== 'ALL' && h.category !== filterCategory) return false;
     if (verifiedOnly && h.status !== 'COMMUNITY_VERIFIED') return false;
@@ -795,6 +899,13 @@ export default function ConnectedVehicleDashboard() {
               <Radio className="w-3.5 h-3.5 text-indigo-400 animate-pulse" />
               Connected Vehicle C-V2X / DSRC Road Safety Engine
             </div>
+            <div className={`inline-flex items-center gap-2 ml-2 px-3 py-1 rounded-full border text-[10px] font-bold uppercase tracking-wide ${communityDataMode === 'demo' ? 'bg-amber-500/10 border-amber-400/30 text-amber-200' : communityDataMode === 'live_input_only' ? 'bg-cyan-500/10 border-cyan-400/30 text-cyan-200' : 'bg-white/10 border-white/20 text-slate-300'}`}>
+              {communityDataMode === 'demo'
+                ? 'Demo data · simulated'
+                : communityDataMode === 'live_input_only'
+                  ? 'Live input · process memory'
+                  : 'Community source unavailable'}
+            </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
               Connected Vehicle Road Safety Hub
             </h1>
@@ -807,22 +918,29 @@ export default function ConnectedVehicleDashboard() {
           <div className="flex flex-wrap sm:flex-nowrap items-center gap-3">
             <button
               onClick={triggerPotholeDemo}
-              disabled={isDemoRunning}
-              className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white text-xs font-bold rounded-xl shadow-lg transform transition active:scale-95 disabled:opacity-50"
+              disabled={isDemoRunning || communityDataMode !== 'demo'}
+              title={communityDataMode !== 'demo' ? 'Set URBANSAATHI_CONNECTED_VEHICLE_DEMO_MODE=true on the backend to enable simulations.' : undefined}
+              className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white text-xs font-bold rounded-xl shadow-lg transform transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Play className="w-4 h-4 fill-white" />
               1-Click Pothole Demo
             </button>
             <button
               onClick={triggerAccidentDemo}
-              disabled={isDemoRunning}
-              className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-700 hover:to-rose-800 text-white text-xs font-bold rounded-xl shadow-lg transform transition active:scale-95 disabled:opacity-50"
+              disabled={isDemoRunning || communityDataMode !== 'demo'}
+              title={communityDataMode !== 'demo' ? 'Set URBANSAATHI_CONNECTED_VEHICLE_DEMO_MODE=true on the backend to enable simulations.' : undefined}
+              className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-700 hover:to-rose-800 text-white text-xs font-bold rounded-xl shadow-lg transform transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <AlertTriangle className="w-4 h-4" />
               1-Click Accident + V2V Demo
             </button>
           </div>
         </div>
+        {communityDataMode !== 'demo' && (
+          <p className="relative z-10 mt-3 text-xs text-slate-400">
+            Simulated workflows are disabled. Enable the backend demo-mode flag only for a demonstration environment.
+          </p>
+        )}
 
         {/* Demo Stage Progress Bar if running */}
         {isDemoRunning && (
@@ -1257,6 +1375,14 @@ export default function ConnectedVehicleDashboard() {
                   </button>
 
                   <button
+                    onClick={captureDeviceGps}
+                    className="px-3 py-1.5 bg-slate-900/90 hover:bg-slate-800 backdrop-blur-md text-white text-[10px] font-black uppercase tracking-wider rounded-xl border border-slate-500 shadow-lg flex items-center gap-1.5 transition active:scale-95 pointer-events-auto"
+                  >
+                    <MapPin className="w-3.5 h-3.5 text-emerald-300" />
+                    {deviceGps ? 'Refresh device GPS' : 'Use device GPS'}
+                  </button>
+
+                  <button
                     onClick={broadcastRealDashcamHazard}
                     className="px-3 py-1.5 bg-rose-600/90 hover:bg-rose-500 backdrop-blur-md text-white text-[10px] font-black uppercase tracking-wider rounded-xl border border-rose-400 shadow-lg flex items-center gap-1.5 transition active:scale-95 pointer-events-auto"
                   >
@@ -1270,22 +1396,42 @@ export default function ConnectedVehicleDashboard() {
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div className="p-2.5 bg-slate-800/80 rounded-xl border border-slate-700">
                   <p className="text-[10px] text-slate-400">Stream Status</p>
-                  <p className="text-sm font-extrabold text-emerald-400 font-mono">
-                    {videoSourceMode !== 'SIMULATION' ? 'LIVE FEED' : 'SIMULATION'}
+                  <p className={`text-sm font-extrabold font-mono ${
+                    videoSourceMode === 'SIMULATION' ? 'text-amber-400' : isLiveStreaming ? 'text-emerald-400' : 'text-rose-400'
+                  }`}>
+                    {videoSourceMode === 'SIMULATION' ? 'SIMULATION' : isLiveStreaming ? 'LIVE FEED' : 'OFFLINE'}
                   </p>
-                  <p className="text-[9px] text-slate-500 font-mono">1080p • 60 FPS</p>
+                  <p className="text-[9px] text-slate-500 font-mono">{selectedCameraLabel || 'Waiting for camera connection'}</p>
                 </div>
                 <div className="p-2.5 bg-slate-800/80 rounded-xl border border-slate-700">
                   <p className="text-[10px] text-slate-400">AI Detection Status</p>
-                  <p className={`text-sm font-extrabold font-mono ${realYoloDetections.length > 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                  <p className={`text-sm font-extrabold font-mono ${
+                    liveWorkflowStatus === 'unavailable' || liveModelIsDegraded
+                      ? 'text-rose-400'
+                      : realYoloDetections.length > 0 ? 'text-amber-400' : 'text-emerald-400'
+                  }`}>
                     {realYoloDetections.length > 0 
                       ? `${realYoloDetections.length} Detected` 
-                      : (isLiveAiScanning ? 'Clear / Scanning' : 'Idle')}
+                      : liveWorkflowStatus === 'unavailable'
+                        ? 'ML OFFLINE'
+                        : liveModelIsDegraded
+                          ? 'DEGRADED MODEL'
+                          : liveModelStatus
+                            ? (isLiveAiScanning ? 'Clear / Scanning' : 'Clear / Paused')
+                            : 'Waiting for scan'}
                   </p>
                   <p className="text-[9px] text-slate-400 truncate">
-                    {realYoloDetections.length > 0 
-                      ? `${realYoloDetections[0].label} (${Math.round((realYoloDetections[0].confidence || 0.9) * 100)}%)` 
-                      : 'YOLOv8 + ResNet18'}
+                    {liveModelStatus
+                      ? `${liveModelStatus.name || liveModelStatus.detector || 'ML model'} · ${liveModelStatus.source || 'unknown source'}`
+                      : 'Scan to check ML model status'}
+                  </p>
+                  <p className="text-[9px] text-cyan-300">
+                    Sampling: {(samplingIntervalMs / 1000).toFixed(1)}s · {liveWorkload?.mode || 'NORMAL'} · max delay enforced
+                  </p>
+                  <p className={`mt-1 text-[9px] ${liveLocation?.status === 'available' ? 'text-emerald-300' : 'text-amber-300'}`}>
+                    Location: {liveLocation?.status === 'available'
+                      ? `${liveLocation.source === 'registered_camera' ? 'registered camera' : 'device GPS'} · ${liveLocation.name || 'coordinates resolved'}`
+                      : 'unverified · location-dependent reports are withheld'}
                   </p>
                 </div>
                 <div className="p-2.5 bg-slate-800/80 rounded-xl border border-slate-700">
@@ -1297,9 +1443,52 @@ export default function ConnectedVehicleDashboard() {
                 </div>
                 <div className="p-2.5 bg-slate-800/80 rounded-xl border border-slate-700">
                   <p className="text-[10px] text-slate-400">V2V Cloud Sync</p>
-                  <p className="text-sm font-extrabold text-blue-400 font-mono">BROADCASTING</p>
-                  <p className="text-[9px] text-slate-500">Latency: &lt;14ms</p>
+                  <p className={`text-sm font-extrabold font-mono ${socketConnected ? 'text-emerald-400' : 'text-amber-400'}`}>
+                    {socketConnected ? 'CONNECTED' : 'OFFLINE'}
+                  </p>
+                  <p className="text-[9px] text-slate-500">
+                    {socketConnected ? 'Realtime channel connected' : 'No realtime channel connection'}
+                  </p>
                 </div>
+
+                <div className="rounded-xl border border-indigo-400/20 bg-indigo-950/50 p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-[10px] font-black uppercase tracking-wider text-indigo-200">Live agent and enforcement pipeline</p>
+                    <span className="text-[9px] font-bold uppercase text-slate-300">
+                      {liveWorkflowStatus.replaceAll('_', ' ') || 'waiting for scan'}
+                    </span>
+                  </div>
+                  {liveAgentWorkflows.length > 0 ? (
+                    <div className="mt-2 space-y-1.5">
+                      {liveAgentWorkflows.map((workflow, index) => {
+                        const agents = workflow.agentWorkflow?.selectedAgents || workflow.workflow?.targets || [workflow.agent].filter(Boolean);
+                        const title = workflow.issueType || workflow.eventType || 'Detection workflow';
+                        const status = workflow.agentWorkflow?.authorityStatus || workflow.status || workflow.workflow?.status || 'COMPLETED';
+                        return (
+                          <p key={`${workflow.issueId || workflow.eventId || title}-${index}`} className="text-[10px] text-slate-200">
+                            <span className="font-bold">{title}</span>
+                            {agents.length > 0 && <span className="text-indigo-200"> · {agents.join(', ')}</span>}
+                            <span className="text-slate-400"> · {status}</span>
+                            {workflow.challan?.challanNumber && (
+                              <span className="text-emerald-300"> · Challan {workflow.challan.challanNumber}</span>
+                            )}
+                          </p>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="mt-1 text-[10px] text-slate-400">
+                      {liveWorkflowStatus === 'duplicate_suppressed'
+                        ? 'Repeat action suppressed; this camera event was already processed.'
+                        : liveWorkflowStatus === 'skipped_degraded_model'
+                          ? 'Actions are disabled because inference is using a degraded model.'
+                          : liveWorkflowStatus === 'unavailable'
+                            ? 'Agent actions are unavailable until the ML service responds.'
+                            : 'No high-confidence actionable event in the latest scan.'}
+                    </p>
+                  )}
+                </div>
+
               </div>
             </div>
 
@@ -1380,13 +1569,13 @@ export default function ConnectedVehicleDashboard() {
                 <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100">
                   <p className="text-[10px] text-slate-500 font-medium">Speed</p>
                   <p className="text-lg font-black text-slate-900 font-mono">
-                    {selectedVehicle.speed} <span className="text-xs font-normal text-slate-500">km/h</span>
+                    {selectedVehicle.speed != null && Number.isFinite(Number(selectedVehicle.speed)) ? selectedVehicle.speed : '—'} <span className="text-xs font-normal text-slate-500">km/h</span>
                   </p>
                 </div>
                 <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100">
                   <p className="text-[10px] text-slate-500 font-medium">Heading</p>
                   <p className="text-lg font-black text-slate-900 font-mono">
-                    {selectedVehicle.heading}° <span className="text-xs font-normal text-slate-500">S</span>
+                    {selectedVehicle.heading != null && Number.isFinite(Number(selectedVehicle.heading)) ? `${selectedVehicle.heading}°` : '—'} <span className="text-xs font-normal text-slate-500">heading</span>
                   </p>
                 </div>
                 <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100">

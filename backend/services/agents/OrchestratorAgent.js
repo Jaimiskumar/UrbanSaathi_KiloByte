@@ -1,11 +1,13 @@
 import { BaseAgent } from './BaseAgent.js';
 import { eventBus } from './EventBus.js';
 import { runAgentGraph } from './AgentGraph.js';
+import { getAgentRegistry, planAgentAllocation } from './featureDrivenAllocation.js';
 
-class SmartHorizonOrchestrator extends BaseAgent {
+export class SmartHorizonOrchestrator extends BaseAgent {
   constructor() {
     super('Orchestrator Agent');
     this.agents = {};
+    this.inFlightEvents = new Map();
     
     // Subscribe to new detections
     eventBus.on('NEW_DETECTION', this.handleNewEvent.bind(this));
@@ -37,32 +39,42 @@ class SmartHorizonOrchestrator extends BaseAgent {
   }
 
   getRoutingMatrix(eventType) {
-    const matrix = {
-      'POTHOLE_DETECTED': ['CivicAndRoadHealthAgent'],
-      'CRACK_DETECTED': ['CivicAndRoadHealthAgent'],
-      'TREE_DETECTED': ['CivicAndRoadHealthAgent'],
-      'WATERLOGGING_DETECTED': ['CivicAndRoadHealthAgent', 'TrafficAgent'],
-      'ENCROACHMENT_DETECTED': ['EncroachmentAgent', 'CivicAndRoadHealthAgent'],
-      'HAWKER_DETECTED': ['EncroachmentAgent', 'CivicAndRoadHealthAgent'],
-      'STREET_VENDOR_DETECTED': ['EncroachmentAgent', 'CivicAndRoadHealthAgent'],
-      'ROAD_BLOCKAGE': ['CivicAndRoadHealthAgent', 'TrafficAgent'],
-      'ACCIDENT_DETECTED': ['AccidentEmergencyAgent', 'TrafficAgent'],
-      'HAZARD_DETECTED': ['AccidentEmergencyAgent', 'TrafficAgent'],
-      'HELMET_VIOLATION': ['EnforcementAgent'],
-      'OVERSPEEDING': ['EnforcementAgent'],
-      'RASH_DRIVING': ['EnforcementAgent'],
-      'ILLEGAL_PARKING': ['EncroachmentAgent', 'EnforcementAgent'],
-      'TRAFFIC_CONGESTION': ['TrafficAgent'],
-      'EMERGENCY_VEHICLE': ['GreenCorridorAgent']
-    };
-    return matrix[eventType] || [];
+    return planAgentAllocation({ eventType }).selectedAgents;
+  }
+
+  planEvent(event, options = {}) {
+    return planAgentAllocation(event, {
+      ...options,
+      availableAgents: Object.keys(this.agents)
+    });
+  }
+
+  getAgentRegistry() {
+    return getAgentRegistry(Object.keys(this.agents));
   }
 
   async handleNewEvent(event) {
     console.log(`\n[Orchestrator] 🧠 Received ${event.eventType} (${event.eventId})`);
-    
-    const workflow = await runAgentGraph(this.agents, event);
-    console.log(`[Orchestrator] Completed graph workflow for ${event.eventId}`);
+    const eventKey = event.eventId ? String(event.eventId) : null;
+    if (eventKey && this.inFlightEvents.has(eventKey)) {
+      console.info(`[Orchestrator] Joining in-flight workflow for event ${eventKey}`);
+      return this.inFlightEvents.get(eventKey);
+    }
+
+    const execution = Promise.resolve().then(() => runAgentGraph(this.agents, event));
+    if (eventKey) this.inFlightEvents.set(eventKey, execution);
+    let workflow;
+    try {
+      workflow = await execution;
+    } finally {
+      if (eventKey && this.inFlightEvents.get(eventKey) === execution) {
+        this.inFlightEvents.delete(eventKey);
+      }
+    }
+    console.log(
+      `[Orchestrator] ${workflow.status} feature=${workflow.allocation.requestedFeature} `
+      + `executions=${workflow.allocation.executionCount} event=${event.eventId}`
+    );
     return workflow;
   }
 }

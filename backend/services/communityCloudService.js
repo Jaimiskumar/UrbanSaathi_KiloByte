@@ -9,6 +9,7 @@
  * 5. One-Click Interactive Demos (Pothole Flow & Accident Flow)
  */
 
+import { randomUUID } from 'node:crypto';
 import { BANGALORE_ZONES } from '../config/bangaloreGeospatial.js';
 
 // Haversine distance in meters
@@ -44,7 +45,8 @@ export class CommunityCloudService {
     this.workOrders = new Map();
     this.connectedVehicles = new Map();
     this.eventPipelineFeed = [];
-    this.initSeedData();
+    this.mode = process.env.URBANSAATHI_CONNECTED_VEHICLE_DEMO_MODE === 'true' ? 'demo' : 'live_input_only';
+    if (this.mode === 'demo') this.initSeedData();
   }
 
   initSeedData() {
@@ -298,13 +300,32 @@ export class CommunityCloudService {
    * Update or register vehicle telemetry
    */
   updateVehicleTelemetry(vehicleData, io = null) {
-    const id = vehicleData.vehicle_id || vehicleData.id || `ANON-VH-${Math.floor(100 + Math.random() * 900)}`;
+    const id = vehicleData.vehicle_id || vehicleData.id;
+    const lat = Number(vehicleData.lat ?? vehicleData.latitude);
+    const lng = Number(vehicleData.lng ?? vehicleData.longitude);
+    const speed = Number(vehicleData.speed);
+    const heading = Number(vehicleData.heading);
+    if (!id) {
+      throw Object.assign(new Error('A registered vehicle identifier is required.'), { statusCode: 400 });
+    }
+    if (
+      !Number.isFinite(lat) || lat < -90 || lat > 90
+      || !Number.isFinite(lng) || lng < -180 || lng > 180
+      || !Number.isFinite(speed) || speed < 0
+      || !Number.isFinite(heading) || heading < 0 || heading >= 360
+    ) {
+      throw Object.assign(new Error('Valid vehicle GPS coordinates, speed, and heading are required.'), { statusCode: 400 });
+    }
     const existing = this.connectedVehicles.get(id) || {};
 
     const updated = {
       ...existing,
       ...vehicleData,
       id,
+      lat,
+      lng,
+      speed,
+      heading,
       last_updated: new Date().toISOString()
     };
 
@@ -333,9 +354,14 @@ export class CommunityCloudService {
    */
   getProximityWarningsForVehicle(vehicle) {
     const warnings = [];
-    const vLat = Number(vehicle.lat || vehicle.latitude);
-    const vLng = Number(vehicle.lng || vehicle.longitude);
-    const vHeading = Number(vehicle.heading || 0);
+    const vLat = Number(vehicle.lat ?? vehicle.latitude);
+    const vLng = Number(vehicle.lng ?? vehicle.longitude);
+    const vHeading = Number(vehicle.heading);
+    if (
+      !Number.isFinite(vLat) || vLat < -90 || vLat > 90
+      || !Number.isFinite(vLng) || vLng < -180 || vLng > 180
+      || !Number.isFinite(vHeading)
+    ) return warnings;
 
     for (const hazard of this.hazards.values()) {
       const distance = getDistanceMeters(vLat, vLng, hazard.lat, hazard.lng);
@@ -375,24 +401,98 @@ export class CommunityCloudService {
    * Ingest a Hazard Report from a Connected Vehicle Dashcam
    */
   reportHazard(reportData, io = null) {
-    const vehicleId = reportData.vehicle_id || reportData.reported_by || 'ANON-VH-412';
-    const category = (reportData.category || reportData.type || 'POTHOLE').toUpperCase();
-    const lat = Number(reportData.latitude || reportData.lat || 28.5449);
-    const lng = Number(reportData.longitude || reportData.lng || 77.3331);
-    const depthCm = Number(reportData.pothole_depth_cm || reportData.depth_cm || 10.5);
-    const widthCm = Number(reportData.pothole_width_cm || reportData.width_cm || 55.0);
-    const confidence = Number(reportData.confidence || reportData.dashcam_detection_confidence || 0.94);
-    const road = reportData.road_name || reportData.road || 'Noida-Greater Noida Expressway';
-    const zoneName = reportData.zone_name || reportData.zone || 'Amity University Sector 125 Junction';
+    const vehicleId = reportData.vehicle_id || reportData.reported_by || reportData.camera_id;
+    const requestedCategory = String(reportData.category || reportData.type || '').toUpperCase();
+    const categoryAliases = {
+      ROAD_DEBRIS: 'ROAD_BLOCKAGE',
+      HAWKERS_ENCROACHMENT: 'ENCROACHMENT'
+    };
+    const category = categoryAliases[requestedCategory] || requestedCategory;
+    const latValue = reportData.latitude ?? reportData.lat;
+    const lngValue = reportData.longitude ?? reportData.lng;
+    const lat = Number(latValue);
+    const lng = Number(lngValue);
+    const confidenceValue = reportData.confidence ?? reportData.dashcam_detection_confidence;
+    const confidence = confidenceValue === undefined || confidenceValue === null
+      ? null
+      : Number(confidenceValue);
+    const accuracyValue = reportData.location_accuracy_meters;
+    const accuracyMeters = accuracyValue === undefined || accuracyValue === null || accuracyValue === ''
+      ? null
+      : Number(accuracyValue);
+    if (!vehicleId) throw Object.assign(new Error('A vehicle or camera identifier is required to report a hazard.'), { statusCode: 400 });
+    if (![
+      'POTHOLE',
+      'ROAD_BLOCKAGE',
+      'ROAD_CLOSURE',
+      'ACCIDENT',
+      'HAZARD',
+      'WATERLOGGING',
+      'ENCROACHMENT',
+      'ILLEGAL_PARKING',
+      'EXCESSIVE_HONKING'
+    ].includes(category)) {
+      throw Object.assign(new Error('A supported hazard category is required.'), { statusCode: 400 });
+    }
+    if (
+      latValue === undefined || latValue === null || latValue === ''
+      || lngValue === undefined || lngValue === null || lngValue === ''
+      || !Number.isFinite(lat) || lat < -90 || lat > 90
+      || !Number.isFinite(lng) || lng < -180 || lng > 180
+    ) {
+      throw Object.assign(new Error('Valid GPS coordinates are required; no default location is used.'), { statusCode: 400 });
+    }
+    if (confidence !== null && (!Number.isFinite(confidence) || confidence < 0 || confidence > 1)) {
+      throw Object.assign(new Error('Detection confidence must be between 0 and 1.'), { statusCode: 400 });
+    }
+    if (
+      accuracyMeters !== null
+      && (!Number.isFinite(accuracyMeters) || accuracyMeters < 0 || accuracyMeters > 10000)
+    ) {
+      throw Object.assign(new Error('Location accuracy must be between 0 and 10000 meters.'), { statusCode: 400 });
+    }
+    const depthValue = reportData.pothole_depth_cm ?? reportData.depth_cm;
+    const widthValue = reportData.pothole_width_cm ?? reportData.width_cm;
+    const depthCm = depthValue === undefined || depthValue === null ? null : Number(depthValue);
+    const widthCm = widthValue === undefined || widthValue === null ? null : Number(widthValue);
+    const road = reportData.road_name || reportData.road || 'Road segment not identified';
+    const zoneName = reportData.zone_name || reportData.zone || 'Area not identified';
 
     // 1. Check for Geospatial Clustering (within 80 meters)
     let existingMatch = null;
-    for (const h of this.hazards.values()) {
-      if (h.category === category) {
-        const dist = getDistanceMeters(lat, lng, h.lat, h.lng);
-        if (dist <= 80) {
-          existingMatch = h;
-          break;
+    const configuredAccuracy = Number(process.env.URBANSAATHI_HAZARD_GPS_MAX_ACCURACY_M || 40);
+    const maximumVerificationAccuracyMeters = Number.isFinite(configuredAccuracy)
+      && configuredAccuracy >= 0
+      && configuredAccuracy <= 1000
+      ? configuredAccuracy
+      : 40;
+    const configuredConfirmationAge = Number(process.env.URBANSAATHI_HAZARD_CONFIRMATION_MAX_AGE_MS || 1800000);
+    const maximumConfirmationAgeMs = Number.isFinite(configuredConfirmationAge)
+      && configuredConfirmationAge >= 1000
+      && configuredConfirmationAge <= 86400000
+      ? configuredConfirmationAge
+      : 1800000;
+    const locationCanVerify = this.mode === 'demo'
+      || (accuracyMeters !== null && accuracyMeters <= maximumVerificationAccuracyMeters);
+    if (locationCanVerify) {
+      for (const h of this.hazards.values()) {
+        const priorReportTimestamp = Date.parse(h.reported_at);
+        const priorReportIsFresh = Number.isFinite(priorReportTimestamp)
+          && priorReportTimestamp <= Date.now()
+          && Date.now() - priorReportTimestamp <= maximumConfirmationAgeMs;
+        const existingLocationCanVerify = this.mode === 'demo'
+          || (
+            priorReportIsFresh
+            &&
+            Number.isFinite(h.location_accuracy_meters)
+            && h.location_accuracy_meters <= maximumVerificationAccuracyMeters
+          );
+        if (h.category === category && existingLocationCanVerify) {
+          const dist = getDistanceMeters(lat, lng, h.lat, h.lng);
+          if (dist <= 80) {
+            existingMatch = h;
+            break;
+          }
         }
       }
     }
@@ -454,9 +554,14 @@ export class CommunityCloudService {
     }
 
     // 2. New Hazard Creation
-    const hazardId = `HAZ-${category.slice(0, 3)}-${Date.now().toString().slice(-4)}`;
-    const severity =
-      reportData.severity || (depthCm > 9.0 ? 'HIGH' : depthCm > 4.0 ? 'MEDIUM' : 'LOW');
+    const hazardId = `HAZ-${category.slice(0, 3)}-${randomUUID()}`;
+    const severity = reportData.severity || (
+      depthCm !== null && depthCm > 9.0
+        ? 'HIGH'
+        : depthCm !== null && depthCm > 4.0
+          ? 'MEDIUM'
+          : 'UNASSESSED'
+    );
     const speedAdvisory =
       category === 'ACCIDENT' ? 20.0 : category === 'POTHOLE' ? 30.0 : 35.0;
 
@@ -465,17 +570,19 @@ export class CommunityCloudService {
       category,
       title:
         reportData.title ||
-        `${severity} ${category.replace('_', ' ')} (${depthCm > 0 ? `${depthCm}cm` : 'Hazard'})`,
+        `${severity} ${category.replace('_', ' ')}${depthCm !== null && depthCm > 0 ? ` (${depthCm}cm)` : ''}`,
       road,
-      zone_id: reportData.zone_id || 'BLR-GEN-01',
+      zone_id: reportData.zone_id || null,
       zone_name: zoneName,
       lat,
       lng,
+      location_accuracy_meters: accuracyMeters,
+      location_verification: locationCanVerify ? 'eligible_for_independent_confirmation' : 'location_accuracy_unverified',
       severity,
       confidence,
       depth_cm: depthCm,
       width_cm: widthCm,
-      vibration_g: Number(reportData.vibration_g || (depthCm > 8 ? 2.1 : 0.9)),
+      vibration_g: reportData.vibration_g === undefined ? null : Number(reportData.vibration_g),
       speed_advisory_kmh: speedAdvisory,
       reported_by: vehicleId,
       verifications: [vehicleId],
@@ -492,11 +599,14 @@ export class CommunityCloudService {
     this.hazards.set(hazardId, newHazard);
 
     // Add Pipeline Feed Step
+    const confidenceLabel = confidence === null
+      ? 'confidence not supplied'
+      : `${(confidence * 100).toFixed(0)}% AI confidence`;
     this.addPipelineFeed({
       stage: 'CLOUD_PUBLISHED',
       badge: 'DASHCAM AI DETECTED',
       title: `Dashcam Detected ${category} published to Cloud`,
-      detail: `${newHazard.title} reported by ${vehicleId} with ${(confidence * 100).toFixed(0)}% AI confidence.`,
+      detail: `${newHazard.title} reported by ${vehicleId} with ${confidenceLabel}.`,
       hazard_id: hazardId,
       vehicle_id: vehicleId
     });
@@ -547,7 +657,10 @@ export class CommunityCloudService {
       action: 'CREATED',
       hazard: newHazard,
       verified: false,
-      verification_count: 1
+      verification_count: 1,
+      location_verification: newHazard.location_verification,
+      dataMode: this.mode,
+      storage: 'process-memory'
     };
   }
 
@@ -677,6 +790,7 @@ export class CommunityCloudService {
       zone_id: 'UP-NOIDA-AMITY',
       latitude: 28.5458,
       longitude: 77.3325,
+      location_accuracy_meters: 0,
       pothole_depth_cm: 11.5,
       pothole_width_cm: 58.0,
       confidence: 0.97,
@@ -713,6 +827,7 @@ export class CommunityCloudService {
       road_name: 'Noida-Greater Noida Expressway (Near Amity Gate 2)',
       latitude: 28.5459, // Near identical coords
       longitude: 77.3326,
+      location_accuracy_meters: 0,
       pothole_depth_cm: 11.2,
       confidence: 0.95,
       severity: 'HIGH'

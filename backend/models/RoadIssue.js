@@ -31,7 +31,7 @@ const roadIssueSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['Reported', 'Assigned', 'Verification', 'In Progress', 'Resolved', 'Verified Resolved', 'Issue Still Present', 'Rejected'],
+      enum: ['Reported', 'NeedsReview', 'Assigned', 'Verification', 'In Progress', 'Resolved', 'Verified Resolved', 'Issue Still Present', 'Rejected'],
       default: 'Reported',
       index: true
     },
@@ -71,6 +71,9 @@ const roadIssueSchema = new mongoose.Schema(
     agentWorkflow: {
       eventId: { type: String, index: true },
       selectedAgents: { type: [String], default: [] },
+      allocation: { type: mongoose.Schema.Types.Mixed, default: null },
+      executionTrace: { type: [mongoose.Schema.Types.Mixed], default: [] },
+      measurements: { type: mongoose.Schema.Types.Mixed, default: null },
       completedAt: Date,
       status: { type: String, default: 'PENDING' },
       authorityStatus: { type: String, default: 'PENDING' },

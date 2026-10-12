@@ -11,6 +11,9 @@ import mongoose from 'mongoose';
 import { urbanflowService } from '../services/urbanflowService.js';
 import { multiAgentOrchestrator } from '../services/multiAgentOrchestrator.js';
 import { communityCloudService } from '../services/communityCloudService.js';
+import { orchestratorAgent, featurePolicySummary } from '../services/agents/index.js';
+import { evaluateWorkload } from '../services/agents/contextAwareWorkload.js';
+import { getGreenAiStatus } from '../services/greenAiStatusService.js';
 
 const getEventBus = async () => (await import('../services/agents/index.js')).eventBus;
 
@@ -85,37 +88,57 @@ router.get('/status', async (req, res) => {
  * GET /api/urbanflow/agents/status
  * Returns operational status for all multi-agent intelligence modules
  */
-router.get('/agents/status', async (req, res) => {
+router.get('/agents/status', (req, res) => {
   try {
-    const ufHealth = await urbanflowService.checkHealth();
-    const isUfOnline = ufHealth.available;
-
-    const agents = isUfOnline && ufHealth.agents?.length > 0 ? ufHealth.agents : [
-      { id: 'accident_detection', name: 'Accident Detection Agent', type: 'Incident Perception / Model-Driven', status: isUfOnline ? 'ONLINE' : 'DEGRADED', port: 8001, model_version: 'acc-v1' },
-      { id: 'v2v_safety', name: 'V2V Safety & Communication Agent', type: 'V2V Transport / Collision Warning', status: isUfOnline ? 'ONLINE' : 'DEGRADED', port: 8001, model_version: 'v2v-v1' },
-      { id: 'pedestrian_safety', name: 'Pedestrian Safety Agent', type: 'V2P / Crosswalk Conflict Protection', status: isUfOnline ? 'ONLINE' : 'DEGRADED', port: 8001, model_version: 'ped-v1' },
-      { id: 'perception', name: 'Traffic Perception Agent', type: 'Perception / Multi-Modal Fusion', status: isUfOnline ? 'ONLINE' : 'DEGRADED', port: 8001, model_version: 'vision-v1' },
-      { id: 'infrastructure', name: 'Infrastructure Agent', type: 'Perception / Work Orders', status: isUfOnline ? 'ONLINE' : 'DEGRADED', port: 8001, model_version: 'infra-v1' },
-      { id: 'noise', name: 'Noise / Acoustic Agent', type: 'Perception / Environmental', status: isUfOnline ? 'ONLINE' : 'DEGRADED', port: 8001, model_version: 'noise-v1' },
-      { id: 'v2x', name: 'Emergency V2X Agent', type: 'Perception / Priority Wave', status: isUfOnline ? 'ONLINE' : 'DEGRADED', port: 8001, model_version: 'em-v1' },
-      { id: 'hotspot_engine', name: 'Noida - NCR Hotspot Engine', type: 'Geospatial Clustering / Risk Scoring', status: isUfOnline ? 'ONLINE' : 'DEGRADED', port: 8001, model_version: 'hotspot-v1' },
-      { id: 'prediction', name: 'Spillover & Time Prediction Agent', type: 'Predictive Modeling (5m-60m)', status: isUfOnline ? 'ONLINE' : 'DEGRADED', port: 8001, model_version: 'pred-v1' },
-      { id: 'intervention', name: 'Intervention Agent', type: 'Action Formulation & Secondary Crash Mitigation', status: isUfOnline ? 'ONLINE' : 'DEGRADED', port: 8001, model_version: 'intervene-v1' },
-      { id: 'policy', name: 'Policy & Safety Compliance Agent', type: 'Guardrail & Safety Constraints', status: isUfOnline ? 'ONLINE' : 'DEGRADED', port: 8001, model_version: 'policy-v1' },
-      { id: 'digital_twin', name: 'Digital Twin Simulation Agent', type: 'Verification & Physical Simulation', status: isUfOnline ? 'ONLINE' : 'DEGRADED', port: 8001, model_version: 'twin-v1' },
-      { id: 'consensus', name: 'Consensus Engine', type: 'Multi-Objective Pareto Optimization', status: isUfOnline ? 'ONLINE' : 'DEGRADED', port: 8001, model_version: 'consensus-v1' },
-      { id: 'explainability', name: 'Explainability Agent', type: 'Human Reasoning, Auditing & Disclaimers', status: isUfOnline ? 'ONLINE' : 'DEGRADED', port: 8001, model_version: 'audit-v1' }
-    ];
-
-    res.json({
+    const agents = orchestratorAgent.getAgentRegistry();
+    const registeredCount = agents.filter((agent) => agent.registered).length;
+    return res.json({
       timestamp: new Date().toISOString(),
       orchestrator_status: 'ACTIVE',
       total_agents: agents.length,
-      online_count: agents.filter(a => a.status === 'ONLINE').length,
-      agents
+      registered_count: registeredCount,
+      online_count: null,
+      health_probe: 'NOT_AVAILABLE',
+      agents: agents.map((agent) => ({
+        ...agent,
+        status: agent.registered ? 'REGISTERED' : 'UNAVAILABLE',
+        health_status: 'NOT_PROBED'
+      }))
     });
   } catch (error) {
-    res.status(500).json({ status: 'error', message: error.message });
+    console.error('Agent registry status failed:', error);
+    return res.status(500).json({ status: 'error', message: error.message });
+  }
+});
+
+router.get('/agents/registry', (req, res) => {
+  res.json({
+    agents: orchestratorAgent.getAgentRegistry(),
+    featurePolicies: featurePolicySummary()
+  });
+});
+
+router.get('/green-ai/status', (req, res) => {
+  try {
+    res.json(getGreenAiStatus(mongoose.connection.readyState));
+  } catch (error) {
+    console.error('Green AI status collection failed:', error);
+    res.status(500).json({ error: 'GREEN_AI_STATUS_UNAVAILABLE', message: error.message });
+  }
+});
+
+router.post('/agents/plan', (req, res) => {
+  try {
+    const plan = orchestratorAgent.planEvent(req.body || {});
+    const workload = evaluateWorkload(req.body || {});
+    res.json({
+      dryRun: true,
+      simulation: req.body?.simulation === true,
+      plan,
+      workload
+    });
+  } catch (error) {
+    res.status(400).json({ error: 'AGENT_ALLOCATION_FAILED', message: error.message });
   }
 });
 
@@ -650,6 +673,8 @@ router.get('/community-cloud/hazards', (req, res) => {
     const hazards = communityCloudService.getAllHazards(category, verifiedOnly === 'true');
     res.json({
       status: 'success',
+      mode: communityCloudService.mode,
+      storage: 'process-memory',
       total_hazards: hazards.length,
       verified_count: hazards.filter(h => h.status === 'COMMUNITY_VERIFIED').length,
       hazards
@@ -663,16 +688,21 @@ router.get('/community-cloud/hazards', (req, res) => {
  * POST /api/urbanflow/community-cloud/report
  * Ingest new dashcam hazard report from connected vehicle
  */
-router.post('/community-cloud/report', (req, res) => {
+router.post(['/community-cloud/report', '/connected-vehicle/report-hazard'], (req, res) => {
   try {
     const io = req.app.get('io');
     const result = communityCloudService.reportHazard(req.body, io);
-    res.json({
+    return res.json({
       status: 'success',
+      mode: communityCloudService.mode,
+      storage: 'process-memory',
       result
     });
   } catch (error) {
-    res.status(500).json({ status: 'error', message: error.message });
+    if (!error.statusCode || error.statusCode >= 500) {
+      console.error('Community hazard report failed:', error);
+    }
+    return res.status(error.statusCode || 500).json({ status: 'error', message: error.message });
   }
 });
 
@@ -685,6 +715,8 @@ router.get('/connected-vehicle/vehicles', (req, res) => {
     const vehicles = communityCloudService.getAllVehicles();
     res.json({
       status: 'success',
+      mode: communityCloudService.mode,
+      storage: 'process-memory',
       total_vehicles: vehicles.length,
       vehicles
     });
@@ -703,10 +735,12 @@ router.post('/connected-vehicle/telemetry', (req, res) => {
     const result = communityCloudService.updateVehicleTelemetry(req.body, io);
     res.json({
       status: 'success',
+      mode: communityCloudService.mode,
+      storage: 'process-memory',
       ...result
     });
   } catch (error) {
-    res.status(500).json({ status: 'error', message: error.message });
+    return res.status(error.statusCode || 500).json({ status: 'error', message: error.message });
   }
 });
 
@@ -719,6 +753,8 @@ router.get('/connected-vehicle/feed', (req, res) => {
     const feed = communityCloudService.getPipelineFeed();
     res.json({
       status: 'success',
+      mode: communityCloudService.mode,
+      storage: 'process-memory',
       total_entries: feed.length,
       feed
     });
@@ -736,6 +772,8 @@ router.get('/work-orders', (req, res) => {
     const workOrders = communityCloudService.getAllWorkOrders();
     res.json({
       status: 'success',
+      mode: communityCloudService.mode,
+      storage: 'process-memory',
       total_work_orders: workOrders.length,
       dispatched_count: workOrders.filter(w => w.status === 'DISPATCHED').length,
       workOrders
@@ -750,11 +788,19 @@ router.get('/work-orders', (req, res) => {
  * 1-Click Interactive Demo: Pothole detection -> Cloud -> Verification -> V2V Alert -> BBMP Work Order
  */
 router.post('/connected-vehicle/demo/pothole', async (req, res) => {
+  if (communityCloudService.mode !== 'demo') {
+    return res.status(403).json({
+      status: 'error',
+      message: 'Demo workflows require URBANSAATHI_CONNECTED_VEHICLE_DEMO_MODE=true.'
+    });
+  }
   try {
     const io = req.app.get('io');
     const demoResult = await communityCloudService.runPotholeDemo(io);
     res.json({
       status: 'success',
+      mode: communityCloudService.mode,
+      storage: 'process-memory',
       message: 'Connected Vehicle Pothole Demo successfully executed',
       demo: demoResult
     });
@@ -768,11 +814,19 @@ router.post('/connected-vehicle/demo/pothole', async (req, res) => {
  * 1-Click Interactive Demo: Accident detection -> V2V secondary collision warning -> 12-agent orchestration
  */
 router.post('/connected-vehicle/demo/accident', async (req, res) => {
+  if (communityCloudService.mode !== 'demo') {
+    return res.status(403).json({
+      status: 'error',
+      message: 'Demo workflows require URBANSAATHI_CONNECTED_VEHICLE_DEMO_MODE=true.'
+    });
+  }
   try {
     const io = req.app.get('io');
     const demoResult = await communityCloudService.runAccidentV2VDemo(io);
     res.json({
       status: 'success',
+      mode: communityCloudService.mode,
+      storage: 'process-memory',
       message: 'Accident & V2V Secondary Collision Demo successfully executed',
       demo: demoResult
     });

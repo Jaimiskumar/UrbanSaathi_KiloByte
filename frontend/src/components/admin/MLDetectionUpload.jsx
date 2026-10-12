@@ -56,6 +56,7 @@ const MLDetectionUpload = () => {
   const [itdResultModal, setItdResultModal] = useState(null);
   const [analysisFrame, setAnalysisFrame] = useState(null);
   const [civicComplaints, setCivicComplaints] = useState([]);
+  const [mlServiceStatus, setMlServiceStatus] = useState({ status: 'checking', models_loaded: {} });
   
   const canvasRef = useRef(null);
   const imageRef = useRef(null);
@@ -66,6 +67,11 @@ const MLDetectionUpload = () => {
   const cameraId = 'NOIDA-SEC18-CAM-01';
   const speedLimit = 60;
   const modelStatus = result?.model;
+  const loadedModels = Object.entries(mlServiceStatus.models_loaded || {})
+    .filter(([, isLoaded]) => isLoaded)
+    .map(([name]) => name.replaceAll('_', ' '));
+  const modelIsReal = ['ITD', 'real'].includes(modelStatus?.source);
+  const isMlServiceOnline = mlServiceStatus.available === true;
   const [agentWorkflows, setAgentWorkflows] = useState([]);
 
   // Initialize Socket.IO Real-time alerts
@@ -130,6 +136,32 @@ const MLDetectionUpload = () => {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    const checkMlService = async () => {
+      try {
+        const response = await axios.get('/api/ml-detection/status');
+        if (active) setMlServiceStatus(response.data);
+      } catch (error) {
+        if (active) {
+          setMlServiceStatus({
+            status: 'offline',
+            available: false,
+            models_loaded: {},
+            error: error.response?.data?.error || error.message
+          });
+        }
+      }
+    };
+
+    checkMlService();
+    const interval = setInterval(checkMlService, 15000);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, []);
+
   const handleFileSelect = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -139,6 +171,7 @@ const MLDetectionUpload = () => {
       setVideoResultUrl(null);
       setItdResultModal(null);
       setCivicComplaints([]);
+      setAgentWorkflows([]);
       setAnalysisFrame(null);
       
       const isVideo = file.type.startsWith('video/') || file.name.endsWith('.mp4') || file.name.endsWith('.avi') || file.name.endsWith('.mov');
@@ -217,6 +250,7 @@ const MLDetectionUpload = () => {
     setSelectedFile({ name: 'Noida_Sector18_Expressway_Live.jpg', size: 340000 });
     setVideoResultUrl(null);
     setResult(null);
+    setAgentWorkflows([]);
     toast.success('📸 Loaded High-Res Noida Expressway Traffic Corridor Feed');
   };
 
@@ -226,6 +260,7 @@ const MLDetectionUpload = () => {
     setSelectedFile({ name: label + '.mp4', size: 1570000 });
     setVideoResultUrl(null);
     setResult(null);
+    setAgentWorkflows([]);
     toast.success(`🎬 Loaded Sample CCTV Video: ${label}`);
   };
 
@@ -293,7 +328,7 @@ const MLDetectionUpload = () => {
       ctx.fillRect(8, Math.max(0, canvas.height * 0.55 - 24), 230, 24);
       ctx.fillStyle = '#FFFFFF';
       ctx.font = 'bold 12px monospace';
-      ctx.fillText(`WATER LOGGING • ${Math.round((data.events?.water_logging?.confidence || data.water_logging?.confidence || 0) * 100)}%`, 14, Math.max(16, canvas.height * 0.55 - 8));
+      ctx.fillText(`WATER LOGGING • ${Math.round((data.events?.water_logging?.confidence ?? data.water_logging?.confidence ?? 0) * 100)}%`, 14, Math.max(16, canvas.height * 0.55 - 8));
     }
 
     // 2. Draw Vehicle Segmentation Polygons & Bounding Boxes
@@ -368,11 +403,12 @@ const MLDetectionUpload = () => {
         ctx.strokeRect(b.x1, b.y1, b.x2 - b.x1, b.y2 - b.y1);
         
         const isPlateItem = Boolean(item.plate_text || item.label === 'license_plate' || item.label === 'number_plate');
-        const detConfidence = Math.round(((item.detection_confidence ?? item.confidence) || 0.93) * 100);
+        const detectionConfidence = item.detection_confidence ?? item.confidence;
+        const detConfidence = Number.isFinite(Number(detectionConfidence)) ? Math.round(Number(detectionConfidence) * 100) : null;
         const hasPlateText = item.plate_text && item.plate_text !== 'UNREADABLE' && item.status !== 'unreadable';
 
         if (isPlateItem) {
-          const line1 = `license_plate ${detConfidence}%`;
+          const line1 = `license_plate ${detConfidence === null ? 'N/A' : `${detConfidence}%`}`;
           const line2 = hasPlateText ? item.plate_text : (item.status === 'unreadable' || item.plate_text === 'UNREADABLE' ? 'Number: Unreadable' : '');
           
           ctx.font = 'bold 12px monospace';
@@ -392,7 +428,8 @@ const MLDetectionUpload = () => {
             ctx.fillText(line2, b.x1 + 6, labelY + 30);
           }
         } else {
-          const labelText = `${item[labelKey] || item.type || 'detection'} ${Math.round((item.confidence || 0) * 100)}%`;
+          const confidence = Number.isFinite(Number(item.confidence)) ? `${Math.round(Number(item.confidence) * 100)}%` : 'N/A';
+          const labelText = `${item[labelKey] || item.type || 'detection'} ${confidence}`;
           ctx.font = 'bold 12px monospace';
           const textWidth = Math.max(160, ctx.measureText(labelText).width + 16);
           ctx.fillStyle = color;
@@ -417,7 +454,8 @@ const MLDetectionUpload = () => {
 
     // 3. Draw Accident / Collision Warning Overlay on Canvas
     if (isConfirmedAccident(data)) {
-      const accConf = Math.round((data.accident_detection.details?.confidence || 0.90) * 100);
+      const accidentConfidence = data.accident_detection.details?.confidence ?? data.accident_detection.confidence;
+      const accConf = Number.isFinite(Number(accidentConfidence)) ? `${Math.round(Number(accidentConfidence) * 100)}%` : 'confidence unavailable';
       ctx.strokeStyle = '#EF4444';
       ctx.lineWidth = 4;
       ctx.fillStyle = 'rgba(239, 68, 68, 0.18)';
@@ -426,7 +464,7 @@ const MLDetectionUpload = () => {
       ctx.fillRect(0, 0, Math.min(320, canvas.width), 36);
       ctx.fillStyle = '#FFFFFF';
       ctx.font = 'bold 14px monospace';
-      ctx.fillText(`🚨 ACCIDENT DETECTED (${accConf}%)`, 12, 23);
+      ctx.fillText(`🚨 ACCIDENT DETECTED (${accConf})`, 12, 23);
     }
 
     return canvas.toDataURL('image/jpeg', 0.92);
@@ -453,6 +491,9 @@ const MLDetectionUpload = () => {
 
     setLoading(true);
     setProcessingProgress(15);
+    setResult(null);
+    setVideoResultUrl(null);
+    setAgentWorkflows([]);
     try {
       const token = localStorage.getItem('token');
 
@@ -557,7 +598,7 @@ const MLDetectionUpload = () => {
   const detectionGroups = result ? [
     ...(hasConfirmedAccident ? [{
       label: 'Accident / collision',
-      detail: `${Math.round((result.accident_detection.details?.confidence || 0) * 100)}% confidence`,
+      detail: `${Math.round((result.accident_detection.details?.confidence ?? result.accident_detection.confidence ?? 0) * 100)}% confidence`,
       confidence: result.accident_detection.details?.confidence,
       color: 'red',
       agent: 'AccidentEmergencyAgent + TrafficAgent'
@@ -565,14 +606,14 @@ const MLDetectionUpload = () => {
     ...(!hasPotholeDetection && (result.events?.water_logging?.detected || result.water_logging?.detected) ? [{
       label: 'Water logging',
       detail: result.events?.water_logging?.method || 'Road water accumulation',
-      confidence: result.events?.water_logging?.confidence || result.water_logging?.confidence,
+      confidence: result.events?.water_logging?.confidence ?? result.water_logging?.confidence,
       color: 'cyan',
       agent: 'CivicAndRoadHealthAgent'
     }] : []),
     ...((result.events?.fallen_tree?.detected || result.fallen_tree) ? [{
       label: 'Fallen tree',
       detail: 'Civic obstruction',
-      confidence: result.events?.fallen_tree?.confidence || result.fallen_tree?.confidence,
+      confidence: result.events?.fallen_tree?.confidence ?? result.fallen_tree?.confidence,
       color: 'amber',
       agent: 'CivicAndRoadHealthAgent'
     }] : []),
@@ -590,8 +631,8 @@ const MLDetectionUpload = () => {
       return sourcePlates.map((item) => {
         const rawText = item.plate_text || item.plateNumber || item.raw_plate || '';
         const isUnreadable = !rawText || rawText === 'UNREADABLE' || item.status === 'unreadable';
-        const detConf = item.detection_confidence ?? item.confidence ?? 0.93;
-        const ocrConf = item.ocr_confidence ?? 0.91;
+        const detConf = item.detection_confidence ?? item.confidence;
+        const ocrConf = item.ocr_confidence;
         
         return {
           isPlate: true,
@@ -615,7 +656,7 @@ const MLDetectionUpload = () => {
     ...(result.speeds || []).filter((item) => Number.isFinite(item.speed)).map((item) => ({ label: item.isSpeeding ? 'Speeding' : 'Speed detected', detail: `${item.speed} km/h`, confidence: item.confidence, color: item.isSpeeding ? 'red' : 'blue', agent: 'Model detection' })),
     ...(result.speed_tracking_detections || []).filter((item) => Number.isFinite(item.speed_kmh)).map((item) => ({ label: 'Speed detected', detail: `${item.speed_kmh} km/h`, confidence: item.confidence, color: 'blue', agent: 'TrafficAgent' })),
     ...(result.crowd_detections || []).map((item) => ({ label: item.label || 'Crowd / person', detail: 'Crowd detection', confidence: item.confidence, color: 'pink' })),
-    ...(result.violations_summary?.violations || []).map((item) => ({ label: item.title || item.type || 'Traffic violation', detail: item.vehicle_number || 'Violation', confidence: 1, color: 'red', agent: 'Model detection' }))
+    ...(result.violations_summary?.violations || []).map((item) => ({ label: item.title || item.type || 'Traffic violation', detail: item.vehicle_number || 'Violation', confidence: item.confidence ?? item.detection_confidence, color: 'red', agent: 'Model detection' }))
   ] : [];
   const detectionColorClasses = {
     red: 'bg-red-400', orange: 'bg-orange-400', amber: 'bg-amber-400', cyan: 'bg-cyan-400', purple: 'bg-purple-400',
@@ -646,22 +687,25 @@ const MLDetectionUpload = () => {
           </div>
 
           <div className="flex flex-wrap items-center gap-2 font-mono text-xs">
-            <span className={`bg-white/90 backdrop-blur-md border px-3 py-1.5 rounded-2xl flex items-center gap-2 shadow-xs ${modelStatus?.source === 'ITD' || modelStatus?.source === 'real' ? 'border-emerald-200 text-emerald-700' : 'border-slate-200 text-slate-500'}`}>
-              <span className={`w-2 h-2 rounded-full ${modelStatus?.source === 'ITD' || modelStatus?.source === 'real' ? 'bg-emerald-500 animate-ping' : 'bg-slate-400'}`}></span>
-              {modelStatus?.source === 'ITD' || modelStatus?.source === 'real' ? `${modelStatus.name || 'ITD YOLOv8'} + Seg Active` : 'ITD YOLOv8 + Seg Active'}
+            <span className={`bg-white/90 backdrop-blur-md border px-3 py-1.5 rounded-2xl flex items-center gap-2 shadow-xs ${
+              modelIsReal ? 'border-emerald-200 text-emerald-700' : isMlServiceOnline ? 'border-amber-200 text-amber-700' : 'border-rose-200 text-rose-700'
+            }`}>
+              <span className={`w-2 h-2 rounded-full ${
+                modelIsReal ? 'bg-emerald-500 animate-ping' : isMlServiceOnline ? 'bg-amber-500' : 'bg-rose-500'
+              }`}></span>
+              {modelIsReal
+                ? `${modelStatus.name || modelStatus.detector || 'ML model'} active`
+                : isMlServiceOnline
+                  ? `ML service online · ${loadedModels.length} models loaded`
+                  : 'ML service unavailable'}
             </span>
-            <span className="bg-white/90 backdrop-blur-md border border-blue-200 text-blue-700 px-3 py-1.5 rounded-2xl flex items-center gap-2 shadow-xs">
-              <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-              ALPR Plate Detector (YOLOv8)
-            </span>
-            <span className="bg-white/90 backdrop-blur-md border border-rose-200 text-rose-700 px-3 py-1.5 rounded-2xl flex items-center gap-2 shadow-xs">
-              <span className="w-2 h-2 rounded-full bg-rose-500"></span>
-              ResNet-18 Accident Classifier
-            </span>
-            <span className="bg-white/90 backdrop-blur-md border border-purple-200 text-purple-700 px-3 py-1.5 rounded-2xl flex items-center gap-2 shadow-xs">
-              <span className="w-2 h-2 rounded-full bg-purple-500"></span>
-              EasyOCR Active
-            </span>
+            {loadedModels.length > 0
+              ? loadedModels.map((name) => (
+                <span key={name} className="bg-white/90 backdrop-blur-md border border-slate-200 text-slate-600 px-3 py-1.5 rounded-2xl shadow-xs capitalize">
+                  {name}
+                </span>
+              ))
+              : <span className="text-[10px] text-slate-500">{mlServiceStatus.error || 'Waiting for model health check'}</span>}
           </div>
         </div>
       </div>
@@ -947,7 +991,7 @@ const MLDetectionUpload = () => {
                 {hasConfirmedAccident ? '1 (Active Impact)' : (result?.time_to_collision_analysis?.total_collision_risks_detected || 0)}
               </p>
               <p className={`text-[9px] ${hasConfirmedAccident ? 'text-red-700 font-bold' : 'text-rose-600'}`}>
-                {hasConfirmedAccident ? `Confidence: ${Math.round((result.accident_detection.details?.confidence || 0.90)*100)}%` : `${result?.time_to_collision_analysis?.critical_risks || 0} Critical (<1.8s)`}
+                {hasConfirmedAccident ? `Confidence: ${Math.round((result.accident_detection.details?.confidence ?? result.accident_detection.confidence ?? 0)*100)}%` : `${result?.time_to_collision_analysis?.critical_risks || 0} Critical (<1.8s)`}
               </p>
             </div>
           </div>
@@ -1039,8 +1083,8 @@ const MLDetectionUpload = () => {
             {detectionGroups.map((item, index) => {
               if (item.isPlate) {
                 const isUnreadable = item.status === 'unreadable' || !item.plate_text || item.plate_text === 'UNREADABLE';
-                const detPct = Math.round((item.detection_confidence || 0.93) * 100);
-                const ocrPct = Math.round((item.ocr_confidence || 0.91) * 100);
+                const detPct = Number.isFinite(Number(item.detection_confidence)) ? Math.round(Number(item.detection_confidence) * 100) : null;
+                const ocrPct = Number.isFinite(Number(item.ocr_confidence)) ? Math.round(Number(item.ocr_confidence) * 100) : null;
 
                 return (
                   <div
@@ -1056,7 +1100,7 @@ const MLDetectionUpload = () => {
                         </span>
                       </div>
                       <span className="text-xs font-mono font-bold text-slate-200">
-                        {detPct}%
+                        {detPct === null ? 'N/A' : `${detPct}%`}
                       </span>
                     </div>
 
@@ -1082,7 +1126,7 @@ const MLDetectionUpload = () => {
                         {isUnreadable ? (
                           <span>OCR confidence: <strong className="text-amber-400 font-normal">Low</strong></span>
                         ) : (
-                          <span>OCR Confidence: <strong className="text-slate-200 font-mono font-semibold">{ocrPct}%</strong></span>
+                          <span>OCR Confidence: <strong className="text-slate-200 font-mono font-semibold">{ocrPct === null ? 'N/A' : `${ocrPct}%`}</strong></span>
                         )}
                       </p>
                     </div>

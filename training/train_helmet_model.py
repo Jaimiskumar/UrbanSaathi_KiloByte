@@ -1,6 +1,7 @@
 """Convert and train the supplied real helmet annotations as a YOLO detector."""
 
 import random
+import os
 import shutil
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -8,7 +9,7 @@ from pathlib import Path
 from ultralytics import YOLO
 
 ROOT = Path(__file__).resolve().parents[1]
-DATA = ROOT.parent / "dataset" / "helmet"
+DATA = Path(os.getenv("URBANSAATHI_DATASET_ROOT", ROOT.parent / "dataset")).expanduser().resolve() / "helmet"
 WORK = ROOT / "data" / "helmet_real"
 OUT = ROOT / "models" / "real"
 CLASSES = ["With Helmet", "Without Helmet"]

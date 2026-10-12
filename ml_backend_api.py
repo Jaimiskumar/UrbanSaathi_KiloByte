@@ -39,6 +39,7 @@ from datetime import datetime
 import json
 import joblib
 import pandas as pd
+from ml_optimization import ModelOptimizationService
 
 tf = None
 
@@ -74,6 +75,7 @@ SPECIALIZED_IMAGE_SIZE = {
     "helmet_detector": 512,
     "speed_detector": 512,
 }
+model_optimization = ModelOptimizationService()
 
 app = FastAPI(title="Smart Traffic ML API & Vision Engine", version="2.0.0")
 
@@ -132,6 +134,10 @@ class MLModels:
         self.contractor_label_encoder = None
 
         real_model_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'models', 'real')
+        dataset_root = os.path.abspath(os.getenv(
+            'URBANSAATHI_DATASET_ROOT',
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'dataset')
+        ))
         contractor_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'models')
         contractor_model_path = os.path.join(contractor_dir, 'urbansaathi_contractor_500epochs.keras')
         contractor_preprocessor_path = os.path.join(contractor_dir, 'urbansaathi_preprocessor.pkl')
@@ -197,7 +203,7 @@ class MLModels:
                 logger.info(f"Pothole detector loaded: {pothole_path}")
             except Exception as e:
                 logger.error(f"Failed to load pothole detector: {e}")
-        water_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'dataset', 'water logging', 'runs', 'water_segmentation', 'weights', 'best.pt')
+        water_path = os.path.join(dataset_root, 'water logging', 'runs', 'water_segmentation', 'weights', 'best.pt')
         if os.path.exists(water_path):
             try:
                 from ultralytics import YOLO
@@ -228,7 +234,22 @@ class MLModels:
             from ultralytics import YOLO
             vendor_path = os.path.join(real_model_dir, 'vendor_detector_yolov8n.pt')
             plate_path = os.path.join(real_model_dir, 'plate_detector_yolov8n.pt')
-            helmet_path = os.path.join(real_model_dir, 'helmet_detector_yolov8n.pt')
+            dataset_helmet_path = os.path.join(
+                dataset_root, 'helmet', 'runs', 'helmet_detection', 'weights', 'best.pt'
+            )
+            bundled_helmet_path = os.path.join(real_model_dir, 'helmet_detector_yolov8n.pt')
+            helmet_override = os.getenv('URBANSAATHI_HELMET_MODEL_PATH', '').strip()
+            default_helmet_path = (
+                dataset_helmet_path if os.path.isfile(dataset_helmet_path) else bundled_helmet_path
+            )
+            helmet_path = helmet_override or default_helmet_path
+            if not os.path.isfile(helmet_path):
+                logger.warning(
+                    "Configured helmet model not found: %s; falling back to %s",
+                    helmet_path,
+                    default_helmet_path
+                )
+                helmet_path = default_helmet_path
             speed_path = os.path.join(real_model_dir, 'speed_detector_yolov8s.pt')
             if os.path.exists(vendor_path):
                 self.vendor_detector = YOLO(vendor_path)
@@ -412,7 +433,15 @@ def run_vehicle_detector(image: np.ndarray) -> List[Dict[str, Any]]:
     detections = []
     try:
         if models.vehicle_detector_backend == "ultralytics":
-            results = models.vehicle_detector.predict(image, conf=0.65, imgsz=VEHICLE_INFERENCE_SIZE, verbose=False)
+            results = model_optimization.ultralytics_infer(
+                models.vehicle_detector,
+                "vehicle_detector",
+                "predict",
+                image,
+                conf=0.65,
+                imgsz=VEHICLE_INFERENCE_SIZE,
+                verbose=False
+            )
             for result in results:
                 names = result.names or getattr(models.vehicle_detector, "names", {})
                 masks = getattr(result, "masks", None)
@@ -443,6 +472,9 @@ def run_vehicle_detector(image: np.ndarray) -> List[Dict[str, Any]]:
                         "segmentation_polygon": polygons[idx] if idx < len(polygons) else None
                     })
         else:
+            model_optimization.resolve(
+                "vehicle_detector", "detector", "torchhub_yolov5"
+            )
             models.vehicle_detector.conf = 0.65
             results = models.vehicle_detector(image)
             raw_rows = results.pandas().xyxy[0]
@@ -472,7 +504,8 @@ def classify_real_frame(image: np.ndarray, model_name: str) -> Optional[Dict[str
     tensor = torch.from_numpy(resized).permute(2, 0, 1)
     tensor = (tensor - torch.tensor([0.485, 0.456, 0.406]).view(3, 1, 1)) / torch.tensor([0.229, 0.224, 0.225]).view(3, 1, 1)
     with torch.inference_mode():
-        probabilities = torch.softmax(model(tensor.unsqueeze(0)), dim=1)[0]
+        logits = model_optimization.classifier_logits(model, tensor, model_name)
+        probabilities = torch.softmax(logits, dim=1)[0]
     index = int(torch.argmax(probabilities))
     return {'label': labels[index], 'confidence': round(float(probabilities[index]), 4), 'model': model_name}
 
@@ -481,7 +514,16 @@ def run_urban_issue_detector(image: np.ndarray) -> List[Dict[str, Any]]:
         return []
     detections = []
     try:
-        results = models.urban_issue_detector.predict(image, conf=URBAN_ISSUE_CONFIDENCE, imgsz=640, max_det=50, verbose=False)
+        results = model_optimization.ultralytics_infer(
+            models.urban_issue_detector,
+            "urban_issue_detector",
+            "predict",
+            image,
+            conf=URBAN_ISSUE_CONFIDENCE,
+            imgsz=640,
+            max_det=50,
+            verbose=False
+        )
         for result in results:
             names = result.names or {}
             for box in result.boxes:
@@ -509,7 +551,16 @@ def run_pothole_detector(image: np.ndarray) -> List[Dict[str, Any]]:
         return []
     detections = []
     try:
-        results = models.pothole_detector.predict(image, conf=POTHOLE_CONFIDENCE, imgsz=640, max_det=50, verbose=False)
+        results = model_optimization.ultralytics_infer(
+            models.pothole_detector,
+            "pothole_detector",
+            "predict",
+            image,
+            conf=POTHOLE_CONFIDENCE,
+            imgsz=640,
+            max_det=50,
+            verbose=False
+        )
         for result in results:
             names = result.names or {}
             for box in result.boxes:
@@ -542,7 +593,16 @@ def run_water_logging_detector(image: np.ndarray) -> List[Dict[str, Any]]:
         return []
     detections = []
     try:
-        results = models.water_logging_detector.predict(image, conf=0.35, imgsz=512, max_det=20, verbose=False)
+        results = model_optimization.ultralytics_infer(
+            models.water_logging_detector,
+            "water_logging_detector",
+            "predict",
+            image,
+            conf=0.35,
+            imgsz=512,
+            max_det=20,
+            verbose=False
+        )
         for result in results:
             masks = getattr(result, 'masks', None)
             polygons = masks.xy if masks is not None and getattr(masks, 'xy', None) is not None else []
@@ -602,7 +662,10 @@ def run_specialized_detector(image: np.ndarray, detector: Any, model_name: str) 
         return []
     detections = []
     try:
-        results = detector.predict(
+        results = model_optimization.ultralytics_infer(
+            detector,
+            model_name,
+            "predict",
             image,
             conf=SPECIALIZED_CONFIDENCE.get(model_name, 0.40),
             imgsz=SPECIALIZED_IMAGE_SIZE.get(model_name, 512),
@@ -630,7 +693,17 @@ def run_crowd_detector(image: np.ndarray) -> List[Dict[str, Any]]:
         return []
     detections = []
     try:
-        results = models.crowd_detector.predict(image, classes=[0], conf=0.35, imgsz=640, max_det=100, verbose=False)
+        results = model_optimization.ultralytics_infer(
+            models.crowd_detector,
+            "crowd_detector",
+            "predict",
+            image,
+            classes=[0],
+            conf=0.35,
+            imgsz=640,
+            max_det=100,
+            verbose=False
+        )
         for result in results:
             for box in result.boxes:
                 coords = box.xyxy[0].tolist()
@@ -654,7 +727,10 @@ def run_speed_tracking_detector(image: np.ndarray) -> List[Dict[str, Any]]:
         return []
     detections = []
     try:
-        results = models.speed_tracking_detector.track(
+        results = model_optimization.ultralytics_infer(
+            models.speed_tracking_detector,
+            "speed_tracking_detector",
+            "track",
             image,
             classes=[2, 3, 5, 7],
             conf=0.35,
@@ -913,7 +989,10 @@ def extract_number_plate(image: np.ndarray, bbox: Optional[dict] = None) -> Opti
     # Step 1: Try YOLO plate detector on the vehicle crop
     if models.plate_detector is not None:
         try:
-            plate_preds = models.plate_detector.predict(
+            plate_preds = model_optimization.ultralytics_infer(
+                models.plate_detector,
+                "plate_detector",
+                "predict",
                 veh_crop,
                 conf=0.20,
                 imgsz=416,
@@ -1121,8 +1200,24 @@ async def health_check():
             "accident_detector": True,
             "echallan_engine": True,
             "contractor_prediction_model": models.contractor_model is not None
-        }
+        },
+        "inference_optimization": model_optimization.report()
     }
+
+@app.get("/optimization/status")
+async def optimization_status():
+    return model_optimization.report()
+
+@app.get("/optimization/benchmark/latest")
+async def latest_optimization_benchmark():
+    report_path = os.getenv(
+        "URBANSAATHI_BENCHMARK_REPORT",
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "reports", "green_ai", "latest.json")
+    )
+    if not os.path.isfile(report_path):
+        raise HTTPException(status_code=404, detail="No optimization benchmark report is available.")
+    with open(report_path, "r", encoding="utf-8") as report_file:
+        return json.load(report_file)
 
 @app.post("/predict/contractor")
 async def predict_contractor(request: ContractorPredictionRequest):
@@ -2174,8 +2269,15 @@ async def process_full_video_endpoint(request: VideoProcessRequest, background_t
             # A. Instance Segmentation using YOLO11-seg if enabled
             if request.enable_segmentation and models.speed_tracking_detector is not None:
                 try:
-                    seg_results = models.speed_tracking_detector.predict(
-                        frame, classes=[0, 1, 2, 3, 5, 7], conf=0.20, imgsz=384, verbose=False
+                    seg_results = model_optimization.ultralytics_infer(
+                        models.speed_tracking_detector,
+                        "speed_tracking_detector",
+                        "predict",
+                        frame,
+                        classes=[0, 1, 2, 3, 5, 7],
+                        conf=0.20,
+                        imgsz=384,
+                        verbose=False
                     )
                     if seg_results and seg_results[0].masks is not None:
                         overlay = annotated_frame.copy()
@@ -2197,7 +2299,10 @@ async def process_full_video_endpoint(request: VideoProcessRequest, background_t
 
             if models.vehicle_detector is not None and models.vehicle_detector_backend == "ultralytics":
                 try:
-                    results = models.vehicle_detector.track(
+                    results = model_optimization.ultralytics_infer(
+                        models.vehicle_detector,
+                        "vehicle_detector",
+                        "track",
                         frame,
                         conf=0.35,
                         imgsz=384,

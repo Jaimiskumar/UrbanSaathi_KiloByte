@@ -92,10 +92,10 @@ export default function CitizenMobileApp({ onSwitchToAdmin }) {
   const [reportForm, setReportForm] = useState({
     category: 'pothole', // 'pothole' | 'accident' | 'road_debris' | 'hawkers_encroachment' | 'illegal_parking' | 'excessive_honking'
     title: 'Severe Road Surface Defect',
-    location: 'Outer Ring Road (Near Silk Board), Bengaluru',
-    latitude: 12.9176,
-    longitude: 77.6238,
-    accuracyMeters: 6.4,
+    location: '',
+    latitude: null,
+    longitude: null,
+    accuracyMeters: null,
     description: '',
     severity: 'HIGH'
   });
@@ -143,13 +143,7 @@ export default function CitizenMobileApp({ onSwitchToAdmin }) {
         const latFixed = Number(latitude.toFixed(5));
         const lngFixed = Number(longitude.toFixed(5));
         
-        // Approximate to Bengaluru nearest corridor if coordinates are outside or test coords
-        let resolvedAddress = `GPS (${latFixed}° N, ${lngFixed}° E)`;
-        if (Math.abs(latitude - 12.92) < 0.1) {
-          resolvedAddress = `Hosur Road Corridor, Silk Board (${latFixed}°, ${lngFixed}°)`;
-        } else {
-          resolvedAddress = `Current Live GPS Location (${latFixed}°, ${lngFixed}°)`;
-        }
+        const resolvedAddress = `GPS (${latFixed}°, ${lngFixed}°)`;
 
         setReportForm(prev => ({
           ...prev,
@@ -164,17 +158,16 @@ export default function CitizenMobileApp({ onSwitchToAdmin }) {
       },
       (error) => {
         console.warn('Geolocation error:', error);
-        // Fallback default Bengaluru Silk Board coordinates
         setReportForm(prev => ({
           ...prev,
-          latitude: 12.9176,
-          longitude: 77.6238,
-          accuracyMeters: 10,
-          location: 'Silk Board Central Junction, Bengaluru (Default Live Pin)'
+          latitude: null,
+          longitude: null,
+          accuracyMeters: null,
+          location: ''
         }));
-        setGpsDetected(true);
+        setGpsDetected(false);
         setIsDetectingGps(false);
-        toast('Using Bengaluru Smart City Live GPS coordinates', { icon: '📍' });
+        toast.error(`GPS unavailable: ${error.message}. No default location was substituted.`);
       },
       { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
     );
@@ -416,18 +409,27 @@ export default function CitizenMobileApp({ onSwitchToAdmin }) {
       toast.error('Please enter a short description');
       return;
     }
+    if (
+      !gpsDetected
+      || !Number.isFinite(Number(reportForm.latitude))
+      || !Number.isFinite(Number(reportForm.longitude))
+    ) {
+      toast.error('Capture a valid GPS location before submitting this geo-tagged report.');
+      return;
+    }
 
     setIsSubmittingReport(true);
     try {
       // 1. Post to Community Cloud service
       await axios.post('/api/urbanflow/community-cloud/report', {
-        vehicle_id: `MOBILE-CIT-${Math.floor(100 + Math.random() * 900)}`,
+        reported_by: `MOBILE-CIT-${Date.now()}`,
         category: reportForm.category.toUpperCase(),
         title: reportForm.title || `${reportForm.category.toUpperCase()} on ${reportForm.location}`,
         road_name: reportForm.location,
         latitude: reportForm.latitude,
         longitude: reportForm.longitude,
-        confidence: 0.96,
+        location_accuracy_meters: reportForm.accuracyMeters,
+        severity: reportForm.severity,
         description: reportForm.description,
         photo_url: capturedPhoto
       });

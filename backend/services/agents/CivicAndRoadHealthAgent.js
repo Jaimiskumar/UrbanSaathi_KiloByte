@@ -7,7 +7,10 @@ export class CivicAndRoadHealthAgent extends BaseAgent {
   }
 
   async retrieveContext(event) {
-    const { lat, lng } = event.location;
+    const { lat, lng } = event.location || {};
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      throw new Error('Trusted camera coordinates are required for civic road triage.');
+    }
     
     // 1. Identify road segment
     const road = MockDBService.getRoadByLocation(lat, lng);

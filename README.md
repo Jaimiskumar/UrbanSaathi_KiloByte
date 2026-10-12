@@ -78,6 +78,7 @@ Use these documents for deeper review:
 | Setup and quick start | [docs/getting-started/SETUP.md](docs/getting-started/SETUP.md) |
 | ML system guide | [docs/ml/ML_SYSTEM_GUIDE.md](docs/ml/ML_SYSTEM_GUIDE.md) |
 | ITD and model specification | [docs/ml/ML_MODELS_DATASET_SPECIFICATION.md](docs/ml/ML_MODELS_DATASET_SPECIFICATION.md) |
+| Green AI: model, agent, and context-aware workload layers | [docs/green-ai-context-aware.md](docs/green-ai-context-aware.md) |
 | ML detection quick start | [docs/ml/ML_DETECTION_QUICK_START.md](docs/ml/ML_DETECTION_QUICK_START.md) |
 | Deployment guide | [docs/deployment/DEPLOYMENT_GUIDE_ML_MODELS.md](docs/deployment/DEPLOYMENT_GUIDE_ML_MODELS.md) |
 | Emergency vehicle system | [docs/emergency/EMERGENCY_VEHICLE_SYSTEM.md](docs/emergency/EMERGENCY_VEHICLE_SYSTEM.md) |

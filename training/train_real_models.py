@@ -7,6 +7,7 @@ for video frames and a scikit-learn congestion classifier for telemetry.
 
 import json
 import os
+import random
 from datetime import datetime
 from pathlib import Path
 
@@ -18,11 +19,11 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, f1_score
 from sklearn.model_selection import train_test_split
 from torch import nn
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Subset
 from torchvision import datasets, models, transforms
 
 ROOT = Path(__file__).resolve().parents[1]
-DATASET = ROOT.parent / "dataset"
+DATASET = Path(os.getenv("URBANSAATHI_DATASET_ROOT", ROOT.parent / "dataset")).expanduser().resolve()
 MODEL_DIR = ROOT / "models" / "real"
 MODEL_DIR.mkdir(parents=True, exist_ok=True)
 SEED = 42
@@ -46,12 +47,34 @@ def train_image_model(name: str, data_dir: Path, epochs: int = 15, max_per_class
 
     by_class = {label: [] for label in range(len(dataset.classes))}
     for index, (_, label) in enumerate(dataset.samples):
-        if len(by_class[label]) < max_per_class:
-            by_class[label].append(index)
-    selected = np.array([index for indices in by_class.values() for index in indices])
-    labels = [dataset.targets[index] for index in selected]
-    train_loader = DataLoader(torch.utils.data.Subset(dataset, selected), batch_size=32, shuffle=True)
-    evaluation_dataset = datasets.ImageFolder(eval_dir, transform=transform) if eval_dir and eval_dir.exists() else dataset
+        by_class[label].append(index)
+
+    randomizer = random.Random(SEED)
+    training_indices = []
+    if eval_dir and eval_dir.exists():
+        evaluation_dataset = datasets.ImageFolder(eval_dir, transform=transform)
+        if evaluation_dataset.classes != dataset.classes:
+            raise ValueError(f"{name} training and evaluation class names do not match")
+        for indices in by_class.values():
+            randomizer.shuffle(indices)
+            training_indices.extend(indices[:max_per_class])
+    else:
+        held_out_indices = []
+        for indices in by_class.values():
+            if len(indices) < 2:
+                raise ValueError(f"{name} needs at least two examples per class for held-out evaluation")
+            randomizer.shuffle(indices)
+            held_out_count = max(1, round(len(indices) * 0.2))
+            held_out_indices.extend(indices[:held_out_count])
+            training_indices.extend(indices[held_out_count:held_out_count + max_per_class])
+        evaluation_dataset = Subset(dataset, held_out_indices)
+
+    train_loader = DataLoader(
+        Subset(dataset, training_indices),
+        batch_size=32,
+        shuffle=True,
+        generator=torch.Generator().manual_seed(SEED),
+    )
     test_loader = DataLoader(evaluation_dataset, batch_size=32)
 
     model = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
@@ -80,14 +103,26 @@ def train_image_model(name: str, data_dir: Path, epochs: int = 15, max_per_class
             predictions.extend(model(images.to(device)).argmax(1).cpu().tolist())
             actual.extend(targets.tolist())
 
-    artifact = MODEL_DIR / f"{name}.pt"
-    scripted = torch.jit.script(model.cpu())
-    scripted.save(str(artifact))
+    model = model.cpu()
+    if name == "accident_classifier":
+        artifact = MODEL_DIR / "accident_classifier_resnet18.pt"
+        torch.save({
+            "model_state_dict": model.state_dict(),
+            "class_names": dataset.classes,
+        }, artifact)
+    else:
+        artifact = MODEL_DIR / f"{name}.pt"
+        torch.jit.script(model).save(str(artifact))
     metrics = {
         "dataset_type": "real",
         "dataset": str(data_dir),
+        "model_file": artifact.name,
+        "architecture": "ResNet18",
         "classes": dataset.classes,
         "samples": len(dataset),
+        "training_samples": len(training_indices),
+        "evaluation_samples": len(evaluation_dataset),
+        "evaluation_method": "separate_validation_split" if eval_dir and eval_dir.exists() else "stratified_held_out_20_percent",
         "evaluation_dataset": str(eval_dir) if eval_dir and eval_dir.exists() else str(data_dir),
         "accuracy": round(float(accuracy_score(actual, predictions)), 4),
         "f1_score": round(float(f1_score(actual, predictions, average="weighted")), 4),

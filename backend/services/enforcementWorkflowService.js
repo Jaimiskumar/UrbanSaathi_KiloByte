@@ -26,8 +26,9 @@ export function buildEnforcementEvents(result = {}, frame = {}) {
     events.push({
       eventType,
       location: {
-        lat: Number(frame.latitude),
-        lng: Number(frame.longitude),
+        ...(Number.isFinite(frame.latitude) && Number.isFinite(frame.longitude)
+          ? { lat: frame.latitude, lng: frame.longitude }
+          : {}),
         name: frame.location
       },
       detection: {
@@ -128,7 +129,12 @@ export function buildEncroachmentEvents(result = {}, frame = {}) {
   }
   return detections.map((detection) => ({
     eventType: 'ENCROACHMENT_DETECTED',
-    location: { lat: Number(frame.latitude), lng: Number(frame.longitude), name: frame.location },
+    location: {
+      ...(Number.isFinite(frame.latitude) && Number.isFinite(frame.longitude)
+        ? { lat: frame.latitude, lng: frame.longitude }
+        : {}),
+      name: frame.location
+    },
     detection: {
       ...detection,
       class: detection.violation || detection.label || 'street vendor',

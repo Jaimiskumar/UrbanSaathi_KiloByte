@@ -18,16 +18,29 @@ function detectionsToEvents(result, frame) {
   const add = (label, detection = {}) => {
     const type = canonicalIssue(label);
     if (!type) return;
+    const hasCoordinates = Number.isFinite(frame.latitude) && Number.isFinite(frame.longitude);
     events.push({
       eventType: type.eventType,
-      location: { lat: Number(frame.latitude), lng: Number(frame.longitude) },
+      location: {
+        ...(hasCoordinates ? { lat: frame.latitude, lng: frame.longitude } : {}),
+        ...(frame.location ? { name: frame.location } : {})
+      },
       detection: {
         class: label,
         confidence: detection.confidence,
         severity: detection.severity || (type.eventType === 'ACCIDENT_DETECTED' ? 'CRITICAL' : 'HIGH'),
         roadBlocked: Boolean(detection.roadBlocked || detection.blocksRoad)
       },
-      source: { type: 'ML_MODEL', model: result.model?.name || 'vision-model' },
+      source: {
+        type: 'ML_MODEL',
+        model: result.model?.name || 'vision-model',
+        precision: typeof result.model?.precision === 'string'
+          ? result.model.precision
+          : result.model?.selected_precision || null,
+        runtime: result.model?.runtime || null
+      },
+      locationSource: frame.locationSource || null,
+      context: frame.context || {},
       evidence: { image: frame.imageUrl },
       cameraId: frame.cameraId,
       timestamp: new Date()
@@ -54,37 +67,62 @@ export async function processAgentDetections(result, frame, userId) {
     const civic = workflow.results?.CivicAndRoadHealthAgent?.actionResult;
     const authority = workflow.results?.AuthorityCoordinationAgent?.actionResult;
     const emergency = workflow.results?.AccidentEmergencyAgent?.actionResult;
-    const issueData = civic || {
+    const isAccident = enrichedEvent.eventType === 'ACCIDENT_DETECTED';
+    const issueData = civic || (isAccident ? {
       issue: 'ACCIDENT',
       severity: emergency?.escalationLevel || 'CRITICAL',
       priority: workflow.priority,
       authorityId: 'BENGALURU_TRAFFIC_POLICE',
       department: 'Traffic Police and Emergency Response',
       status: 'OPEN'
-    };
+    } : {
+      issue: String(enrichedEvent.detection.class || 'ROAD_HAZARD').toUpperCase(),
+      severity: enrichedEvent.detection.severity || 'UNKNOWN',
+      priority: workflow.priority || 'HIGH',
+      status: 'NEEDS_REVIEW'
+    });
+    const aiRecommendation = issueData.department
+      ? `Responsible authority: ${issueData.department}. SLA: ${issueData.slaHours || 48} hours.`
+      : 'Automated triage did not complete; this report requires manual review.';
+    const coordinates = enrichedEvent.location;
+    if (!Number.isFinite(coordinates?.lat) || !Number.isFinite(coordinates?.lng)) {
+      workflowRecords.push({
+        issue: null,
+        eventType: enrichedEvent.eventType,
+        persistenceStatus: 'location_required',
+        workflow
+      });
+      continue;
+    }
     const roadIntelligence = await lookupRoad({
-      coordinates: { lat: event.location.lat, lng: event.location.lng },
+      coordinates: { lat: coordinates.lat, lng: coordinates.lng },
       issueType: issueData.issue
     });
     const record = await RoadIssue.create({
       userId,
       issueType: canonicalIssue(event.detection.class).issueType,
       locationName: frame.location,
-      coordinates: event.location,
+      coordinates,
       description: `${event.detection.class} detected by ${event.source.model}`,
       imageUrl: frame.imageUrl || '',
-      status: 'Reported',
+      status: civic || (isAccident && emergency) ? 'Reported' : 'NeedsReview',
       roadIntelligence,
       priority: workflow.priority || issueData.priority || 'HIGH',
       riskScore: workflow.priority === 'CRITICAL' ? 95 : workflow.priority === 'HIGH' ? 75 : 40,
-      aiRecommendation: `Responsible authority: ${issueData.department}. SLA: ${issueData.slaHours || 48} hours.`,
+      aiRecommendation,
       source: frame.source || 'camera_ml',
       agentWorkflow: {
         eventId: event.eventId,
-        selectedAgents: [...new Set([...(workflow.targets || []), ...(authority ? ['AuthorityCoordinationAgent'] : [])])],
+        selectedAgents: workflow.allocation?.actualAgents
+          || [...new Set([...(workflow.targets || []), ...(authority ? ['AuthorityCoordinationAgent'] : [])])],
+        allocation: workflow.allocation || null,
+        executionTrace: workflow.executionTrace || [],
+        measurements: workflow.allocation?.measurements || null,
         completedAt: new Date(),
         status: workflow.status,
-        authorityStatus: authority?.status || (event.eventType === 'ACCIDENT_DETECTED' ? 'EMERGENCY_ESCALATED' : 'PENDING'),
+        authorityStatus: authority?.status || (isAccident
+          ? emergency?.status || 'NEEDS_REVIEW'
+          : 'PENDING'),
         authorityTicketId: authority?.complaintId,
         authorityId: authority?.authorityId || issueData.authorityId,
         department: authority?.department || issueData.department,

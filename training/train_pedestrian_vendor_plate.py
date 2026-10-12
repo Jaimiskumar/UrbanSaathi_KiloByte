@@ -1,6 +1,7 @@
 """Train additional dashboard models exclusively from the supplied real data."""
 
 import json
+import os
 import random
 import shutil
 import xml.etree.ElementTree as ET
@@ -14,7 +15,7 @@ from sklearn.model_selection import train_test_split
 from ultralytics import YOLO
 
 ROOT = Path(__file__).resolve().parents[1]
-DATA = ROOT.parent / "dataset"
+DATA = Path(os.getenv("URBANSAATHI_DATASET_ROOT", ROOT.parent / "dataset")).expanduser().resolve()
 OUT = ROOT / "models" / "real"
 WORK = ROOT / "data" / "additional_real"
 OUT.mkdir(parents=True, exist_ok=True)
