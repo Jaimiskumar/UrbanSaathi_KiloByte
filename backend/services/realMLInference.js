@@ -47,7 +47,7 @@ export class RealMLInference {
     const payload = {
       frame_url: frameData.frameUrl,
       frame_base64: frameData.frameBase64,
-      location: frameData.location || null,
+      location: frameData.location || 'Sector 18 Atta Market, Noida',
       speed_limit: frameData.speedLimit || 60.0,
       signal_status: frameData.signalStatus || 'green',
       enable_segmentation: true

@@ -13,12 +13,22 @@ export default defineConfig(({ mode }) => {
       port: 5173,
       allowedHosts: true,
       proxy: {
-        '^/api/ml/': mlTarget,
-        '/api': backendTarget,
-        '/uploads': backendTarget,
+        '^/api/ml/': {
+          target: mlTarget,
+          changeOrigin: true
+        },
+        '/api': {
+          target: backendTarget,
+          changeOrigin: true
+        },
+        '/uploads': {
+          target: backendTarget,
+          changeOrigin: true
+        },
         '/socket.io': {
           target: backendTarget,
-          ws: true
+          ws: true,
+          changeOrigin: true
         }
       }
     }

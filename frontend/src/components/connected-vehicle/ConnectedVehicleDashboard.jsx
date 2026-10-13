@@ -436,7 +436,7 @@ export default function ConnectedVehicleDashboard() {
         source: 'PHYSICAL_DASHCAM',
         context: selectedVehicle.context,
         cameraId: `DASHCAM-${selectedCameraDeviceId || selectedVehicleId || videoSourceMode}`,
-        location: selectedVehicle.road || selectedVehicle.zone || undefined,
+        location: selectedVehicle?.road || selectedVehicle?.zone || 'Sector 18 Atta Market, Noida',
         ...(deviceGps || {}),
         speedLimit: 60,
         confidenceThreshold: 0.75

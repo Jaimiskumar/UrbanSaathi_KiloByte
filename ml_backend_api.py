@@ -1225,10 +1225,10 @@ class VideoAnalysisRequest(BaseModel):
     video_base64: Optional[str] = None
     frame_url: Optional[str] = None
     frame_base64: Optional[str] = None
-    location: str = "Sector 18 Atta Market, Noida"
-    speed_limit: float = 60.0
-    signal_status: str = "green"
-    enable_segmentation: bool = True
+    location: Optional[str] = "Sector 18 Atta Market, Noida"
+    speed_limit: Optional[float] = 60.0
+    signal_status: Optional[str] = "green"
+    enable_segmentation: Optional[bool] = True
 
 class ContractorPredictionRequest(BaseModel):
     latitude: float
@@ -1326,7 +1326,7 @@ async def predict_contractor(request: ContractorPredictionRequest):
 @app.post("/batch/process-frame")
 @app.post("/detect/video")
 @app.post("/detect/comprehensive")
-async def process_comprehensive_traffic_video(request: VideoAnalysisRequest):
+def process_comprehensive_traffic_video(request: VideoAnalysisRequest):
     """
     Unified Comprehensive Video/Frame Analysis Endpoint
     Executes:
@@ -1339,6 +1339,10 @@ async def process_comprehensive_traffic_video(request: VideoAnalysisRequest):
     7. Automatic ALPR/OCR Plate Identification & Citizen Linked E-Challan Generation with Photo Capture Evidence
     """
     try:
+        request.location = request.location or "Sector 18 Atta Market, Noida"
+        request.speed_limit = float(request.speed_limit if request.speed_limit is not None else 60.0)
+        request.signal_status = request.signal_status or "green"
+
         image = load_image(request.frame_url, request.frame_base64)
         h, w, _ = image.shape
         
@@ -1390,6 +1394,9 @@ async def process_comprehensive_traffic_video(request: VideoAnalysisRequest):
         person_count = 0
 
         # Process YOLO detections if available
+        cached_frame_plate = None
+        has_searched_frame_plate = False
+
         if len(raw_detections) > 0:
             for row in raw_detections:
                 name = row['name']
@@ -1403,9 +1410,12 @@ async def process_comprehensive_traffic_video(request: VideoAnalysisRequest):
                     # Extract license plate using high-accuracy OCR & YOLO plate detector
                     plate_result = extract_number_plate(image, bbox)
                     
-                    # If vehicle crop did not yield a plate, check if whole-frame OCR or YOLO plate_detector found one
+                    # If vehicle crop did not yield a plate, check whole-frame once (cached)
                     if not plate_result:
-                        plate_result = extract_number_plate(image)
+                        if not has_searched_frame_plate:
+                            cached_frame_plate = extract_number_plate(image)
+                            has_searched_frame_plate = True
+                        plate_result = cached_frame_plate
                     
                     matched_plate = plate_result['formatted_plate'] if plate_result else None
                     raw_plate = plate_result['text'] if plate_result else None
@@ -2290,14 +2300,14 @@ class VideoProcessRequest(BaseModel):
     video_base64: Optional[str] = None
     video_url: Optional[str] = None
     video_filename: Optional[str] = None
-    location: str = "Sector 18 Atta Market, Noida"
-    speed_limit: float = 60.0
-    signal_status: str = "green"
-    enable_segmentation: bool = True
+    location: Optional[str] = "Sector 18 Atta Market, Noida"
+    speed_limit: Optional[float] = 60.0
+    signal_status: Optional[str] = "green"
+    enable_segmentation: Optional[bool] = True
     max_frames: Optional[int] = 300
 
 @app.post("/process/video")
-async def process_full_video_endpoint(request: VideoProcessRequest, background_tasks: BackgroundTasks):
+def process_full_video_endpoint(request: VideoProcessRequest, background_tasks: BackgroundTasks):
     """
     Full Video ML Pipeline:
     1. Decodes uploaded video (or local path/base64).

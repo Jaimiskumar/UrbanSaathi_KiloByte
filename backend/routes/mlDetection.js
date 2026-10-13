@@ -136,7 +136,7 @@ router.post('/detect', optionalAuth, async (req, res) => {
     const result = await realMLInference.processFrame({
       frameBase64: isHttpUrl ? undefined : isDataUrl ? image.slice(dataUrlSeparator + 1) : image,
       frameUrl: isHttpUrl ? image : undefined,
-      location: cameraLocation.name,
+      location: cameraLocation.name || req.body.location || 'Sector 18 Atta Market, Noida',
       latitude: cameraLocation.coordinates?.latitude,
       longitude: cameraLocation.coordinates?.longitude,
       locationAccuracyMeters: cameraLocation.accuracyMeters,
