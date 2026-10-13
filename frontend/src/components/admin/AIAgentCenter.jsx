@@ -65,11 +65,11 @@ export default function AIAgentCenter() {
 
   // Multi-Service Operational Health State
   const [systemStatus, setSystemStatus] = useState({
-    frontend: { status: 'online', name: 'UrbanSathi Frontend', port: 3000 },
-    backend: { status: 'online', name: 'UrbanSathi Backend', port: 5000 },
+    frontend: { status: 'online', name: 'UrbanSaathi Frontend', port: 3000 },
+    backend: { status: 'online', name: 'UrbanSaathi Backend', port: 5000 },
     mongodb: { status: 'checking', name: 'MongoDB Database', port: 27017 },
     socketio: { status: 'checking', name: 'Socket.IO Engine' },
-    ml_backend: { status: 'checking', name: 'UrbanSathi ML Vision', port: 8000 },
+    ml_backend: { status: 'checking', name: 'UrbanSaathi ML Vision', port: 8000 },
     urbanflow_ai: { status: 'checking', name: 'UrbanFlow AI Multi-Agent', port: 8001 }
   });
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
@@ -214,7 +214,7 @@ export default function AIAgentCenter() {
     });
 
     socket.on('execution_completed', (data) => {
-      setCurrentActiveAgent('Completed / Active in UrbanSathi');
+      setCurrentActiveAgent('Completed / Active in UrbanSaathi');
       logSocketEvent('execution_completed', data, 'success');
     });
 
@@ -355,7 +355,7 @@ export default function AIAgentCenter() {
   const handleOperatorApproveAndExecute = async () => {
     if (!orchestratedState) return;
     setIsExecuting(true);
-    const toastId = toast.loading('Executing AI Decision in UrbanSathi Core Engine...');
+    const toastId = toast.loading('Executing AI Decision in UrbanSaathi Core Engine...');
 
     try {
       const approvePayload = {
@@ -379,7 +379,7 @@ export default function AIAgentCenter() {
         setOperatorApprovalStatus('approved');
         setExecutionResult(data);
         setCurrentActiveAgent('Applied to Physical/Digital Network');
-        toast.success(`UrbanSathi Execution Confirmed! Real-time Socket.IO broadcast sent.`, { id: toastId, duration: 6000 });
+        toast.success(`UrbanSaathi Execution Confirmed! Real-time Socket.IO broadcast sent.`, { id: toastId, duration: 6000 });
       } else {
         toast.error(`Execution failed — no traffic action applied.`, { id: toastId });
       }
@@ -523,10 +523,10 @@ export default function AIAgentCenter() {
             </div>
 
             <h1 className="text-3xl md:text-5xl font-black tracking-tight leading-tight">
-              UrbanSathi <span className="bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">Multi-Agent AI</span>
+              UrbanSaathi <span className="bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">Multi-Agent AI</span>
             </h1>
             <p className="text-slate-400 mt-2 font-medium max-w-3xl text-sm md:text-base leading-relaxed">
-              Fully synchronized cognitive pipeline: Multi-Modal Event Ingest → Perception → Prediction → Intervention → Policy Check → Digital Twin Simulation → Multi-Objective Consensus → Explainability → Operator Approval → UrbanSathi Execution.
+              Fully synchronized cognitive pipeline: Multi-Modal Event Ingest → Perception → Prediction → Intervention → Policy Check → Digital Twin Simulation → Multi-Objective Consensus → Explainability → Operator Approval → UrbanSaathi Execution.
             </p>
             <div className="mt-4 flex items-center gap-3">
               <a
@@ -700,7 +700,7 @@ export default function AIAgentCenter() {
           <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
           <div>
             <span className="font-black uppercase tracking-wider text-amber-800">SAFETY & OPERATOR INTEGRITY MANDATE: </span>
-            AI decision is simulated against the digital twin and MUST NEVER directly modify real traffic infrastructure without explicit Operator Approval. For V2X Emergency, the UrbanSathi execution layer (<code className="bg-amber-100 text-amber-900 px-1 py-0.5 rounded font-mono">greenCorridorService.js</code>) is invoked in the prototype.
+            AI decision is simulated against the digital twin and MUST NEVER directly modify real traffic infrastructure without explicit Operator Approval. For V2X Emergency, the UrbanSaathi execution layer (<code className="bg-amber-100 text-amber-900 px-1 py-0.5 rounded font-mono">greenCorridorService.js</code>) is invoked in the prototype.
           </div>
         </div>
 
@@ -1025,7 +1025,7 @@ export default function AIAgentCenter() {
                 Emergency Priority Wave
               </h3>
               <p className="text-xs text-slate-500 font-medium mb-4 leading-relaxed">
-                Ambulance AMB-07 V2X telemetry. Orchestrates green corridor across Prediction, Policy, Digital Twin, and UrbanSathi execution.
+                Ambulance AMB-07 V2X telemetry. Orchestrates green corridor across Prediction, Policy, Digital Twin, and UrbanSaathi execution.
               </p>
 
               <div className="bg-slate-900 text-slate-200 p-3 rounded-xl font-mono text-[11px] mb-4 overflow-x-auto">
@@ -1293,7 +1293,7 @@ export default function AIAgentCenter() {
             <div className="pt-6 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
               <div className="text-xs text-slate-400 font-medium flex items-center gap-2">
                 <Shield className="w-4 h-4 text-emerald-400" />
-                <span>Clicking approve invokes the real UrbanSathi execution layer & emits Socket.IO broadcast.</span>
+                <span>Clicking approve invokes the real UrbanSaathi execution layer & emits Socket.IO broadcast.</span>
               </div>
 
               <div className="flex items-center gap-3 w-full sm:w-auto">
@@ -1321,8 +1321,8 @@ export default function AIAgentCenter() {
                     operatorApprovalStatus === 'approved' ? <CheckCircle2 className="w-4 h-4" /> : <Check className="w-4 h-4" />
                   )}
                   {operatorApprovalStatus === 'approved' 
-                    ? 'EXECUTED IN URBANSATHI'
-                    : 'APPROVE & EXECUTE VIA URBANSATHI'}
+                    ? 'EXECUTED IN URBANSAATHI'
+                    : 'APPROVE & EXECUTE VIA URBANSAATHI'}
                 </button>
               </div>
             </div>
@@ -1332,7 +1332,7 @@ export default function AIAgentCenter() {
               <div className="p-6 bg-slate-900/90 rounded-2xl border border-emerald-500/40 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-black text-emerald-400 uppercase tracking-widest flex items-center gap-2">
-                    <CheckCheck className="w-4 h-4" /> Real UrbanSathi Execution Response:
+                    <CheckCheck className="w-4 h-4" /> Real UrbanSaathi Execution Response:
                   </span>
                   <span className="text-[10px] font-mono text-slate-400 font-bold">
                     {executionResult.execution?.executedAt || new Date().toISOString()}
@@ -1349,7 +1349,7 @@ export default function AIAgentCenter() {
 
                 <div className="text-[11px] text-slate-400 font-mono flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                  AI DECISION → HUMAN APPROVAL → URBANSATHI EXECUTION → Socket.IO EVENT BROADCAST → DASHBOARD UPDATE
+                  AI DECISION → HUMAN APPROVAL → URBANSAATHI EXECUTION → Socket.IO EVENT BROADCAST → DASHBOARD UPDATE
                 </div>
               </div>
             )}

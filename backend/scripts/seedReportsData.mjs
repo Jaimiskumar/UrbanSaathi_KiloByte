@@ -66,7 +66,7 @@ async function seedReportsData() {
         {
             userId: citizen._id,
             issueType: 'Water Logging',
-            locationName: 'Smart Horizon College Campus Road',
+            locationName: 'Amity University Campus Road',
             coordinates: { lat: 12.9279, lng: 77.6271 },
             description: 'Heavy water logging after rain.',
             imageUrl: 'https://via.placeholder.com/400x300/334155/ffffff?text=Water+Logging',

@@ -39,7 +39,7 @@ async function seedFines() {
         violationType: 'no_helmet',
         amount: 500,
         currency: 'INR',
-        location: { name: 'Smart Horizon Campus Hub' },
+        location: { name: 'Amity University Campus Hub' },
         status: 'pending',
         issuedAt: new Date(Date.now() - 3600000 * 24), // 1 day ago
         warningIssued: true

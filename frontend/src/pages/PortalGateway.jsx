@@ -17,6 +17,7 @@ import {
   ChevronRight,
   ExternalLink
 } from 'lucide-react';
+import UrbanSaathiLogo from '../components/common/UrbanSaathiLogo';
 
 export default function PortalGateway({ user }) {
   const navigate = useNavigate();
@@ -40,19 +41,7 @@ export default function PortalGateway({ user }) {
       
       {/* ── TOP HEADER ── */}
       <header className="max-w-6xl w-full mx-auto flex items-center justify-between py-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white font-black text-lg shadow-md">
-            UF
-          </div>
-          <div>
-            <h1 className="text-base sm:text-lg font-black text-gray-900 tracking-tight">
-              UrbanSathi
-            </h1>
-            <p className="text-xs text-gray-500 font-mono">
-              Smart Traffic, V2V Autonomous Safety & AI City Infrastructure
-            </p>
-          </div>
-        </div>
+        <UrbanSaathiLogo showText={true} size="md" />
 
         <div className="flex items-center gap-2">
           <span className="hidden sm:inline-flex items-center gap-1.5 text-xs font-mono text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-200 font-bold">
@@ -272,7 +261,7 @@ export default function PortalGateway({ user }) {
 
       {/* ── FOOTER BAR ── */}
       <footer className="max-w-6xl w-full mx-auto text-center py-4 border-t border-gray-200/80 text-xs text-gray-500 font-mono flex flex-col sm:flex-row items-center justify-between gap-2">
-        <span>UrbanSathi Smart Traffic & V2V System</span>
+        <span>UrbanSaathi Smart Traffic & V2V System</span>
         <span>Noida - NCR Smart City Corridors • Clean Light Theme</span>
       </footer>
 

@@ -71,7 +71,7 @@ export default function MobileAppPage() {
 
       {/* Footer Info */}
       <div className="mt-4 text-center text-xs text-gray-500 font-mono">
-        UrbanSathi Smart City Mobile Client • Pure Mobile Engine
+        UrbanSaathi Smart City Mobile Client • Pure Mobile Engine
       </div>
 
     </div>

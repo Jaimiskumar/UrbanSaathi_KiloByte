@@ -54,7 +54,7 @@ async function seed() {
         vehicleNumber: 'KA-01-BN-4452',
         violationType: 'no_helmet',
         amount: 500,
-        location: { name: 'Smart Horizon Campus Hub, Bengaluru' },
+        location: { name: 'Amity University Campus Hub, Noida' },
         status: 'pending',
         issuedAt: today,
         createdAt: today
@@ -84,7 +84,7 @@ async function seed() {
         vehicleNumber: 'KA-01-BN-4452',
         spotId: 'SPOT-A1',
         zoneId: 'ZONE-A',
-        zone: 'Smart Horizon Campus Hub',
+        zone: 'Amity University Campus Hub',
         startTime: today,
         endTime: new Date(today.getTime() + 2 * 60 * 60 * 1000),
         durationHours: 2,
@@ -116,7 +116,7 @@ async function seed() {
     const dummyIllegal = [
       {
         licensePlate: 'KA-01-CK-7700',
-        location: 'Smart Horizon Campus / Silk Board Hub, Bengaluru',
+        location: 'Amity University Campus Hub, Noida',
         violationType: 'no-parking-zone',
         fineAmount: 1200,
         imageUrl: 'https://images.unsplash.com/photo-1506784983877-45594efa4cbe',

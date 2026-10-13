@@ -48,7 +48,7 @@ export default function ParkingBooking({ user }) {
       const { data } = await axios.get('/api/parking/spots');
       setSpots(data);
       if (!selectedZone) {
-         setSelectedZone('Smart Horizon College Campus Hub');
+         setSelectedZone('Amity University Campus Hub');
       }
     } catch (error) {
       toast.error('Failed to load parking spots');
@@ -370,7 +370,7 @@ export default function ParkingBooking({ user }) {
             }`}
          >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-            NOIDA EV (SMART HORIZON)
+            NOIDA EV (CAMPUS HUB)
          </button>
       </div>
 

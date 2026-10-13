@@ -34,8 +34,8 @@ const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/traffi
 const PARKING_ZONES = [
   {
     zoneId: 'ZONE-1',
-    name: 'Smart Horizon College Campus Hub',
-    location: { name: 'Smart Horizon College Campus', address: 'Hosur Main Road, Bengaluru', lat: 12.9279, lng: 77.6271 },
+    name: 'Amity University Campus Hub',
+    location: { name: 'Amity University Campus', address: 'Sector 125, Noida - NCR', lat: 28.544, lng: 77.333 },
     totalSpots: 30,
     pricePerHour: 50,
     amenities: ['cctv', 'covered', 'security', 'ev_charging'],
@@ -109,7 +109,7 @@ const PARKING_ZONES = [
 // ─── Traffic Signal Data ──────────────────────────────────────────────────────
 const TRAFFIC_SIGNALS = [
   { signalId: 'SIG001', name: 'Silk Board Central Junction', lat: 12.9176, lng: 77.6238 },
-  { signalId: 'SIG002', name: 'Smart Horizon College Campus Hub', lat: 12.9279, lng: 77.6271 },
+  { signalId: 'SIG002', name: 'Amity University Campus Hub', lat: 28.544, lng: 77.333 },
   { signalId: 'SIG003', name: 'Koramangala 5th Block Junction', lat: 12.9352, lng: 77.6245 },
   { signalId: 'SIG004', name: 'Madiwala Crosswalk', lat: 12.9226, lng: 77.6174 },
   { signalId: 'SIG005', name: 'Electronic City Tollgate Corridor', lat: 12.8452, lng: 77.6602 },

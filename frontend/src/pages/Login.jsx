@@ -51,7 +51,7 @@ export default function Login({ onLogin }) {
             <circle cx="20" cy="76" r="12" fill="#10B981"/>
           </svg>
           
-          <h1 className="text-4xl font-bold tracking-tight mb-2">UrbanSathi</h1>
+          <h1 className="text-4xl font-bold tracking-tight mb-2">UrbanSaathi</h1>
           <p className="text-slate-400 text-lg mb-12">Smart City Traffic & Parking Management</p>
           
           <div className="flex flex-col gap-4">
@@ -71,7 +71,10 @@ export default function Login({ onLogin }) {
         </div>
 
         <div className="mt-auto relative z-10 max-w-md mx-auto w-full text-slate-400 text-sm font-semibold flex items-center justify-between">
-          <span>Smart Horizon College</span>
+          <span className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
+            UrbanSaathi AI Network
+          </span>
           <span>Noida - NCR Smart City</span>
         </div>
       </div>
@@ -89,7 +92,7 @@ export default function Login({ onLogin }) {
                    <div className="w-4 h-1.5 rounded-full bg-emerald-500"></div>
                 </div>
             </div>
-            <h1 className="text-2xl font-black text-[#0F172A] tracking-tighter">UrbanSathi</h1>
+            <h1 className="text-2xl font-black text-[#0F172A] tracking-tighter">UrbanSaathi</h1>
           </div>
           {isRegister ? (
             /* Register Form View */

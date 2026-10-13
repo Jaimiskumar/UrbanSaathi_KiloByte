@@ -244,7 +244,7 @@ export default function V2VSafetyCenter() {
 
       setOperatorDecision('approved');
       setExecutionDetails(res.data?.execution);
-      toast.success('UrbanSathi Execution Layer successfully altered signals and broadcasted V2V warnings!');
+      toast.success('UrbanSaathi Execution Layer successfully altered signals and broadcasted V2V warnings!');
     } catch (e) {
       toast.error(`Execution failed: ${e.message}`);
     } finally {
@@ -780,7 +780,7 @@ export default function V2VSafetyCenter() {
                     className="flex-1 sm:flex-initial flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white px-6 py-2.5 rounded-2xl text-xs font-black uppercase tracking-wider shadow-md shadow-emerald-600/20 transition-all transform hover:scale-105 active:scale-95 disabled:opacity-50"
                   >
                     <Check className="w-4 h-4" />
-                    {isExecutingSAMVED ? 'Executing in UrbanSathi...' : (operatorDecision === 'approved' ? '✓ EXECUTED IN URBANSATHI' : '[ APPROVE & EXECUTE ]')}
+                    {isExecutingSAMVED ? 'Executing in UrbanSaathi...' : (operatorDecision === 'approved' ? '✓ EXECUTED IN URBANSAATHI' : '[ APPROVE & EXECUTE ]')}
                   </button>
                 </div>
               </div>
@@ -788,7 +788,7 @@ export default function V2VSafetyCenter() {
               {/* Post Execution Details */}
               {executionDetails && (
                 <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-300 text-emerald-900 text-xs font-mono space-y-1 animate-fade-in">
-                  <p className="font-bold text-emerald-800">UrbanSathi Physical Traffic Control Execution Complete:</p>
+                  <p className="font-bold text-emerald-800">UrbanSaathi Physical Traffic Control Execution Complete:</p>
                   <p>• Status: {executionDetails.status}</p>
                   <p>• V2V Broadcasts Transmitted: {executionDetails.v2v_warnings_sent} vehicles</p>
                   <p>• Pedestrian Signal Hold: {executionDetails.pedestrian_signal_hold_sec} seconds at J2</p>

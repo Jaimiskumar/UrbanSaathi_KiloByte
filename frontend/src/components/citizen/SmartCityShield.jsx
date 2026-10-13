@@ -388,7 +388,7 @@ export default function SmartCityShield() {
             </div>
 
             <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-[11px] text-slate-400 font-mono text-center">
-              Powered by UrbanSathi Edge RSU
+              Powered by UrbanSaathi Edge RSU
             </div>
           </div>
 
