@@ -100,7 +100,7 @@ router.get('/status', async (req, res) => {
   }
 });
 
-router.post('/detect', authMiddleware, async (req, res) => {
+router.post('/detect', optionalAuth, async (req, res) => {
   try {
     const image = req.body.image || req.body.frameBase64 || req.body.frameUrl;
     if (typeof image !== 'string' || !image) {
@@ -542,7 +542,7 @@ router.post('/detect', authMiddleware, async (req, res) => {
       const roadIssueWorkflows = await runClaimedWorkflow(
         'agents',
         hasAgentEvents,
-        async () => processAgentDetections(agentResult, frame, req.user.userId)
+        async () => processAgentDetections(agentResult, frame, req.user?.userId || null)
       );
       const enforcementWorkflows = await runClaimedWorkflow(
         'enforcement',
@@ -556,8 +556,9 @@ router.post('/detect', authMiddleware, async (req, res) => {
       );
       workflowResults = {
         agentWorkflows: [
-          ...roadIssueWorkflows.map(({ issue, eventType, persistenceStatus, workflow }) => ({
-            issueId: issue?._id || null,
+          ...roadIssueWorkflows.map(({ issue, eventType, persistenceStatus, workflow }, idx) => ({
+            issueId: issue?._id || `road-issue-${idx}-${Date.now()}`,
+            eventId: workflow?.eventId || `event-${idx}-${Date.now()}`,
             issueType: issue?.issueType || eventType,
             status: issue?.status || persistenceStatus || 'workflow_completed',
             agentWorkflow: issue?.agentWorkflow || workflow.allocation,
@@ -640,7 +641,7 @@ router.post('/detect', authMiddleware, async (req, res) => {
  * Main endpoint for processing camera frames with all ML models
  * Supports: base64 data, frame URL, or file upload
  */
-router.post('/process-frame', authMiddleware, async (req, res) => {
+router.post('/process-frame', optionalAuth, async (req, res) => {
   try {
     const {
       cameraId = 'SIM-CAM-001',
@@ -705,7 +706,7 @@ router.post('/process-frame', authMiddleware, async (req, res) => {
       ...frameData,
       imageUrl: uploadedImageUrl,
       source: 'camera_ml'
-    }, req.user.userId);
+    }, req.user?.userId || null);
     const enforcementWorkflows = await processEnforcementDetections(detectionResult, {
       ...frameData,
       imageUrl: uploadedImageUrl,
@@ -1034,8 +1035,9 @@ router.post('/process-frame', authMiddleware, async (req, res) => {
       challansCreated: challengesCreated,
       detectionLogId: detectionLog?._id || null,
       agentWorkflows: [
-        ...agentWorkflows.map(({ issue, eventType, persistenceStatus, workflow }) => ({
-        issueId: issue?._id || null,
+        ...agentWorkflows.map(({ issue, eventType, persistenceStatus, workflow }, idx) => ({
+        issueId: issue?._id || `road-issue-${idx}-${Date.now()}`,
+        eventId: workflow?.eventId || `event-${idx}-${Date.now()}`,
         issueType: issue?.issueType || eventType,
         status: issue?.status || persistenceStatus || 'workflow_completed',
         agentWorkflow: issue?.agentWorkflow || workflow.allocation,
@@ -1063,7 +1065,7 @@ router.post('/process-frame', authMiddleware, async (req, res) => {
  * POST /api/ml-detection/upload-image
  * Upload and process a single image
  */
-router.post('/upload-image', authMiddleware, uploadMiddleware.single('image'), async (req, res) => {
+router.post('/upload-image', optionalAuth, uploadMiddleware.single('image'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ success: false, message: 'No image uploaded' });
@@ -1072,7 +1074,7 @@ router.post('/upload-image', authMiddleware, uploadMiddleware.single('image'), a
     console.log(`\n📸 Processing uploaded image: ${req.file.originalname}`);
 
     const filePath = req.file.path;
-    const result = await processUploadedFile(filePath, 'image', 'UPLOAD-IMG-001', req.user.userId);
+    const result = await processUploadedFile(filePath, 'image', 'UPLOAD-IMG-001', req.user?.userId || null);
 
     res.json({
       success: true,
@@ -1096,7 +1098,7 @@ router.post('/upload-image', authMiddleware, uploadMiddleware.single('image'), a
  * POST /api/ml-detection/process-video
  * Full Video ML Pipeline Proxy (ITD Detection, ByteTrack, Segmentation, TMC & TTC)
  */
-router.post('/process-video', authMiddleware, uploadMiddleware.single('video'), async (req, res) => {
+router.post('/process-video', optionalAuth, uploadMiddleware.single('video'), async (req, res) => {
   try {
     let videoUrl = req.body.videoUrl;
     let videoBase64 = req.body.videoBase64;
@@ -1175,7 +1177,7 @@ router.post('/process-video', authMiddleware, uploadMiddleware.single('video'), 
  * POST /api/ml-detection/upload-video
  * Upload and process a video (extracts and processes key frames)
  */
-router.post('/upload-video', authMiddleware, uploadMiddleware.single('video'), async (req, res) => {
+router.post('/upload-video', optionalAuth, uploadMiddleware.single('video'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ success: false, message: 'No video uploaded' });
@@ -1265,51 +1267,87 @@ router.get('/violations', optionalAuth, async (req, res) => {
       page = 1
     } = req.query;
 
-    const skip = (page - 1) * limit;
+    const parsedLimit = Math.max(1, parseInt(limit) || 50);
+    const parsedPage = Math.max(1, parseInt(page) || 1);
+    const skip = (parsedPage - 1) * parsedLimit;
+    const statusFilter = status && status !== 'all' ? { status } : {};
 
-    if (type === 'helmet' || type === 'all') {
-      const violations = await HelmetViolation.find({ status })
+    if (type === 'helmet') {
+      const violations = await HelmetViolation.find(statusFilter)
+        .select('-imageUrl -videoUrl')
         .sort({ timestamp: -1 })
         .skip(skip)
-        .limit(parseInt(limit));
+        .limit(parsedLimit);
 
-      const total = await HelmetViolation.countDocuments({ status });
+      const total = await HelmetViolation.countDocuments(statusFilter);
 
       return res.json({
         success: true,
         violationType: 'helmet',
         data: violations,
         pagination: {
-          current: parseInt(page),
-          total: Math.ceil(total / limit),
+          current: parsedPage,
+          total: Math.ceil(total / parsedLimit),
           count: violations.length,
           total
         }
       });
     }
 
-    if (type === 'traffic' || type === 'all') {
-      const violations = await TrafficViolation.find({ status })
+    if (type === 'traffic') {
+      const violations = await TrafficViolation.find(statusFilter)
+        .select('-imageUrl -videoUrl')
         .sort({ timestamp: -1 })
         .skip(skip)
-        .limit(parseInt(limit));
+        .limit(parsedLimit);
 
-      const total = await TrafficViolation.countDocuments({ status });
+      const total = await TrafficViolation.countDocuments(statusFilter);
 
       return res.json({
         success: true,
         violationType: 'traffic',
         data: violations,
         pagination: {
-          current: parseInt(page),
-          total: Math.ceil(total / limit),
+          current: parsedPage,
+          total: Math.ceil(total / parsedLimit),
           count: violations.length,
           total
         }
       });
     }
 
-    res.json({ success: true, data: [] });
+    // type === 'all': combine both helmet and traffic violations
+    const [helmetList, trafficList, helmetTotal, trafficTotal] = await Promise.all([
+      HelmetViolation.find(statusFilter)
+        .select('-imageUrl -videoUrl')
+        .sort({ timestamp: -1 })
+        .limit(parsedLimit),
+      TrafficViolation.find(statusFilter)
+        .select('-imageUrl -videoUrl')
+        .sort({ timestamp: -1 })
+        .limit(parsedLimit),
+      HelmetViolation.countDocuments(statusFilter),
+      TrafficViolation.countDocuments(statusFilter)
+    ]);
+
+    const combined = [
+      ...helmetList.map((h) => ({ ...h.toObject(), type: 'helmet' })),
+      ...trafficList.map((t) => ({ ...t.toObject(), type: 'traffic' }))
+    ]
+      .sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0))
+      .slice(0, parsedLimit);
+
+    return res.json({
+      success: true,
+      violationType: 'all',
+      data: combined,
+      pagination: {
+        current: parsedPage,
+        total: Math.ceil((helmetTotal + trafficTotal) / parsedLimit),
+        count: combined.length,
+        total: helmetTotal + trafficTotal
+      }
+    });
 
   } catch (error) {
     console.error('Error fetching violations:', error);

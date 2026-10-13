@@ -2721,6 +2721,9 @@ async def process_full_video_endpoint(request: VideoProcessRequest, background_t
         cap = None
         out = None
 
+        if frame_idx == 0:
+            raise HTTPException(status_code=400, detail="Input video contains 0 readable frames.")
+
         # 3. Transcode with ffmpeg to browser-playable H.264 MP4
         t_h264 = tempfile.NamedTemporaryFile(suffix='.mp4', delete=False)
         t_h264.close()
@@ -2735,18 +2738,26 @@ async def process_full_video_endpoint(request: VideoProcessRequest, background_t
         ]
         ffmpeg_binary = next((candidate for candidate in ffmpeg_candidates if candidate and os.path.isfile(candidate)), None)
 
-        if ffmpeg_binary:
-            encode_cmd = [
-                ffmpeg_binary, '-y', '-hide_banner', '-loglevel', 'error',
-                '-i', temp_raw_out,
-                '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-profile:v', 'main', '-level', '3.1',
-                '-movflags', '+faststart',
-                temp_h264_out
-            ]
-            subprocess.run(encode_cmd, check=True)
+        if ffmpeg_binary and os.path.exists(temp_raw_out) and os.path.getsize(temp_raw_out) > 0:
+            try:
+                encode_cmd = [
+                    ffmpeg_binary, '-y', '-hide_banner', '-loglevel', 'error',
+                    '-i', temp_raw_out,
+                    '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-profile:v', 'main', '-level', '3.1',
+                    '-movflags', '+faststart',
+                    temp_h264_out
+                ]
+                res = subprocess.run(encode_cmd, capture_output=True, text=True)
+                if res.returncode != 0:
+                    logger.warning(f"FFmpeg transcode returned non-zero code {res.returncode}: {res.stderr}. Using raw output.")
+                    shutil.copy2(temp_raw_out, temp_h264_out)
+            except Exception as ffmpeg_err:
+                logger.warning(f"FFmpeg transcode exception: {ffmpeg_err}. Using raw output.")
+                shutil.copy2(temp_raw_out, temp_h264_out)
         else:
-            logger.warning('FFmpeg binary not found; serving the OpenCV-encoded MP4 output.')
-            shutil.copy2(temp_raw_out, temp_h264_out)
+            logger.warning('FFmpeg binary not found or raw output empty; serving the OpenCV-encoded MP4 output.')
+            if os.path.exists(temp_raw_out) and os.path.getsize(temp_raw_out) > 0:
+                shutil.copy2(temp_raw_out, temp_h264_out)
 
         # Save processed video to backend/uploads/evidence for fast static serving and zero-lag streaming
         evidence_dir = os.path.join(os.getcwd(), 'backend', 'uploads', 'evidence')
@@ -2856,15 +2867,16 @@ class DashcamStreamManager:
     """
     def __init__(self):
         self.lock = threading.Lock()
-        self.current_url = "rtsp://192.168.0.1:554/liveRTSP/av4_0"
+        self.current_url = None
         self.cap = None
         self.latest_jpeg = None
         self.latest_frame = None
-        self.running = True
+        self.running = False
         self.thread = None
-        self._ensure_worker_started()
 
     def _ensure_worker_started(self):
+        if not self.current_url:
+            return
         if self.thread is None or not self.thread.is_alive():
             self.running = True
             self.thread = threading.Thread(target=self._capture_worker, daemon=True)
@@ -2872,13 +2884,12 @@ class DashcamStreamManager:
 
     def set_stream_url(self, url: str):
         if not url or url == "auto":
-            url = "rtsp://192.168.0.1:554/liveRTSP/av4_0"
+            return
         with self.lock:
             if self.current_url != url:
                 logger.info(f"🔄 Switching Dashcam Stream URL to: {url}")
                 self.current_url = url
-                # Do not release cap from here (causes SIGSEGV in OpenCV C++ thread).
-                # The worker thread will safely break out and release on its own thread.
+                self._ensure_worker_started()
 
     def _capture_worker(self):
         import os
@@ -2898,11 +2909,15 @@ class DashcamStreamManager:
             with self.lock:
                 target_url = self.current_url
 
+            if not target_url:
+                time.sleep(1.0)
+                continue
+
             cap = cv2.VideoCapture(target_url, cv2.CAP_FFMPEG)
             cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
             if not cap.isOpened():
-                time.sleep(0.5)
+                time.sleep(5.0)
                 continue
 
             logger.info(f"⚡ [DashcamStreamManager] Connected and streaming: {target_url}")

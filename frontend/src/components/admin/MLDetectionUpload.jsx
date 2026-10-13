@@ -113,7 +113,7 @@ const MLDetectionUpload = () => {
   const fetchViolationsAndStats = async () => {
     try {
       const token = localStorage.getItem('token');
-      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const headers = token && token !== 'null' && token !== 'undefined' ? { Authorization: `Bearer ${token}` } : {};
       const [violationsRes, statsRes] = await Promise.allSettled([
         axios.get('/api/ml-detection/violations?limit=8&type=all', { headers }),
         axios.get('/api/ml-detection/stats', { headers })
@@ -496,6 +496,9 @@ const MLDetectionUpload = () => {
     setAgentWorkflows([]);
     try {
       const token = localStorage.getItem('token');
+      const authHeaders = token && token !== 'null' && token !== 'undefined'
+        ? { Authorization: `Bearer ${token}` }
+        : {};
 
       if (fileType === 'video') {
         toast('🚀 Starting Full Video ML Pipeline (ITD Detection, ByteTrack, Segmentation, TMC & TTC)...', { icon: '⚡' });
@@ -514,7 +517,7 @@ const MLDetectionUpload = () => {
 
           res = await axios.post('/api/ml-detection/process-video', formData, {
             headers: {
-              Authorization: `Bearer ${token}`,
+              ...authHeaders,
               'Content-Type': 'multipart/form-data'
             }
           });
@@ -531,7 +534,7 @@ const MLDetectionUpload = () => {
           };
 
           res = await axios.post('/api/ml-detection/process-video', payload, {
-            headers: { Authorization: `Bearer ${token}` }
+            headers: authHeaders
           });
         }
 
@@ -562,7 +565,7 @@ const MLDetectionUpload = () => {
         };
 
         const res = await axios.post('/api/ml-detection/process-frame', payload, {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: authHeaders
         });
 
         const detectionData = res.data?.data || res.data;
@@ -700,8 +703,8 @@ const MLDetectionUpload = () => {
                   : 'ML service unavailable'}
             </span>
             {loadedModels.length > 0
-              ? loadedModels.map((name) => (
-                <span key={name} className="bg-white/90 backdrop-blur-md border border-slate-200 text-slate-600 px-3 py-1.5 rounded-2xl shadow-xs capitalize">
+              ? loadedModels.map((name, idx) => (
+                <span key={`model-${name}-${idx}`} className="bg-white/90 backdrop-blur-md border border-slate-200 text-slate-600 px-3 py-1.5 rounded-2xl shadow-xs capitalize">
                   {name}
                 </span>
               ))
@@ -1032,8 +1035,8 @@ const MLDetectionUpload = () => {
                 <p className="text-[10px] font-black uppercase tracking-wider text-cyan-300 flex items-center gap-1.5">
                   <Bot className="w-3.5 h-3.5" /> Agent assignment complete
                 </p>
-                {agentWorkflows.map((workflow) => (
-                  <div key={String(workflow.eventId || workflow.issueId)} className="text-[11px] text-slate-200">
+                {agentWorkflows.map((workflow, idx) => (
+                  <div key={workflow.eventId || workflow.issueId || `workflow-${idx}`} className="text-[11px] text-slate-200">
                     {workflow.agent === 'EncroachmentAgent' ? (
                       <>
                         <p className="font-bold">EncroachmentAgent: {workflow.eventType}</p>
@@ -1067,8 +1070,8 @@ const MLDetectionUpload = () => {
                         {workflow.agentWorkflow?.authorityTicketId && (
                           <p className="text-cyan-300 font-mono text-[10px] mt-1">Ticket: {workflow.agentWorkflow.authorityTicketId}</p>
                         )}
-                        {workflow.agentWorkflow?.dispatches?.map((dispatch) => (
-                          <p key={dispatch.ticketId} className="text-slate-400 text-[10px] mt-1">
+                        {workflow.agentWorkflow?.dispatches?.map((dispatch, dIdx) => (
+                          <p key={dispatch.ticketId || `dispatch-${idx}-${dIdx}`} className="text-slate-400 text-[10px] mt-1">
                             {dispatch.department}: {dispatch.status} · {dispatch.ticketId}
                           </p>
                         ))}
